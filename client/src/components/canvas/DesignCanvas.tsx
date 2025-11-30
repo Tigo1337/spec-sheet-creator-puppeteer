@@ -69,6 +69,7 @@ export function DesignCanvas() {
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const { active } = event;
     setActiveId(active.id as string);
+    selectElement(active.id as string);
     
     const element = elements.find((el) => el.id === active.id);
     if (element && canvasRef.current) {
@@ -81,19 +82,24 @@ export function DesignCanvas() {
         y: (pointerY - rect.top) / zoom - element.position.y,
       });
     }
-  }, [elements, zoom]);
+  }, [elements, zoom, selectElement]);
 
   const handleDragMove = useCallback(
     (event: DragMoveEvent) => {
       if (!activeId || !canvasRef.current) return;
 
-      const { delta } = event;
       const element = elements.find((el) => el.id === activeId);
       if (!element) return;
 
-      let newX = element.position.x + delta.x / zoom;
-      let newY = element.position.y + delta.y / zoom;
+      const rect = canvasRef.current.getBoundingClientRect();
+      const pointerX = (event.activatorEvent as PointerEvent).clientX;
+      const pointerY = (event.activatorEvent as PointerEvent).clientY;
 
+      // Calculate position directly from pointer
+      let newX = (pointerX - rect.left) / zoom - dragOffset.x;
+      let newY = (pointerY - rect.top) / zoom - dragOffset.y;
+
+      // Snap to grid if magnet is enabled (grid visibility doesn't affect snapping)
       if (shouldSnap) {
         newX = snapToGrid(newX);
         newY = snapToGrid(newY);
@@ -105,22 +111,28 @@ export function DesignCanvas() {
 
       moveElement(activeId, newX, newY);
     },
-    [activeId, elements, zoom, shouldSnap, canvasWidth, canvasHeight, moveElement]
+    [activeId, elements, zoom, shouldSnap, canvasWidth, canvasHeight, moveElement, dragOffset]
   );
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, delta } = event;
+    const { active } = event;
     const id = active.id as string;
     
     const element = elements.find((el) => el.id === id);
-    if (!element) {
+    if (!element || !canvasRef.current) {
       setActiveId(null);
       return;
     }
 
-    let newX = element.position.x + delta.x / zoom;
-    let newY = element.position.y + delta.y / zoom;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const pointerX = (event.activatorEvent as PointerEvent).clientX;
+    const pointerY = (event.activatorEvent as PointerEvent).clientY;
 
+    // Calculate final position directly from pointer
+    let newX = (pointerX - rect.left) / zoom - dragOffset.x;
+    let newY = (pointerY - rect.top) / zoom - dragOffset.y;
+
+    // Snap to grid if magnet is enabled (grid visibility doesn't affect snapping)
     if (shouldSnap) {
       newX = snapToGrid(newX);
       newY = snapToGrid(newY);
@@ -132,7 +144,7 @@ export function DesignCanvas() {
 
     moveElement(id, newX, newY);
     setActiveId(null);
-  }, [elements, zoom, shouldSnap, canvasWidth, canvasHeight, moveElement]);
+  }, [elements, zoom, shouldSnap, canvasWidth, canvasHeight, moveElement, dragOffset]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
