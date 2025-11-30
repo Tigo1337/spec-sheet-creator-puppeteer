@@ -301,7 +301,7 @@ export function PropertiesTab() {
           <div>
             <h3 className="font-medium text-sm mb-3">Alignment</h3>
             <div className="space-y-2">
-              <div className="flex gap-1 flex-wrap">
+              <div className="flex gap-1">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -343,9 +343,9 @@ export function PropertiesTab() {
                   </TooltipTrigger>
                   <TooltipContent>Align Right</TooltipContent>
                 </Tooltip>
+              </div>
 
-                <Separator orientation="vertical" className="h-6" />
-
+              <div className="flex gap-1">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
