@@ -17,7 +17,7 @@ export function CanvasElement({
   onSelect,
 }: CanvasElementProps) {
   const { excelData, selectedRowIndex } = useCanvasStore();
-  
+
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: element.id,
     disabled: element.locked,
@@ -86,14 +86,18 @@ export function CanvasElement({
       case "dataField":
         return (
           <div
+            // Kept border-dashed here from your original code
             className="w-full h-full flex items-center gap-1 px-2 rounded border-2 border-dashed"
             style={{
               fontFamily: element.textStyle?.fontFamily || "JetBrains Mono",
               fontSize: (element.textStyle?.fontSize || 14) * zoom,
               fontWeight: element.textStyle?.fontWeight || 500,
-              color: element.textStyle?.color || "#3b82f6",
-              backgroundColor: "hsl(217 91% 60% / 0.08)",
-              borderColor: "hsl(217 91% 60% / 0.4)",
+              // UPDATED: Default text color to black instead of blue
+              color: element.textStyle?.color || "#000000",
+              // UPDATED: Background transparent
+              backgroundColor: "transparent",
+              // UPDATED: Border black
+              borderColor: "#000000",
               lineHeight: element.textStyle?.lineHeight || 1.4,
               textAlign: element.textStyle?.textAlign || "left",
               letterSpacing: `${element.textStyle?.letterSpacing || 0}px`,
@@ -167,8 +171,14 @@ export function CanvasElement({
       style={{
         ...style,
         ...(isSelected && {
-          outline: "2px solid #000000",
-          outlineOffset: "0px",
+          // UPDATED: Using a 1px Blue outline instead of 2px Black
+          // Blue (#3b82f6) signifies "active state" vs "print design"
+          outline: "1px solid #3b82f6", 
+
+          // UPDATED: Adds a 2px gap between element and selection ring
+          // This makes it feel less "heavy" and separates it from element borders
+          outlineOffset: "2px", 
+
           backgroundColor: "transparent",
         }),
       }}
