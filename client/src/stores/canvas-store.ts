@@ -290,9 +290,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       exportSettings: { ...state.exportSettings, ...settings },
     };
     
+    // Helper to snap dimensions to grid (10px grid)
+    const snapToGridDim = (dim: number) => Math.floor(dim / 10) * 10;
+    
     // If page size changed, update canvas dimensions
     if (settings.pageSize) {
-      const pageSizes = { letter: { width: 816, height: 1056 }, a4: { width: 794, height: 1123 }, legal: { width: 816, height: 1344 } };
+      const pageSizes = { letter: { width: 810, height: 1050 }, a4: { width: 790, height: 1120 }, legal: { width: 810, height: 1340 } };
       const pageSize = pageSizes[settings.pageSize];
       const isLandscape = settings.orientation === "landscape" || (settings.orientation === undefined && state.exportSettings.orientation === "landscape");
       
@@ -300,7 +303,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       newState.canvasHeight = isLandscape ? pageSize.width : pageSize.height;
     } else if (settings.orientation && settings.pageSize === undefined) {
       // If only orientation changed, swap dimensions
-      const pageSizes = { letter: { width: 816, height: 1056 }, a4: { width: 794, height: 1123 }, legal: { width: 816, height: 1344 } };
+      const pageSizes = { letter: { width: 810, height: 1050 }, a4: { width: 790, height: 1120 }, legal: { width: 810, height: 1340 } };
       const pageSize = pageSizes[state.exportSettings.pageSize];
       const isLandscape = settings.orientation === "landscape";
       

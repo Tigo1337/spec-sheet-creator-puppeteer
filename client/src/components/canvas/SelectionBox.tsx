@@ -9,7 +9,7 @@ interface SelectionBoxProps {
 type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 
 export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
-  const { elements, resizeElement, moveElement } = useCanvasStore();
+  const { elements, resizeElement, moveElement, snapToGrid: shouldSnap } = useCanvasStore();
   const element = elements.find((el) => el.id === elementId);
   
   const [isResizing, setIsResizing] = useState(false);
@@ -89,6 +89,12 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
         }
       }
 
+      // Apply grid snapping if enabled
+      if (shouldSnap) {
+        newWidth = Math.round(newWidth / 10) * 10;
+        newHeight = Math.round(newHeight / 10) * 10;
+      }
+
       resizeElement(elementId, newWidth, newHeight);
       if (newX !== startPosition.x || newY !== startPosition.y) {
         moveElement(elementId, newX, newY);
@@ -107,7 +113,7 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isResizing, activeHandle, startPos, startDimension, startPosition, zoom, elementId, resizeElement, moveElement]);
+  }, [isResizing, activeHandle, startPos, startDimension, startPosition, zoom, elementId, resizeElement, moveElement, shouldSnap]);
 
   const { position, dimension } = element;
   const left = position.x * zoom;
