@@ -18,7 +18,7 @@ export function DesignCanvas() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [dragDelta, setDragDelta] = useState({ x: 0, y: 0 });
+  const startPosRef = useRef({ x: 0, y: 0 });
 
   const {
     canvasWidth,
@@ -70,22 +70,25 @@ export function DesignCanvas() {
     const { active } = event;
     setActiveId(active.id as string);
     selectElement(active.id as string);
-    setDragDelta({ x: 0, y: 0 });
+    
+    // Get the element from store to capture its current position
+    const element = useCanvasStore.getState().elements.find((el) => el.id === active.id);
+    if (element) {
+      startPosRef.current = { x: element.position.x, y: element.position.y };
+    }
   }, [selectElement]);
 
   const handleDragMove = useCallback(
     (event: DragMoveEvent) => {
       if (!activeId) return;
 
-      const element = elements.find((el) => el.id === activeId);
+      const { delta } = event;
+      const element = useCanvasStore.getState().elements.find((el) => el.id === activeId);
       if (!element) return;
 
-      const { delta } = event;
-      setDragDelta(delta);
-
-      // Calculate new position without snapping first
-      let newX = element.position.x + delta.x / zoom;
-      let newY = element.position.y + delta.y / zoom;
+      // Calculate position from start position + delta
+      let newX = startPosRef.current.x + delta.x / zoom;
+      let newY = startPosRef.current.y + delta.y / zoom;
 
       // Apply snapping if magnet is enabled
       if (shouldSnap) {
@@ -99,14 +102,14 @@ export function DesignCanvas() {
 
       moveElement(activeId, newX, newY);
     },
-    [activeId, elements, zoom, shouldSnap, canvasWidth, canvasHeight, moveElement]
+    [activeId, zoom, shouldSnap, canvasWidth, canvasHeight, moveElement]
   );
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active } = event;
     const id = active.id as string;
     
-    const element = elements.find((el) => el.id === id);
+    const element = useCanvasStore.getState().elements.find((el) => el.id === id);
     if (!element) {
       setActiveId(null);
       return;
@@ -114,9 +117,9 @@ export function DesignCanvas() {
 
     const { delta } = event;
 
-    // Calculate final position
-    let newX = element.position.x + delta.x / zoom;
-    let newY = element.position.y + delta.y / zoom;
+    // Calculate final position from start position + delta
+    let newX = startPosRef.current.x + delta.x / zoom;
+    let newY = startPosRef.current.y + delta.y / zoom;
 
     // Apply snapping if magnet is enabled
     if (shouldSnap) {
@@ -130,7 +133,7 @@ export function DesignCanvas() {
 
     moveElement(id, newX, newY);
     setActiveId(null);
-  }, [elements, zoom, shouldSnap, canvasWidth, canvasHeight, moveElement]);
+  }, [zoom, shouldSnap, canvasWidth, canvasHeight, moveElement]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
