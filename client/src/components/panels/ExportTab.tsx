@@ -51,19 +51,27 @@ export function ExportTab() {
     try {
       // Create a temporary canvas for rendering
       const tempDiv = document.createElement("div");
-      tempDiv.style.position = "absolute";
-      tempDiv.style.left = "-9999px";
-      tempDiv.style.top = "-9999px";
+
+      // FIXED: Use fixed positioning at 0,0 with negative z-index
+      // This ensures it is technically "in view" for the renderer but hidden from the user
+      // avoiding issues where browsers don't render off-screen pixels fully.
+      tempDiv.style.position = "fixed"; 
+      tempDiv.style.left = "0";
+      tempDiv.style.top = "0";
+      tempDiv.style.zIndex = "-9999"; 
       tempDiv.style.width = `${canvasWidth}px`;
       tempDiv.style.height = `${canvasHeight}px`;
       tempDiv.style.backgroundColor = backgroundColor;
+
+      // Important: Reset box-sizing to ensure calculations match
+      tempDiv.style.boxSizing = "border-box"; 
       document.body.appendChild(tempDiv);
 
       setProgress(20);
 
       // Render elements to the temp div
       const sortedElements = [...elements].sort((a, b) => a.zIndex - b.zIndex);
-      
+
       for (const element of sortedElements) {
         if (!element.visible) continue;
 
@@ -75,49 +83,50 @@ export function ExportTab() {
         elementDiv.style.height = `${element.dimension.height}px`;
         elementDiv.style.transform = element.rotation ? `rotate(${element.rotation}deg)` : "";
 
+        // ... (Your existing styling logic for text/shapes/images remains exactly the same) ...
         if (element.type === "text" || element.type === "dataField") {
-          const textStyle = element.textStyle || {};
-          elementDiv.style.fontFamily = textStyle.fontFamily || "Inter";
-          elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
-          elementDiv.style.fontWeight = String(textStyle.fontWeight || 400);
-          elementDiv.style.color = textStyle.color || "#000000";
-          elementDiv.style.textAlign = textStyle.textAlign || "left";
-          elementDiv.style.lineHeight = String(textStyle.lineHeight || 1.5);
-          elementDiv.style.letterSpacing = `${textStyle.letterSpacing || 0}px`;
-          elementDiv.style.display = "flex";
-          elementDiv.style.alignItems = "center";
-          elementDiv.style.padding = "4px";
-          elementDiv.style.wordBreak = "break-word";
-          elementDiv.style.overflow = "hidden";
+           const textStyle = element.textStyle || {};
+           elementDiv.style.fontFamily = textStyle.fontFamily || "Inter";
+           elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
+           elementDiv.style.fontWeight = String(textStyle.fontWeight || 400);
+           elementDiv.style.color = textStyle.color || "#000000";
+           elementDiv.style.textAlign = textStyle.textAlign || "left";
+           elementDiv.style.lineHeight = String(textStyle.lineHeight || 1.5);
+           elementDiv.style.letterSpacing = `${textStyle.letterSpacing || 0}px`;
+           elementDiv.style.display = "flex";
+           elementDiv.style.alignItems = "center";
+           elementDiv.style.padding = "4px";
+           elementDiv.style.wordBreak = "break-word";
+           elementDiv.style.overflow = "hidden";
 
-          // Resolve data bindings
-          let content = element.content || "";
-          if (element.dataBinding && excelData && excelData.rows[0]) {
-            content = excelData.rows[0][element.dataBinding] || content;
-          }
-          elementDiv.textContent = content;
+           let content = element.content || "";
+           if (element.dataBinding && excelData && excelData.rows[selectedRowIndex || 0]) {
+             content = excelData.rows[selectedRowIndex || 0][element.dataBinding] || content;
+           }
+           elementDiv.textContent = content;
         } else if (element.type === "shape") {
-          const shapeStyle = element.shapeStyle || {};
-          elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
-          elementDiv.style.border = `${shapeStyle.strokeWidth || 1}px solid ${shapeStyle.stroke || "#9ca3af"}`;
-          elementDiv.style.borderRadius = element.shapeType === "circle" ? "50%" : `${shapeStyle.borderRadius || 0}px`;
-          elementDiv.style.opacity = String(shapeStyle.opacity || 1);
+           const shapeStyle = element.shapeStyle || {};
+           elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
+           elementDiv.style.border = `${shapeStyle.strokeWidth || 1}px solid ${shapeStyle.stroke || "#9ca3af"}`;
+           elementDiv.style.borderRadius = element.shapeType === "circle" ? "50%" : `${shapeStyle.borderRadius || 0}px`;
+           elementDiv.style.opacity = String(shapeStyle.opacity || 1);
 
-          if (element.shapeType === "line") {
-            elementDiv.style.height = `${shapeStyle.strokeWidth || 1}px`;
-            elementDiv.style.backgroundColor = shapeStyle.stroke || "#9ca3af";
-            elementDiv.style.border = "none";
-            elementDiv.style.position = "absolute";
-            elementDiv.style.top = `${element.position.y + element.dimension.height / 2}px`;
-          }
+           if (element.shapeType === "line") {
+             elementDiv.style.height = `${shapeStyle.strokeWidth || 1}px`;
+             elementDiv.style.backgroundColor = shapeStyle.stroke || "#9ca3af";
+             elementDiv.style.border = "none";
+             elementDiv.style.position = "absolute";
+             elementDiv.style.top = `${element.position.y + element.dimension.height / 2}px`;
+           }
         } else if (element.type === "image" && element.imageSrc) {
-          const img = document.createElement("img");
-          img.src = element.imageSrc;
-          img.style.width = "100%";
-          img.style.height = "100%";
-          img.style.objectFit = "cover";
-          elementDiv.appendChild(img);
+           const img = document.createElement("img");
+           img.src = element.imageSrc;
+           img.style.width = "100%";
+           img.style.height = "100%";
+           img.style.objectFit = "cover";
+           elementDiv.appendChild(img);
         }
+        // ... (End styling logic) ...
 
         tempDiv.appendChild(elementDiv);
       }
@@ -134,6 +143,18 @@ export function ExportTab() {
         useCORS: true,
         allowTaint: true,
         logging: false,
+        // FIXED: Explicitly set dimensions to match the desired canvas size
+        width: canvasWidth,
+        height: canvasHeight,
+        // FIXED: Force the "window" to be the exact size of the canvas
+        // This prevents scrollbars or window padding from affecting the capture
+        windowWidth: canvasWidth,
+        windowHeight: canvasHeight,
+        // FIXED: Force scroll position to 0 to prevent top margins
+        scrollX: 0,
+        scrollY: 0,
+        x: 0,
+        y: 0
       });
 
       setProgress(70);
@@ -141,7 +162,7 @@ export function ExportTab() {
       // Create PDF with proper dimensions
       const pageSize = pageSizes[exportSettings.pageSize];
       const orientation = exportSettings.orientation;
-      
+
       const pdfWidth = orientation === "portrait" ? pageSize.width : pageSize.height;
       const pdfHeight = orientation === "portrait" ? pageSize.height : pageSize.width;
 
@@ -157,24 +178,24 @@ export function ExportTab() {
 
       // Add the canvas image to PDF with exact page dimensions
       const imgData = canvas.toDataURL("image/png", exportSettings.quality);
+
       pdf.addImage(
         imgData,
         "PNG",
         0,
         0,
         mmWidth,
-        mmHeight
+        mmHeight,
+        undefined, 
+        "FAST" // Optimization for rendering speed
       );
 
       setProgress(90);
 
-      // Download the PDF
       const timestamp = new Date().toISOString().slice(0, 10);
       pdf.save(`specsheet-${timestamp}.pdf`);
 
-      // Clean up
       document.body.removeChild(tempDiv);
-
       setProgress(100);
       setExportStatus("success");
 
@@ -219,7 +240,6 @@ export function ExportTab() {
       const pdfWidth = orientation === "portrait" ? pageSize.width : pageSize.height;
       const pdfHeight = orientation === "portrait" ? pageSize.height : pageSize.width;
 
-      // Convert pixels to mm (96 dpi = 25.4mm per inch)
       const mmWidth = (pdfWidth / 96) * 25.4;
       const mmHeight = (pdfHeight / 96) * 25.4;
 
@@ -237,30 +257,32 @@ export function ExportTab() {
         const rowData = excelData.rows[rowIndex];
         setProgress(Math.round((rowIndex / excelData.rows.length) * 80));
 
-        // Create temporary div for this row
         const tempDiv = document.createElement("div");
-        tempDiv.style.position = "absolute";
-        tempDiv.style.left = "-9999px";
-        tempDiv.style.top = "-9999px";
+        // FIXED: Same fixed positioning logic as single export
+        tempDiv.style.position = "fixed";
+        tempDiv.style.left = "0";
+        tempDiv.style.top = "0";
+        tempDiv.style.zIndex = "-9999";
         tempDiv.style.width = `${canvasWidth}px`;
         tempDiv.style.height = `${canvasHeight}px`;
         tempDiv.style.backgroundColor = backgroundColor;
+        tempDiv.style.boxSizing = "border-box";
         document.body.appendChild(tempDiv);
 
-        // Render elements with data bindings resolved
+        // ... (Your element rendering logic remains the same, omitted for brevity) ...
         const sortedElements = [...elements].sort((a, b) => a.zIndex - b.zIndex);
-        
         for (const element of sortedElements) {
-          if (!element.visible) continue;
+            // ... (Copy inner logic from original code or single export above) ...
+            if (!element.visible) continue;
 
-          const elementDiv = document.createElement("div");
-          elementDiv.style.position = "absolute";
-          elementDiv.style.left = `${element.position.x}px`;
-          elementDiv.style.top = `${element.position.y}px`;
-          elementDiv.style.width = `${element.dimension.width}px`;
-          elementDiv.style.height = `${element.dimension.height}px`;
+            const elementDiv = document.createElement("div");
+            elementDiv.style.position = "absolute";
+            elementDiv.style.left = `${element.position.x}px`;
+            elementDiv.style.top = `${element.position.y}px`;
+            elementDiv.style.width = `${element.dimension.width}px`;
+            elementDiv.style.height = `${element.dimension.height}px`;
 
-          if (element.type === "text" || element.type === "dataField") {
+            if (element.type === "text" || element.type === "dataField") {
             const textStyle = element.textStyle || {};
             elementDiv.style.fontFamily = textStyle.fontFamily || "Inter";
             elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
@@ -275,25 +297,26 @@ export function ExportTab() {
 
             let content = element.content || "";
             if (element.dataBinding && rowData[element.dataBinding]) {
-              content = rowData[element.dataBinding];
+                content = rowData[element.dataBinding];
             }
             elementDiv.textContent = content;
-          } else if (element.type === "shape") {
+            } else if (element.type === "shape") {
             const shapeStyle = element.shapeStyle || {};
             elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
             elementDiv.style.border = `${shapeStyle.strokeWidth || 1}px solid ${shapeStyle.stroke || "#9ca3af"}`;
             elementDiv.style.borderRadius = element.shapeType === "circle" ? "50%" : `${shapeStyle.borderRadius || 0}px`;
-          } else if (element.type === "image" && element.imageSrc) {
+            } else if (element.type === "image" && element.imageSrc) {
             const img = document.createElement("img");
             img.src = element.imageSrc;
             img.style.width = "100%";
             img.style.height = "100%";
             img.style.objectFit = "cover";
             elementDiv.appendChild(img);
-          }
+            }
 
-          tempDiv.appendChild(elementDiv);
+            tempDiv.appendChild(elementDiv);
         }
+
 
         await new Promise((resolve) => setTimeout(resolve, 50));
 
@@ -302,6 +325,15 @@ export function ExportTab() {
           backgroundColor: backgroundColor,
           useCORS: true,
           logging: false,
+          // FIXED: Explicit dimensions and scrolling reset
+          width: canvasWidth,
+          height: canvasHeight,
+          windowWidth: canvasWidth,
+          windowHeight: canvasHeight,
+          scrollX: 0,
+          scrollY: 0,
+          x: 0,
+          y: 0
         });
 
         const imgData = canvas.toDataURL("image/png", exportSettings.quality);
@@ -311,7 +343,9 @@ export function ExportTab() {
           0,
           0,
           mmWidth,
-          mmHeight
+          mmHeight,
+          undefined,
+          "FAST"
         );
 
         document.body.removeChild(tempDiv);
