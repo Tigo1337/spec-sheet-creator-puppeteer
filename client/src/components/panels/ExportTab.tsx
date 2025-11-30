@@ -99,16 +99,25 @@ export function ExportTab() {
            elementDiv.style.wordBreak = "break-word";
            elementDiv.style.overflow = "hidden";
            
-           const align = textStyle.textAlign || "left";
-           elementDiv.style.textAlign = align;
-           if (align === "center") {
-             elementDiv.style.justifyContent = "center";
+           // Handle horizontal alignment
+           const hAlign = textStyle.textAlign || "left";
+           elementDiv.style.textAlign = hAlign;
+           
+           // Handle vertical alignment
+           const vAlign = textStyle.verticalAlign || "middle";
+           const justifyMap: Record<string, string> = {
+             top: "flex-start",
+             middle: "center",
+             bottom: "flex-end"
+           };
+           elementDiv.style.justifyContent = justifyMap[vAlign];
+           
+           // Set alignItems based on horizontal alignment
+           if (hAlign === "center") {
              elementDiv.style.alignItems = "center";
-           } else if (align === "right") {
-             elementDiv.style.justifyContent = "flex-end";
+           } else if (hAlign === "right") {
              elementDiv.style.alignItems = "flex-end";
            } else {
-             elementDiv.style.justifyContent = "flex-start";
              elementDiv.style.alignItems = "flex-start";
            }
 
@@ -315,16 +324,25 @@ export function ExportTab() {
             elementDiv.style.padding = "4px";
             elementDiv.style.overflow = "hidden";
             
-            const align = textStyle.textAlign || "left";
-            elementDiv.style.textAlign = align;
-            if (align === "center") {
-              elementDiv.style.justifyContent = "center";
+            // Handle horizontal alignment
+            const hAlign = textStyle.textAlign || "left";
+            elementDiv.style.textAlign = hAlign;
+            
+            // Handle vertical alignment
+            const vAlign = textStyle.verticalAlign || "middle";
+            const justifyMap: Record<string, string> = {
+              top: "flex-start",
+              middle: "center",
+              bottom: "flex-end"
+            };
+            elementDiv.style.justifyContent = justifyMap[vAlign];
+            
+            // Set alignItems based on horizontal alignment
+            if (hAlign === "center") {
               elementDiv.style.alignItems = "center";
-            } else if (align === "right") {
-              elementDiv.style.justifyContent = "flex-end";
+            } else if (hAlign === "right") {
               elementDiv.style.alignItems = "flex-end";
             } else {
-              elementDiv.style.justifyContent = "flex-start";
               elementDiv.style.alignItems = "flex-start";
             }
 
