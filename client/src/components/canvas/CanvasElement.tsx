@@ -67,8 +67,11 @@ export function CanvasElement({
       case "text":
         return (
           <div
-            className="w-full h-full flex items-center overflow-hidden"
+            className="w-full h-full overflow-hidden"
             style={{
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
               fontFamily: element.textStyle?.fontFamily || "Inter",
               fontSize: (element.textStyle?.fontSize || 16) * zoom,
               fontWeight: element.textStyle?.fontWeight || 400,
@@ -86,24 +89,25 @@ export function CanvasElement({
       case "dataField":
         return (
           <div
-            // Kept border-dashed here from your original code
-            className="w-full h-full flex items-center gap-1 px-2 rounded border-2 border-dashed"
+            className="w-full h-full rounded border-2 border-dashed overflow-hidden"
             style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: element.textStyle?.textAlign === "center" ? "center" : element.textStyle?.textAlign === "right" ? "flex-end" : "flex-start",
+              gap: 4 * zoom,
+              paddingLeft: 8 * zoom,
+              paddingRight: 8 * zoom,
               fontFamily: element.textStyle?.fontFamily || "JetBrains Mono",
               fontSize: (element.textStyle?.fontSize || 14) * zoom,
               fontWeight: element.textStyle?.fontWeight || 500,
-              // UPDATED: Default text color to black instead of blue
               color: element.textStyle?.color || "#000000",
-              // UPDATED: Background transparent
               backgroundColor: "transparent",
-              // UPDATED: Border black
               borderColor: "#000000",
               lineHeight: element.textStyle?.lineHeight || 1.4,
-              textAlign: element.textStyle?.textAlign || "left",
               letterSpacing: `${element.textStyle?.letterSpacing || 0}px`,
             }}
           >
-            <Database className="w-3 h-3 opacity-60 flex-shrink-0" style={{ width: 12 * zoom, height: 12 * zoom }} />
+            <Database className="flex-shrink-0" style={{ width: 12 * zoom, height: 12 * zoom, opacity: 0.6 }} />
             <span className="truncate">{getDisplayContent()}</span>
           </div>
         );
