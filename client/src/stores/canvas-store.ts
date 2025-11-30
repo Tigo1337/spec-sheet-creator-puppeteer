@@ -284,10 +284,32 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(template.elements);
   },
   
-  setExportSettings: (settings) =>
-    set((state) => ({
+  setExportSettings: (settings) => {
+    const state = get();
+    const newState: any = {
       exportSettings: { ...state.exportSettings, ...settings },
-    })),
+    };
+    
+    // If page size changed, update canvas dimensions
+    if (settings.pageSize) {
+      const pageSizes = { letter: { width: 816, height: 1056 }, a4: { width: 794, height: 1123 }, legal: { width: 816, height: 1344 } };
+      const pageSize = pageSizes[settings.pageSize];
+      const isLandscape = settings.orientation === "landscape" || (settings.orientation === undefined && state.exportSettings.orientation === "landscape");
+      
+      newState.canvasWidth = isLandscape ? pageSize.height : pageSize.width;
+      newState.canvasHeight = isLandscape ? pageSize.width : pageSize.height;
+    } else if (settings.orientation && settings.pageSize === undefined) {
+      // If only orientation changed, swap dimensions
+      const pageSizes = { letter: { width: 816, height: 1056 }, a4: { width: 794, height: 1123 }, legal: { width: 816, height: 1344 } };
+      const pageSize = pageSizes[state.exportSettings.pageSize];
+      const isLandscape = settings.orientation === "landscape";
+      
+      newState.canvasWidth = isLandscape ? pageSize.height : pageSize.width;
+      newState.canvasHeight = isLandscape ? pageSize.width : pageSize.height;
+    }
+    
+    set(newState);
+  },
   
   setActiveTool: (tool) => set({ activeTool: tool }),
   

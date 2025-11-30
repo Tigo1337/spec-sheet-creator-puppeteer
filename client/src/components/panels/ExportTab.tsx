@@ -152,15 +152,15 @@ export function ExportTab() {
         hotfixes: ["px_scaling"],
       });
 
-      // Add the canvas image to PDF
+      // Add the canvas image to PDF (no margins - canvas is sized to page)
       const imgData = canvas.toDataURL("image/png", exportSettings.quality);
       pdf.addImage(
         imgData,
         "PNG",
-        exportSettings.margin,
-        exportSettings.margin,
-        pdfWidth - exportSettings.margin * 2,
-        pdfHeight - exportSettings.margin * 2
+        0,
+        0,
+        pdfWidth,
+        pdfHeight
       );
 
       setProgress(90);
@@ -302,10 +302,10 @@ export function ExportTab() {
         pdf.addImage(
           imgData,
           "PNG",
-          exportSettings.margin,
-          exportSettings.margin,
-          pdfWidth - exportSettings.margin * 2,
-          pdfHeight - exportSettings.margin * 2
+          0,
+          0,
+          pdfWidth,
+          pdfHeight
         );
 
         document.body.removeChild(tempDiv);
