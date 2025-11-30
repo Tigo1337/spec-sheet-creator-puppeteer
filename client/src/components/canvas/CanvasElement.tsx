@@ -75,7 +75,7 @@ export function CanvasElement({
               color: element.textStyle?.color || "#000000",
               textAlign: element.textStyle?.textAlign || "left",
               lineHeight: element.textStyle?.lineHeight || 1.5,
-              letterSpacing: element.textStyle?.letterSpacing || 0,
+              letterSpacing: `${element.textStyle?.letterSpacing || 0}px`,
               padding: 4 * zoom,
             }}
           >
@@ -95,6 +95,8 @@ export function CanvasElement({
               backgroundColor: "hsl(217 91% 60% / 0.08)",
               borderColor: "hsl(217 91% 60% / 0.4)",
               lineHeight: element.textStyle?.lineHeight || 1.4,
+              textAlign: element.textStyle?.textAlign || "left",
+              letterSpacing: `${element.textStyle?.letterSpacing || 0}px`,
             }}
           >
             <Database className="w-3 h-3 opacity-60 flex-shrink-0" style={{ width: 12 * zoom, height: 12 * zoom }} />
@@ -161,12 +163,15 @@ export function CanvasElement({
       {...listeners}
       {...attributes}
       data-testid={`canvas-element-${element.id}`}
-      className={`absolute transition-shadow duration-100 ${
-        isSelected
-          ? "ring-2 ring-primary ring-offset-1"
-          : "hover:ring-1 hover:ring-primary/50"
-      }`}
-      style={style}
+      className={`absolute transition-shadow duration-100`}
+      style={{
+        ...style,
+        ...(isSelected && {
+          outline: "2px solid #000000",
+          outlineOffset: "0px",
+          backgroundColor: "transparent",
+        }),
+      }}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
     >
