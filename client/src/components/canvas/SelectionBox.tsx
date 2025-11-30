@@ -52,6 +52,9 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
   useEffect(() => {
     if (!isResizing || !activeHandle) return;
 
+    const isImageElement = element.type === "image";
+    const isCornerHandle = activeHandle === "nw" || activeHandle === "ne" || activeHandle === "se" || activeHandle === "sw";
+
     const handleMouseMove = (e: MouseEvent) => {
       const deltaX = (e.clientX - startPos.x) / zoom;
       const deltaY = (e.clientY - startPos.y) / zoom;
@@ -61,31 +64,60 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
       let newX = startPosition.x;
       let newY = startPosition.y;
 
-      // Handle resizing from different corners/edges
-      if (activeHandle.includes("e")) {
-        newWidth = Math.max(20, startDimension.width + deltaX);
-      }
-      if (activeHandle.includes("w")) {
-        const widthChange = Math.min(deltaX, startDimension.width - 20);
-        newWidth = startDimension.width - widthChange;
-        newX = startPosition.x + widthChange;
-      }
-      if (activeHandle.includes("s")) {
-        newHeight = Math.max(20, startDimension.height + deltaY);
-      }
-      if (activeHandle.includes("n")) {
-        const heightChange = Math.min(deltaY, startDimension.height - 20);
-        newHeight = startDimension.height - heightChange;
-        newY = startPosition.y + heightChange;
-      }
+      // For image elements, only allow corner resizing with aspect ratio
+      if (isImageElement) {
+        if (isCornerHandle) {
+          const ratio = startDimension.width / startDimension.height;
+          
+          if (activeHandle === "se") {
+            newWidth = Math.max(20, startDimension.width + deltaX);
+            newHeight = newWidth / ratio;
+          } else if (activeHandle === "sw") {
+            const widthChange = Math.min(deltaX, startDimension.width - 20);
+            newWidth = startDimension.width - widthChange;
+            newHeight = newWidth / ratio;
+            newX = startPosition.x + widthChange;
+          } else if (activeHandle === "ne") {
+            newWidth = Math.max(20, startDimension.width + deltaX);
+            newHeight = newWidth / ratio;
+            const heightChange = startDimension.height - newHeight;
+            newY = startPosition.y + heightChange;
+          } else if (activeHandle === "nw") {
+            const widthChange = Math.min(deltaX, startDimension.width - 20);
+            newWidth = startDimension.width - widthChange;
+            newHeight = newWidth / ratio;
+            newX = startPosition.x + widthChange;
+            const heightChange = startDimension.height - newHeight;
+            newY = startPosition.y + heightChange;
+          }
+        }
+      } else {
+        // For non-image elements, keep original resize behavior
+        if (activeHandle.includes("e")) {
+          newWidth = Math.max(20, startDimension.width + deltaX);
+        }
+        if (activeHandle.includes("w")) {
+          const widthChange = Math.min(deltaX, startDimension.width - 20);
+          newWidth = startDimension.width - widthChange;
+          newX = startPosition.x + widthChange;
+        }
+        if (activeHandle.includes("s")) {
+          newHeight = Math.max(20, startDimension.height + deltaY);
+        }
+        if (activeHandle.includes("n")) {
+          const heightChange = Math.min(deltaY, startDimension.height - 20);
+          newHeight = startDimension.height - heightChange;
+          newY = startPosition.y + heightChange;
+        }
 
-      // Keep aspect ratio for corner handles when shift is pressed
-      if (e.shiftKey && (activeHandle === "nw" || activeHandle === "ne" || activeHandle === "se" || activeHandle === "sw")) {
-        const ratio = startDimension.width / startDimension.height;
-        if (Math.abs(deltaX) > Math.abs(deltaY)) {
-          newHeight = newWidth / ratio;
-        } else {
-          newWidth = newHeight * ratio;
+        // Keep aspect ratio for corner handles when shift is pressed
+        if (e.shiftKey && isCornerHandle) {
+          const ratio = startDimension.width / startDimension.height;
+          if (Math.abs(deltaX) > Math.abs(deltaY)) {
+            newHeight = newWidth / ratio;
+          } else {
+            newWidth = newHeight * ratio;
+          }
         }
       }
 
@@ -121,9 +153,11 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
   const width = dimension.width * zoom;
   const height = dimension.height * zoom;
 
+  const isImageElement = element.type === "image";
+
   return (
     <>
-      {/* Corner handles */}
+      {/* Corner handles - always shown */}
       <div
         style={{ ...handleStyle, left: left - 4, top: top - 4, cursor: "nw-resize" }}
         onMouseDown={handleMouseDown("nw")}
@@ -141,23 +175,27 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
         onMouseDown={handleMouseDown("sw")}
       />
 
-      {/* Edge handles */}
-      <div
-        style={{ ...handleStyle, left: left + width / 2 - 4, top: top - 4, cursor: "n-resize" }}
-        onMouseDown={handleMouseDown("n")}
-      />
-      <div
-        style={{ ...handleStyle, left: left + width - 4, top: top + height / 2 - 4, cursor: "e-resize" }}
-        onMouseDown={handleMouseDown("e")}
-      />
-      <div
-        style={{ ...handleStyle, left: left + width / 2 - 4, top: top + height - 4, cursor: "s-resize" }}
-        onMouseDown={handleMouseDown("s")}
-      />
-      <div
-        style={{ ...handleStyle, left: left - 4, top: top + height / 2 - 4, cursor: "w-resize" }}
-        onMouseDown={handleMouseDown("w")}
-      />
+      {/* Edge handles - only for non-image elements */}
+      {!isImageElement && (
+        <>
+          <div
+            style={{ ...handleStyle, left: left + width / 2 - 4, top: top - 4, cursor: "n-resize" }}
+            onMouseDown={handleMouseDown("n")}
+          />
+          <div
+            style={{ ...handleStyle, left: left + width - 4, top: top + height / 2 - 4, cursor: "e-resize" }}
+            onMouseDown={handleMouseDown("e")}
+          />
+          <div
+            style={{ ...handleStyle, left: left + width / 2 - 4, top: top + height - 4, cursor: "s-resize" }}
+            onMouseDown={handleMouseDown("s")}
+          />
+          <div
+            style={{ ...handleStyle, left: left - 4, top: top + height / 2 - 4, cursor: "w-resize" }}
+            onMouseDown={handleMouseDown("w")}
+          />
+        </>
+      )}
     </>
   );
 }
