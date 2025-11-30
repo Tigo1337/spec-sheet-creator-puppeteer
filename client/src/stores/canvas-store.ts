@@ -54,6 +54,15 @@ interface CanvasState {
   bringToFront: (id: string) => void;
   sendToBack: (id: string) => void;
   
+  alignLeft: () => void;
+  alignCenter: () => void;
+  alignRight: () => void;
+  alignTop: () => void;
+  alignMiddle: () => void;
+  alignBottom: () => void;
+  distributeHorizontal: () => void;
+  distributeVertical: () => void;
+  
   setExcelData: (data: ExcelData | null) => void;
   setSelectedRowIndex: (index: number) => void;
   
@@ -244,6 +253,118 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     );
     saveToHistory(elements);
     set({ elements, hasUnsavedChanges: true });
+  },
+  
+  alignLeft: () => {
+    const { selectedElementIds, elements } = get();
+    if (selectedElementIds.length < 2) return;
+    const selected = elements.filter((el) => selectedElementIds.includes(el.id));
+    const minX = Math.min(...selected.map((el) => el.position.x));
+    const updated = elements.map((el) =>
+      selectedElementIds.includes(el.id) ? { ...el, position: { ...el.position, x: minX } } : el
+    );
+    saveToHistory(updated);
+    set({ elements: updated, hasUnsavedChanges: true });
+  },
+  
+  alignCenter: () => {
+    const { selectedElementIds, elements } = get();
+    if (selectedElementIds.length < 2) return;
+    const selected = elements.filter((el) => selectedElementIds.includes(el.id));
+    const avgX = selected.reduce((sum, el) => sum + el.position.x + el.dimension.width / 2, 0) / selected.length;
+    const updated = elements.map((el) =>
+      selectedElementIds.includes(el.id) ? { ...el, position: { ...el.position, x: avgX - el.dimension.width / 2 } } : el
+    );
+    saveToHistory(updated);
+    set({ elements: updated, hasUnsavedChanges: true });
+  },
+  
+  alignRight: () => {
+    const { selectedElementIds, elements } = get();
+    if (selectedElementIds.length < 2) return;
+    const selected = elements.filter((el) => selectedElementIds.includes(el.id));
+    const maxX = Math.max(...selected.map((el) => el.position.x + el.dimension.width));
+    const updated = elements.map((el) =>
+      selectedElementIds.includes(el.id) ? { ...el, position: { ...el.position, x: maxX - el.dimension.width } } : el
+    );
+    saveToHistory(updated);
+    set({ elements: updated, hasUnsavedChanges: true });
+  },
+  
+  alignTop: () => {
+    const { selectedElementIds, elements } = get();
+    if (selectedElementIds.length < 2) return;
+    const selected = elements.filter((el) => selectedElementIds.includes(el.id));
+    const minY = Math.min(...selected.map((el) => el.position.y));
+    const updated = elements.map((el) =>
+      selectedElementIds.includes(el.id) ? { ...el, position: { ...el.position, y: minY } } : el
+    );
+    saveToHistory(updated);
+    set({ elements: updated, hasUnsavedChanges: true });
+  },
+  
+  alignMiddle: () => {
+    const { selectedElementIds, elements } = get();
+    if (selectedElementIds.length < 2) return;
+    const selected = elements.filter((el) => selectedElementIds.includes(el.id));
+    const avgY = selected.reduce((sum, el) => sum + el.position.y + el.dimension.height / 2, 0) / selected.length;
+    const updated = elements.map((el) =>
+      selectedElementIds.includes(el.id) ? { ...el, position: { ...el.position, y: avgY - el.dimension.height / 2 } } : el
+    );
+    saveToHistory(updated);
+    set({ elements: updated, hasUnsavedChanges: true });
+  },
+  
+  alignBottom: () => {
+    const { selectedElementIds, elements } = get();
+    if (selectedElementIds.length < 2) return;
+    const selected = elements.filter((el) => selectedElementIds.includes(el.id));
+    const maxY = Math.max(...selected.map((el) => el.position.y + el.dimension.height));
+    const updated = elements.map((el) =>
+      selectedElementIds.includes(el.id) ? { ...el, position: { ...el.position, y: maxY - el.dimension.height } } : el
+    );
+    saveToHistory(updated);
+    set({ elements: updated, hasUnsavedChanges: true });
+  },
+  
+  distributeHorizontal: () => {
+    const { selectedElementIds, elements } = get();
+    if (selectedElementIds.length < 3) return;
+    const selected = elements.filter((el) => selectedElementIds.includes(el.id)).sort((a, b) => a.position.x - b.position.x);
+    const minX = selected[0].position.x;
+    const maxX = selected[selected.length - 1].position.x + selected[selected.length - 1].dimension.width;
+    const totalGap = maxX - minX - selected.reduce((sum, el) => sum + el.dimension.width, 0);
+    const gap = totalGap / (selected.length - 1);
+    let currentX = minX;
+    const updated = elements.map((el) => {
+      if (!selectedElementIds.includes(el.id)) return el;
+      const idx = selected.findIndex((s) => s.id === el.id);
+      const newX = currentX;
+      currentX += el.dimension.width + gap;
+      return { ...el, position: { ...el.position, x: newX } };
+    });
+    saveToHistory(updated);
+    set({ elements: updated, hasUnsavedChanges: true });
+  },
+  
+  distributeVertical: () => {
+    const { selectedElementIds, elements } = get();
+    if (selectedElementIds.length < 3) return;
+    const selected = elements.filter((el) => selectedElementIds.includes(el.id)).sort((a, b) => a.position.y - b.position.y);
+    const minY = selected[0].position.y;
+    const maxY = selected[selected.length - 1].position.y + selected[selected.length - 1].dimension.height;
+    const totalGap = maxY - minY - selected.reduce((sum, el) => sum + el.dimension.height, 0);
+    const gap = totalGap / (selected.length - 1);
+    let currentY = minY;
+    const updated = elements.map((el) => {
+      if (!selectedElementIds.includes(el.id)) return el;
+      const idx = selected.findIndex((s) => s.id === el.id);
+      const newY = currentY;
+      currentY += el.dimension.height + gap;
+      return { ...el, position: { ...el.position, y: newY } };
+    });
+    saveToHistory(updated);
+    set({ elements: updated, hasUnsavedChanges: true });
   },
   
   setExcelData: (data) => set({ excelData: data, selectedRowIndex: 0 }),

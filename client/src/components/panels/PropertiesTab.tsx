@@ -30,6 +30,9 @@ import {
   Unlock,
   Eye,
   EyeOff,
+  AlignStartVertical,
+  AlignCenterVertical,
+  AlignEndVertical,
 } from "lucide-react";
 import { availableFonts, type CanvasElement, pageSizes } from "@shared/schema";
 
@@ -42,6 +45,12 @@ export function PropertiesTab() {
     duplicateElement,
     bringToFront,
     sendToBack,
+    alignLeft,
+    alignCenter,
+    alignRight,
+    alignTop,
+    alignMiddle,
+    alignBottom,
     canvasWidth,
     canvasHeight,
     backgroundColor,
@@ -284,6 +293,104 @@ export function PropertiesTab() {
             </TooltipContent>
           </Tooltip>
         </div>
+
+        <Separator />
+
+        {/* Alignment Controls - shown when multiple elements selected */}
+        {selectedElementIds.length > 1 && (
+          <div>
+            <h3 className="font-medium text-sm mb-3">Alignment</h3>
+            <div className="space-y-2">
+              <div className="flex gap-1 flex-wrap">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => alignLeft()}
+                      data-testid="btn-align-left"
+                    >
+                      <AlignLeft className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Align Left</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => alignCenter()}
+                      data-testid="btn-align-center-h"
+                    >
+                      <AlignCenter className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Align Center (Horizontal)</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => alignRight()}
+                      data-testid="btn-align-right"
+                    >
+                      <AlignRight className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Align Right</TooltipContent>
+                </Tooltip>
+
+                <Separator orientation="vertical" className="h-6" />
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => alignTop()}
+                      data-testid="btn-align-top"
+                    >
+                      <AlignStartVertical className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Align Top</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => alignMiddle()}
+                      data-testid="btn-align-center-v"
+                    >
+                      <AlignCenterVertical className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Align Middle (Vertical)</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => alignBottom()}
+                      data-testid="btn-align-bottom"
+                    >
+                      <AlignEndVertical className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Align Bottom</TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+          </div>
+        )}
 
         <Separator />
 
