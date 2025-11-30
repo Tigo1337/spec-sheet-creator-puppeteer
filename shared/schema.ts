@@ -21,6 +21,7 @@ export const textStyleSchema = z.object({
   fontWeight: z.number().default(400),
   color: z.string().default("#000000"),
   textAlign: z.enum(["left", "center", "right"]).default("left"),
+  verticalAlign: z.enum(["top", "middle", "bottom"]).default("middle"),
   lineHeight: z.number().default(1.5),
   letterSpacing: z.number().default(0),
 });

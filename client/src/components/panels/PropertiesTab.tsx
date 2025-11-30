@@ -561,7 +561,7 @@ export function PropertiesTab() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Alignment</Label>
+                <Label className="text-xs text-muted-foreground">Horizontal Alignment</Label>
                 <div className="flex gap-1">
                   <Button
                     size="icon"
@@ -569,7 +569,7 @@ export function PropertiesTab() {
                       selectedElement.textStyle?.textAlign === "left" ? "default" : "outline"
                     }
                     onClick={() => handleTextStyleChange("textAlign", "left")}
-                    data-testid="btn-align-left"
+                    data-testid="btn-text-align-left"
                   >
                     <AlignLeft className="h-4 w-4" />
                   </Button>
@@ -579,7 +579,7 @@ export function PropertiesTab() {
                       selectedElement.textStyle?.textAlign === "center" ? "default" : "outline"
                     }
                     onClick={() => handleTextStyleChange("textAlign", "center")}
-                    data-testid="btn-align-center"
+                    data-testid="btn-text-align-center"
                   >
                     <AlignCenter className="h-4 w-4" />
                   </Button>
@@ -589,9 +589,45 @@ export function PropertiesTab() {
                       selectedElement.textStyle?.textAlign === "right" ? "default" : "outline"
                     }
                     onClick={() => handleTextStyleChange("textAlign", "right")}
-                    data-testid="btn-align-right"
+                    data-testid="btn-text-align-right"
                   >
                     <AlignRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Vertical Alignment</Label>
+                <div className="flex gap-1">
+                  <Button
+                    size="icon"
+                    variant={
+                      selectedElement.textStyle?.verticalAlign === "top" ? "default" : "outline"
+                    }
+                    onClick={() => handleTextStyleChange("verticalAlign", "top")}
+                    data-testid="btn-text-vertical-top"
+                  >
+                    <AlignStartVertical className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant={
+                      selectedElement.textStyle?.verticalAlign === "middle" ? "default" : "outline"
+                    }
+                    onClick={() => handleTextStyleChange("verticalAlign", "middle")}
+                    data-testid="btn-text-vertical-middle"
+                  >
+                    <AlignCenterVertical className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant={
+                      selectedElement.textStyle?.verticalAlign === "bottom" ? "default" : "outline"
+                    }
+                    onClick={() => handleTextStyleChange("verticalAlign", "bottom")}
+                    data-testid="btn-text-vertical-bottom"
+                  >
+                    <AlignEndVertical className="h-4 w-4" />
                   </Button>
                 </div>
               </div>

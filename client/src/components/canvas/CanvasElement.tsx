@@ -105,13 +105,18 @@ export function CanvasElement({
   const renderContent = () => {
     switch (element.type) {
       case "text":
+        const verticalAlignMap = {
+          top: "flex-start",
+          middle: "center",
+          bottom: "flex-end",
+        };
         return (
           <div
             className="w-full h-full overflow-hidden"
             style={{
               display: "flex",
               flexDirection: "column",
-              justifyContent: "center",
+              justifyContent: verticalAlignMap[element.textStyle?.verticalAlign || "middle"] as any,
               fontFamily: element.textStyle?.fontFamily || "Inter",
               fontSize: (element.textStyle?.fontSize || 16) * zoom,
               fontWeight: element.textStyle?.fontWeight || 400,
@@ -127,12 +132,17 @@ export function CanvasElement({
         );
 
       case "dataField":
+        const dataFieldVerticalAlignMap = {
+          top: "flex-start",
+          middle: "center",
+          bottom: "flex-end",
+        };
         return (
           <div
             className="w-full h-full rounded border-2 border-dashed overflow-hidden"
             style={{
               display: "flex",
-              alignItems: "center",
+              alignItems: dataFieldVerticalAlignMap[element.textStyle?.verticalAlign || "middle"] as any,
               justifyContent: element.textStyle?.textAlign === "center" ? "center" : element.textStyle?.textAlign === "right" ? "flex-end" : "flex-start",
               gap: 4 * zoom,
               paddingLeft: 8 * zoom,
