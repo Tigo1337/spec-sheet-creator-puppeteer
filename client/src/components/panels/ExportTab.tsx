@@ -41,6 +41,7 @@ export function ExportTab() {
     canvasWidth,
     canvasHeight,
     backgroundColor,
+    selectedRowIndex,
   } = useCanvasStore();
 
   const generatePDF = async () => {
@@ -99,11 +100,22 @@ export function ExportTab() {
            elementDiv.style.overflow = "hidden";
            
            const align = textStyle.textAlign || "left";
-           if (align === "center") elementDiv.style.justifyContent = "center";
-           else if (align === "right") elementDiv.style.justifyContent = "flex-end";
-           else elementDiv.style.justifyContent = "flex-start";
+           elementDiv.style.textAlign = align;
+           if (align === "center") {
+             elementDiv.style.justifyContent = "center";
+             elementDiv.style.alignItems = "center";
+           } else if (align === "right") {
+             elementDiv.style.justifyContent = "flex-end";
+             elementDiv.style.alignItems = "flex-end";
+           } else {
+             elementDiv.style.justifyContent = "flex-start";
+             elementDiv.style.alignItems = "flex-start";
+           }
 
            let content = element.content || "";
+           if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
+             content = excelData.rows[selectedRowIndex][element.dataBinding] || content;
+           }
            elementDiv.textContent = content;
         } else if (element.type === "shape") {
            const shapeStyle = element.shapeStyle || {};
@@ -297,9 +309,17 @@ export function ExportTab() {
             elementDiv.style.overflow = "hidden";
             
             const align = textStyle.textAlign || "left";
-            if (align === "center") elementDiv.style.justifyContent = "center";
-            else if (align === "right") elementDiv.style.justifyContent = "flex-end";
-            else elementDiv.style.justifyContent = "flex-start";
+            elementDiv.style.textAlign = align;
+            if (align === "center") {
+              elementDiv.style.justifyContent = "center";
+              elementDiv.style.alignItems = "center";
+            } else if (align === "right") {
+              elementDiv.style.justifyContent = "flex-end";
+              elementDiv.style.alignItems = "flex-end";
+            } else {
+              elementDiv.style.justifyContent = "flex-start";
+              elementDiv.style.alignItems = "flex-start";
+            }
 
             let content = element.content || "";
             if (element.dataBinding && rowData[element.dataBinding]) {
