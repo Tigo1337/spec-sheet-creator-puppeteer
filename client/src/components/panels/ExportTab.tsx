@@ -90,19 +90,20 @@ export function ExportTab() {
            elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
            elementDiv.style.fontWeight = String(textStyle.fontWeight || 400);
            elementDiv.style.color = textStyle.color || "#000000";
-           elementDiv.style.textAlign = textStyle.textAlign || "left";
            elementDiv.style.lineHeight = String(textStyle.lineHeight || 1.5);
            elementDiv.style.letterSpacing = `${textStyle.letterSpacing || 0}px`;
            elementDiv.style.display = "flex";
-           elementDiv.style.alignItems = "center";
+           elementDiv.style.flexDirection = "column";
            elementDiv.style.padding = "4px";
            elementDiv.style.wordBreak = "break-word";
            elementDiv.style.overflow = "hidden";
+           
+           const align = textStyle.textAlign || "left";
+           if (align === "center") elementDiv.style.justifyContent = "center";
+           else if (align === "right") elementDiv.style.justifyContent = "flex-end";
+           else elementDiv.style.justifyContent = "flex-start";
 
            let content = element.content || "";
-           if (element.dataBinding && excelData && excelData.rows[selectedRowIndex || 0]) {
-             content = excelData.rows[selectedRowIndex || 0][element.dataBinding] || content;
-           }
            elementDiv.textContent = content;
         } else if (element.type === "shape") {
            const shapeStyle = element.shapeStyle || {};
@@ -288,12 +289,17 @@ export function ExportTab() {
             elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
             elementDiv.style.fontWeight = String(textStyle.fontWeight || 400);
             elementDiv.style.color = textStyle.color || "#000000";
-            elementDiv.style.textAlign = textStyle.textAlign || "left";
             elementDiv.style.lineHeight = String(textStyle.lineHeight || 1.5);
+            elementDiv.style.letterSpacing = `${textStyle.letterSpacing || 0}px`;
             elementDiv.style.display = "flex";
-            elementDiv.style.alignItems = "center";
+            elementDiv.style.flexDirection = "column";
             elementDiv.style.padding = "4px";
             elementDiv.style.overflow = "hidden";
+            
+            const align = textStyle.textAlign || "left";
+            if (align === "center") elementDiv.style.justifyContent = "center";
+            else if (align === "right") elementDiv.style.justifyContent = "flex-end";
+            else elementDiv.style.justifyContent = "flex-start";
 
             let content = element.content || "";
             if (element.dataBinding && rowData[element.dataBinding]) {
