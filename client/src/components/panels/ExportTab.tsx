@@ -138,29 +138,32 @@ export function ExportTab() {
 
       setProgress(70);
 
-      // Create PDF
+      // Create PDF with proper dimensions
       const pageSize = pageSizes[exportSettings.pageSize];
       const orientation = exportSettings.orientation;
       
       const pdfWidth = orientation === "portrait" ? pageSize.width : pageSize.height;
       const pdfHeight = orientation === "portrait" ? pageSize.height : pageSize.width;
 
+      // Convert pixels to mm (96 dpi = 25.4mm per inch)
+      const mmWidth = (pdfWidth / 96) * 25.4;
+      const mmHeight = (pdfHeight / 96) * 25.4;
+
       const pdf = new jsPDF({
         orientation: orientation,
-        unit: "px",
-        format: [pdfWidth, pdfHeight],
-        hotfixes: ["px_scaling"],
+        unit: "mm",
+        format: [mmWidth, mmHeight],
       });
 
-      // Add the canvas image to PDF (no margins - canvas is sized to page)
+      // Add the canvas image to PDF with exact page dimensions
       const imgData = canvas.toDataURL("image/png", exportSettings.quality);
       pdf.addImage(
         imgData,
         "PNG",
         0,
         0,
-        pdfWidth,
-        pdfHeight
+        mmWidth,
+        mmHeight
       );
 
       setProgress(90);
@@ -216,11 +219,14 @@ export function ExportTab() {
       const pdfWidth = orientation === "portrait" ? pageSize.width : pageSize.height;
       const pdfHeight = orientation === "portrait" ? pageSize.height : pageSize.width;
 
+      // Convert pixels to mm (96 dpi = 25.4mm per inch)
+      const mmWidth = (pdfWidth / 96) * 25.4;
+      const mmHeight = (pdfHeight / 96) * 25.4;
+
       const pdf = new jsPDF({
         orientation: orientation,
-        unit: "px",
-        format: [pdfWidth, pdfHeight],
-        hotfixes: ["px_scaling"],
+        unit: "mm",
+        format: [mmWidth, mmHeight],
       });
 
       for (let rowIndex = 0; rowIndex < excelData.rows.length; rowIndex++) {
@@ -304,8 +310,8 @@ export function ExportTab() {
           "PNG",
           0,
           0,
-          pdfWidth,
-          pdfHeight
+          mmWidth,
+          mmHeight
         );
 
         document.body.removeChild(tempDiv);
