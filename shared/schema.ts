@@ -115,14 +115,20 @@ export type User = z.infer<typeof userSchema>;
 export const insertUserSchema = userSchema.omit({ id: true });
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
-// Available fonts for the editor
+// Available fonts for the editor (Free Google Fonts + System fonts)
 export const availableFonts = [
   "Inter",
   "JetBrains Mono",
-  "Arial",
-  "Times New Roman",
+  "Roboto",
+  "Open Sans",
+  "Lato",
+  "Poppins",
+  "Montserrat",
+  "Playfair Display",
   "Georgia",
+  "Arial",
   "Verdana",
+  "Times New Roman",
   "Courier New",
   "Trebuchet MS",
   "Impact",
