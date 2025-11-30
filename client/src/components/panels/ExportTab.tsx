@@ -131,13 +131,20 @@ export function ExportTab() {
              elementDiv.style.position = "absolute";
              elementDiv.style.top = `${element.position.y + element.dimension.height / 2}px`;
            }
-        } else if (element.type === "image" && element.imageSrc) {
-           const img = document.createElement("img");
-           img.src = element.imageSrc;
-           img.style.width = "100%";
-           img.style.height = "100%";
-           img.style.objectFit = "cover";
-           elementDiv.appendChild(img);
+        } else if (element.type === "image") {
+           let imgSrc = element.imageSrc;
+           if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
+             imgSrc = excelData.rows[selectedRowIndex][element.dataBinding];
+           }
+           if (imgSrc) {
+             const img = document.createElement("img");
+             img.src = imgSrc;
+             img.style.width = "100%";
+             img.style.height = "100%";
+             img.style.objectFit = "contain";
+             img.style.objectPosition = "center";
+             elementDiv.appendChild(img);
+           }
         }
         // ... (End styling logic) ...
 
@@ -331,13 +338,20 @@ export function ExportTab() {
             elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
             elementDiv.style.border = `${shapeStyle.strokeWidth || 1}px solid ${shapeStyle.stroke || "#9ca3af"}`;
             elementDiv.style.borderRadius = element.shapeType === "circle" ? "50%" : `${shapeStyle.borderRadius || 0}px`;
-            } else if (element.type === "image" && element.imageSrc) {
-            const img = document.createElement("img");
-            img.src = element.imageSrc;
-            img.style.width = "100%";
-            img.style.height = "100%";
-            img.style.objectFit = "cover";
-            elementDiv.appendChild(img);
+            } else if (element.type === "image") {
+            let imgSrc = element.imageSrc;
+            if (element.dataBinding && rowData[element.dataBinding]) {
+                imgSrc = rowData[element.dataBinding];
+            }
+            if (imgSrc) {
+              const img = document.createElement("img");
+              img.src = imgSrc;
+              img.style.width = "100%";
+              img.style.height = "100%";
+              img.style.objectFit = "contain";
+              img.style.objectPosition = "center";
+              elementDiv.appendChild(img);
+            }
             }
 
             tempDiv.appendChild(elementDiv);

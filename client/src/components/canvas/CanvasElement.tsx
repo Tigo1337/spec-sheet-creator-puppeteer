@@ -1,6 +1,7 @@
 import { useDraggable } from "@dnd-kit/core";
 import type { CanvasElement as CanvasElementType } from "@shared/schema";
 import { useCanvasStore } from "@/stores/canvas-store";
+import { useEffect, useState } from "react";
 import { Database } from "lucide-react";
 
 interface CanvasElementProps {
@@ -16,7 +17,9 @@ export function CanvasElement({
   zoom,
   onSelect,
 }: CanvasElementProps) {
-  const { excelData, selectedRowIndex } = useCanvasStore();
+  const { excelData, selectedRowIndex, updateElement } = useCanvasStore();
+  const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: element.id,
@@ -48,6 +51,43 @@ export function CanvasElement({
     }
     return element.content || "";
   };
+
+  // Resolve image URL from data binding
+  const getImageUrl = () => {
+    if (element.type === "image") {
+      if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
+        return excelData.rows[selectedRowIndex][element.dataBinding] || element.imageSrc || null;
+      }
+      return element.imageSrc || null;
+    }
+    return null;
+  };
+
+  // Load image dimensions and update element with aspect ratio
+  useEffect(() => {
+    const url = getImageUrl();
+    if (url && url !== imageUrl) {
+      setImageUrl(url);
+      const img = new Image();
+      img.onload = () => {
+        const naturalWidth = img.naturalWidth;
+        const naturalHeight = img.naturalHeight;
+        setImageDimensions({ width: naturalWidth, height: naturalHeight });
+        
+        // Auto-adjust height to maintain aspect ratio
+        const aspectRatio = naturalWidth / naturalHeight;
+        const newHeight = Math.round(element.dimension.width / aspectRatio);
+        updateElement(element.id, {
+          dimension: { width: element.dimension.width, height: newHeight }
+        });
+      };
+      img.onerror = () => {
+        setImageDimensions(null);
+      };
+      img.crossOrigin = "anonymous";
+      img.src = url;
+    }
+  }, [element.dataBinding, selectedRowIndex, element.type, excelData, element.id, element.dimension.width, imageUrl, updateElement]);
 
   const style: React.CSSProperties = {
     position: "absolute",
@@ -142,20 +182,22 @@ export function CanvasElement({
         return <div className="w-full h-full" style={shapeStyle} />;
 
       case "image":
-        if (element.imageSrc) {
+        const displayImageUrl = getImageUrl();
+        if (displayImageUrl) {
           return (
             <img
-              src={element.imageSrc}
+              src={displayImageUrl}
               alt=""
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
               draggable={false}
+              style={{ objectPosition: "center" }}
             />
           );
         }
         return (
           <div className="w-full h-full bg-muted/50 border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
             <span className="text-muted-foreground text-xs" style={{ fontSize: 12 * zoom }}>
-              No image
+              {element.dataBinding ? `No image for ${element.dataBinding}` : "No image"}
             </span>
           </div>
         );

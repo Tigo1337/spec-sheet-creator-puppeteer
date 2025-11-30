@@ -88,10 +88,29 @@ export function createDataFieldElement(
   };
 }
 
+export function createImageFieldElement(
+  x: number,
+  y: number,
+  columnName: string
+): CanvasElement {
+  return {
+    id: nanoid(),
+    type: "image",
+    position: { x: snapToGrid(x), y: snapToGrid(y) },
+    dimension: { width: 200, height: 150 },
+    rotation: 0,
+    locked: false,
+    visible: true,
+    zIndex: Date.now(),
+    dataBinding: columnName,
+  };
+}
+
 export function createImageElement(
   x: number,
   y: number,
-  imageSrc?: string
+  imageSrc?: string,
+  dataBinding?: string
 ): CanvasElement {
   return {
     id: nanoid(),
@@ -103,7 +122,22 @@ export function createImageElement(
     visible: true,
     zIndex: Date.now(),
     imageSrc,
+    dataBinding,
   };
+}
+
+export async function getImageDimensions(imageUrl: string): Promise<{ width: number; height: number } | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = () => {
+      resolve(null);
+    };
+    img.crossOrigin = "anonymous";
+    img.src = imageUrl;
+  });
 }
 
 export function getDefaultTextStyle(): TextStyle {

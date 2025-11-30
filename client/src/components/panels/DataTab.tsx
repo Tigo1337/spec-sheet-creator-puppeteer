@@ -1,7 +1,7 @@
 import { useRef, useCallback, useState } from "react";
 import { useCanvasStore } from "@/stores/canvas-store";
 import { parseDataFile } from "@/lib/excel-parser";
-import { createDataFieldElement } from "@/lib/canvas-utils";
+import { createDataFieldElement, createImageFieldElement } from "@/lib/canvas-utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -128,15 +128,29 @@ export function DataTab() {
 
   const handleDragEnd = (event: DragEndEvent) => {
     const header = event.active.data.current?.header;
-    if (header) {
-      // Add data field element to canvas
+    if (header && excelData) {
       const x = canvasWidth / 2 - 75;
       const y = canvasHeight / 2 - 16;
-      addElement(createDataFieldElement(x, y, header));
-      toast({
-        title: "Data field added",
-        description: `Added "${header}" field to the canvas.`,
-      });
+      
+      // Check if column is for images by checking column name
+      const isImageColumn = header.toLowerCase().includes("image") || 
+                           header.toLowerCase().includes("photo") ||
+                           header.toLowerCase().includes("picture") ||
+                           header.toLowerCase().includes("url");
+      
+      if (isImageColumn) {
+        addElement(createImageFieldElement(x, y, header));
+        toast({
+          title: "Image field added",
+          description: `Added "${header}" image field to the canvas.`,
+        });
+      } else {
+        addElement(createDataFieldElement(x, y, header));
+        toast({
+          title: "Data field added",
+          description: `Added "${header}" field to the canvas.`,
+        });
+      }
     }
     setActiveHeader(null);
   };
