@@ -15,12 +15,12 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 32907
-externalPort = 3000
-
-[[ports]]
 localPort = 38641
 externalPort = 3001
+
+[[ports]]
+localPort = 45491
+externalPort = 3000
 
 [env]
 PORT = "5000"
@@ -55,4 +55,3 @@ defaultBucketID = "replit-objstore-0c852543-1f4d-479a-9e0a-f844ef3216a1"
 [userenv]
 
 [userenv.shared]
-VITE_CLERK_PUBLISHABLE_KEY = "YOUR_PUBLISHABLE_KEY"
