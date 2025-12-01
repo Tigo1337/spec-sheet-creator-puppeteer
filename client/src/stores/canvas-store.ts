@@ -164,7 +164,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   imageFieldNames: new Set(),
 
   exportSettings: {
-    pageSize: "a4",
+    pageSize: "letter",
     orientation: "portrait",
     quality: 0.92,
     margin: 0,
