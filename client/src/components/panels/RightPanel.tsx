@@ -44,15 +44,15 @@ export function RightPanel() {
           </TabsList>
         </div>
 
-        <TabsContent value="properties" className="flex-1 m-0 overflow-hidden">
+        <TabsContent value="properties" className="flex-1 m-0 overflow-y-auto">
           <PropertiesTab />
         </TabsContent>
 
-        <TabsContent value="data" className="flex-1 m-0 overflow-hidden">
+        <TabsContent value="data" className="flex-1 m-0 overflow-y-auto">
           <DataTab />
         </TabsContent>
 
-        <TabsContent value="export" className="flex-1 m-0 overflow-hidden">
+        <TabsContent value="export" className="flex-1 m-0 overflow-y-auto">
           <ExportTab />
         </TabsContent>
       </Tabs>
