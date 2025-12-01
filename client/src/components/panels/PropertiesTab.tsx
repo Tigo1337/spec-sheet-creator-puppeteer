@@ -70,31 +70,6 @@ export function PropertiesTab() {
           <div>
             <h3 className="font-medium text-sm mb-3">Canvas Settings</h3>
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Width (px)</Label>
-                  <Input
-                    type="number"
-                    value={canvasWidth}
-                    onChange={(e) =>
-                      setCanvasSize(Number(e.target.value), canvasHeight)
-                    }
-                    data-testid="input-canvas-width"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Height (px)</Label>
-                  <Input
-                    type="number"
-                    value={canvasHeight}
-                    onChange={(e) =>
-                      setCanvasSize(canvasWidth, Number(e.target.value))
-                    }
-                    data-testid="input-canvas-height"
-                  />
-                </div>
-              </div>
-
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Background Color</Label>
                 <div className="flex gap-2">
