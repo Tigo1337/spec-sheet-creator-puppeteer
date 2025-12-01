@@ -141,7 +141,11 @@ export function DataTab() {
       const isAutoDetected = header.toLowerCase().includes("image") || 
                              header.toLowerCase().includes("photo") ||
                              header.toLowerCase().includes("picture") ||
-                             header.toLowerCase().includes("url");
+                             header.toLowerCase().includes("url") ||
+                             header.toLowerCase().includes("thumbnail") ||
+                             header.toLowerCase().includes("img") ||
+                             header.toLowerCase().includes("avatar") ||
+                             header.toLowerCase().includes("logo");
       const isImageColumn = isManuallyMarked || isAutoDetected;
 
       if (isImageColumn) {
@@ -280,7 +284,11 @@ export function DataTab() {
                   const isAutoDetected = header.toLowerCase().includes("image") || 
                                         header.toLowerCase().includes("photo") ||
                                         header.toLowerCase().includes("picture") ||
-                                        header.toLowerCase().includes("url");
+                                        header.toLowerCase().includes("url") ||
+                                        header.toLowerCase().includes("thumbnail") ||
+                                        header.toLowerCase().includes("img") ||
+                                        header.toLowerCase().includes("avatar") ||
+                                        header.toLowerCase().includes("logo");
                   const isMarked = imageFieldNames.has(header);
                   
                   return (
