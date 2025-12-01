@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { pgTable, varchar, text, timestamp, json, serial } from "drizzle-orm/pg-core";
+import { pgTable, varchar, text, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 // Canvas Element Types
 export type ElementType = "text" | "shape" | "image" | "table" | "dataField";
@@ -167,3 +169,34 @@ export const pageSizes = {
   a4: { width: 794, height: 1123 }, // 210 x 297mm at 96dpi
   legal: { width: 816, height: 1344 }, // 8.5 x 14 inches at 96dpi
 } as const;
+
+// ============================================
+// Drizzle ORM Table Definitions (for Neon PostgreSQL)
+// ============================================
+
+// Saved Designs table - stores user-specific designs persistently
+export const savedDesignsTable = pgTable("saved_designs", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  canvasWidth: integer("canvas_width").notNull().default(816),
+  canvasHeight: integer("canvas_height").notNull().default(1056),
+  backgroundColor: varchar("background_color", { length: 50 }).notNull().default("#ffffff"),
+  elements: jsonb("elements").notNull().default([]),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Templates table - stores shared templates
+export const templatesTable = pgTable("templates", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  canvasWidth: integer("canvas_width").notNull().default(816),
+  canvasHeight: integer("canvas_height").notNull().default(1056),
+  backgroundColor: varchar("background_color", { length: 50 }).notNull().default("#ffffff"),
+  elements: jsonb("elements").notNull().default([]),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
