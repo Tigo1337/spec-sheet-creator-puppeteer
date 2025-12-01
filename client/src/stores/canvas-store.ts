@@ -17,17 +17,24 @@ function calculateGridSize(width: number, height: number): number {
   }
   divisors.sort((a, b) => b - a);
   
-  // Find best divisor that gives reasonable square count (50-150 squares per dimension)
+  // Target approximately 80-100 squares per dimension for consistency
+  const targetSquares = 90;
+  const avgDim = (width + height) / 2;
+  const targetGridSize = Math.round(avgDim / targetSquares);
+  
+  // Find best divisor closest to target that divides both dimensions evenly
+  let bestDiv = divisors[0];
+  let bestDiff = Math.abs(targetGridSize - bestDiv);
+  
   for (const div of divisors) {
-    const squaresW = width / div;
-    const squaresH = height / div;
-    if (squaresW >= 50 && squaresW <= 150 && squaresH >= 50 && squaresH <= 150) {
-      return div;
+    const diff = Math.abs(targetGridSize - div);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestDiv = div;
     }
   }
   
-  // Fallback to largest divisor
-  return divisors[0] || 10;
+  return bestDiv || 10;
 }
 
 interface CanvasState {
@@ -133,8 +140,8 @@ function saveToHistory(elements: CanvasElement[]) {
   historyIndex = history.length - 1;
 }
 
-const initialWidth = 810;
-const initialHeight = 1050;
+const initialWidth = 790;
+const initialHeight = 1120;
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   // Initial state
