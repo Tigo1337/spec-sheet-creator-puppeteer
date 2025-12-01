@@ -106,8 +106,8 @@ function saveToHistory(elements: CanvasElement[]) {
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   // Initial state
-  canvasWidth: 816,
-  canvasHeight: 1056,
+  canvasWidth: 810,
+  canvasHeight: 1050,
   backgroundColor: "#ffffff",
   zoom: 1,
   showGrid: true,
@@ -480,8 +480,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       hasUnsavedChanges: false,
       excelData: null,
       selectedRowIndex: 0,
-      canvasWidth: 816,
-      canvasHeight: 1056,
+      canvasWidth: 810,
+      canvasHeight: 1050,
       backgroundColor: "#ffffff",
       zoom: 1,
     });
