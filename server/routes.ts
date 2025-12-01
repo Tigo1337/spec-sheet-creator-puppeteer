@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { getAuth } from "@clerk/express";
 import { storage } from "./storage";
 import {
   ObjectStorageService,
@@ -77,14 +78,14 @@ export async function registerRoutes(
     }
   });
 
-  // Saved Designs CRUD routes (user-specific)
+  // Saved Designs CRUD routes (user-specific with Clerk authentication)
   app.get("/api/designs", async (req, res) => {
     try {
-      const userId = req.headers["x-user-id"] as string;
-      if (!userId) {
-        return res.status(401).json({ error: "User ID required" });
+      const auth = getAuth(req);
+      if (!auth.userId) {
+        return res.status(401).json({ error: "Authentication required" });
       }
-      const designs = await storage.getDesignsByUser(userId);
+      const designs = await storage.getDesignsByUser(auth.userId);
       res.json(designs);
     } catch (error) {
       console.error("Error fetching designs:", error);
@@ -94,11 +95,11 @@ export async function registerRoutes(
 
   app.get("/api/designs/:id", async (req, res) => {
     try {
-      const userId = req.headers["x-user-id"] as string;
-      if (!userId) {
-        return res.status(401).json({ error: "User ID required" });
+      const auth = getAuth(req);
+      if (!auth.userId) {
+        return res.status(401).json({ error: "Authentication required" });
       }
-      const design = await storage.getDesign(req.params.id, userId);
+      const design = await storage.getDesign(req.params.id, auth.userId);
       if (!design) {
         return res.status(404).json({ error: "Design not found" });
       }
@@ -111,14 +112,14 @@ export async function registerRoutes(
 
   app.post("/api/designs", async (req, res) => {
     try {
-      const userId = req.headers["x-user-id"] as string;
-      if (!userId) {
-        return res.status(401).json({ error: "User ID required" });
+      const auth = getAuth(req);
+      if (!auth.userId) {
+        return res.status(401).json({ error: "Authentication required" });
       }
       
       const parseResult = insertSavedDesignSchema.safeParse({
         ...req.body,
-        userId,
+        userId: auth.userId,
       });
       if (!parseResult.success) {
         return res.status(400).json({ error: parseResult.error.message });
@@ -133,11 +134,11 @@ export async function registerRoutes(
 
   app.put("/api/designs/:id", async (req, res) => {
     try {
-      const userId = req.headers["x-user-id"] as string;
-      if (!userId) {
-        return res.status(401).json({ error: "User ID required" });
+      const auth = getAuth(req);
+      if (!auth.userId) {
+        return res.status(401).json({ error: "Authentication required" });
       }
-      const design = await storage.updateDesign(req.params.id, userId, req.body);
+      const design = await storage.updateDesign(req.params.id, auth.userId, req.body);
       if (!design) {
         return res.status(404).json({ error: "Design not found" });
       }
@@ -150,11 +151,11 @@ export async function registerRoutes(
 
   app.delete("/api/designs/:id", async (req, res) => {
     try {
-      const userId = req.headers["x-user-id"] as string;
-      if (!userId) {
-        return res.status(401).json({ error: "User ID required" });
+      const auth = getAuth(req);
+      if (!auth.userId) {
+        return res.status(401).json({ error: "Authentication required" });
       }
-      const deleted = await storage.deleteDesign(req.params.id, userId);
+      const deleted = await storage.deleteDesign(req.params.id, auth.userId);
       if (!deleted) {
         return res.status(404).json({ error: "Design not found" });
       }

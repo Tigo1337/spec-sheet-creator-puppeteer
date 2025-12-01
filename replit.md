@@ -6,6 +6,7 @@ SpecSheet Builder is a web-based SaaS application that allows users to create pr
 ## Tech Stack
 - **Frontend**: React with TypeScript, Vite, Tailwind CSS
 - **Backend**: Express.js with TypeScript
+- **Authentication**: Clerk (@clerk/clerk-react + @clerk/express)
 - **State Management**: Zustand
 - **Drag & Drop**: @dnd-kit/core, @dnd-kit/sortable
 - **Excel Parsing**: xlsx library
@@ -26,10 +27,11 @@ SpecSheet Builder is a web-based SaaS application that allows users to create pr
 │   │   │   │   └── Header.tsx          # Top header with controls
 │   │   │   ├── panels/
 │   │   │   │   ├── LeftPanel.tsx       # Tools panel
-│   │   │   │   ├── RightPanel.tsx      # Properties/Data/Export tabs
+│   │   │   │   ├── RightPanel.tsx      # Properties/Data/Export/Designs tabs
 │   │   │   │   ├── PropertiesTab.tsx   # Element properties editor
 │   │   │   │   ├── DataTab.tsx         # Excel upload & data fields
-│   │   │   │   └── ExportTab.tsx       # PDF export settings
+│   │   │   │   ├── ExportTab.tsx       # PDF export settings
+│   │   │   │   └── SavedDesignsTab.tsx # User-specific saved designs
 │   │   │   └── ui/                     # shadcn components
 │   │   ├── lib/
 │   │   │   ├── canvas-utils.ts         # Canvas helper functions
@@ -85,11 +87,17 @@ SpecSheet Builder is a web-based SaaS application that allows users to create pr
 - Quality slider (50% - 100%)
 - Bulk export (one page per data row)
 
-### 5. UI Features
+### 5. Saved Designs (Account-Specific)
+- Save current canvas design with name and description
+- Load previously saved designs
+- Delete saved designs
+- Designs are user-specific (only visible to owner)
+- Uses Clerk authentication for secure access control
+
+### 6. UI Features
 - Dark/Light mode toggle
 - Grid visibility toggle
 - Snap-to-grid toggle
-- Template save/load (in-memory)
 - Undo/Redo support
 
 ## API Endpoints
@@ -100,6 +108,13 @@ SpecSheet Builder is a web-based SaaS application that allows users to create pr
 - `POST /api/templates` - Create template
 - `PUT /api/templates/:id` - Update template
 - `DELETE /api/templates/:id` - Delete template
+
+### Saved Designs (Authenticated)
+- `GET /api/designs` - List designs for authenticated user
+- `GET /api/designs/:id` - Get single design (must own)
+- `POST /api/designs` - Create design for authenticated user
+- `PUT /api/designs/:id` - Update design (must own)
+- `DELETE /api/designs/:id` - Delete design (must own)
 
 ### Object Storage
 - `GET /public-objects/:filePath` - Serve public files
@@ -132,3 +147,5 @@ The application runs on port 5000.
 - Excel file parsing and data binding
 - PDF export functionality
 - Dark/Light theme support
+- Clerk authentication integration (Dec 1, 2025)
+- Account-specific saved designs with secure server-side authentication

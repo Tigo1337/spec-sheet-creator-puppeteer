@@ -1,10 +1,19 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { clerkMiddleware } from "@clerk/express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 
 const app = express();
 const httpServer = createServer(app);
+
+// Add Clerk authentication middleware
+// The publishable key from the frontend env needs to also be available on the server
+const clerkPublishableKey = process.env.VITE_CLERK_PUBLISHABLE_KEY;
+app.use(clerkMiddleware({
+  publishableKey: clerkPublishableKey,
+  secretKey: process.env.CLERK_SECRET_KEY,
+}));
 
 declare module "http" {
   interface IncomingMessage {

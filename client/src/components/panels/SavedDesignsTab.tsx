@@ -54,9 +54,7 @@ export function SavedDesignsTab() {
     enabled: !!user,
     queryFn: async () => {
       const response = await fetch("/api/designs", {
-        headers: {
-          "x-user-id": user?.id || "",
-        },
+        credentials: "include",
       });
       if (!response.ok) throw new Error("Failed to fetch designs");
       return response.json();
@@ -69,8 +67,8 @@ export function SavedDesignsTab() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-id": user?.id || "",
         },
+        credentials: "include",
         body: JSON.stringify({
           name: data.name,
           description: data.description,
@@ -106,9 +104,7 @@ export function SavedDesignsTab() {
     mutationFn: async (designId: string) => {
       const response = await fetch(`/api/designs/${designId}`, {
         method: "DELETE",
-        headers: {
-          "x-user-id": user?.id || "",
-        },
+        credentials: "include",
       });
       if (!response.ok) throw new Error("Failed to delete design");
     },
