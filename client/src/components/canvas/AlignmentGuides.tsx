@@ -18,10 +18,17 @@ export function AlignmentGuides({ activeId, activeGuides, zoom }: AlignmentGuide
     if (activeId) {
       const activeElement = elements.find((el) => el.id === activeId);
       if (activeElement) {
-        const centerX = (activeElement.position.x + activeElement.dimension.width / 2) * zoom;
-        const centerY = (activeElement.position.y + activeElement.dimension.height / 2) * zoom;
+        const elementCenterX = activeElement.position.x + activeElement.dimension.width / 2;
+        const elementCenterY = activeElement.position.y + activeElement.dimension.height / 2;
+        const canvasCenterX = canvasWidth / 2;
+        const canvasCenterY = canvasHeight / 2;
 
-        // Vertical center line
+        const centerX = elementCenterX * zoom;
+        const centerY = elementCenterY * zoom;
+        const canvasCenterXZoomed = canvasCenterX * zoom;
+        const canvasCenterYZoomed = canvasCenterY * zoom;
+
+        // Vertical center line (pink - element's vertical center)
         guideElements.push(
           <line
             key="center-v"
@@ -37,7 +44,7 @@ export function AlignmentGuides({ activeId, activeGuides, zoom }: AlignmentGuide
           />
         );
 
-        // Horizontal center line
+        // Horizontal center line (pink - element's horizontal center)
         guideElements.push(
           <line
             key="center-h"
@@ -50,6 +57,38 @@ export function AlignmentGuides({ activeId, activeGuides, zoom }: AlignmentGuide
             strokeDasharray="6,4"
             pointerEvents="none"
             opacity="0.9"
+          />
+        );
+
+        // Blue vertical center line - shows when element is horizontally centered in canvas
+        guideElements.push(
+          <line
+            key="grid-center-v"
+            x1={canvasCenterXZoomed}
+            y1={0}
+            x2={canvasCenterXZoomed}
+            y2={canvasHeight * zoom}
+            stroke="#0099ff"
+            strokeWidth="2"
+            strokeDasharray="4,6"
+            pointerEvents="none"
+            opacity="0.7"
+          />
+        );
+
+        // Blue horizontal center line - shows when element is vertically centered in canvas
+        guideElements.push(
+          <line
+            key="grid-center-h"
+            x1={0}
+            y1={canvasCenterYZoomed}
+            x2={canvasWidth * zoom}
+            y2={canvasCenterYZoomed}
+            stroke="#0099ff"
+            strokeWidth="2"
+            strokeDasharray="4,6"
+            pointerEvents="none"
+            opacity="0.7"
           />
         );
       }
