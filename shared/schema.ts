@@ -116,6 +116,29 @@ export type User = z.infer<typeof userSchema>;
 export const insertUserSchema = userSchema.omit({ id: true });
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
+// Saved Design schema - for user-specific saved designs
+export const savedDesignSchema = z.object({
+  id: z.string(),
+  userId: z.string(), // Clerk user ID for access control
+  name: z.string(),
+  description: z.string().optional(),
+  canvasWidth: z.number().default(816),
+  canvasHeight: z.number().default(1056),
+  backgroundColor: z.string().default("#ffffff"),
+  elements: z.array(canvasElementSchema),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type SavedDesign = z.infer<typeof savedDesignSchema>;
+
+export const insertSavedDesignSchema = savedDesignSchema.omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+export type InsertSavedDesign = z.infer<typeof insertSavedDesignSchema>;
+
 // Available fonts for the editor (Free Google Fonts + System fonts)
 export const availableFonts = [
   "Inter",
