@@ -5,7 +5,7 @@ import {
   ObjectStorageService,
   ObjectNotFoundError,
 } from "./objectStorage";
-import { insertTemplateSchema } from "@shared/schema";
+import { insertTemplateSchema, insertSavedDesignSchema } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -74,6 +74,94 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting template:", error);
       res.status(500).json({ error: "Failed to delete template" });
+    }
+  });
+
+  // Saved Designs CRUD routes (user-specific)
+  app.get("/api/designs", async (req, res) => {
+    try {
+      const userId = req.headers["x-user-id"] as string;
+      if (!userId) {
+        return res.status(401).json({ error: "User ID required" });
+      }
+      const designs = await storage.getDesignsByUser(userId);
+      res.json(designs);
+    } catch (error) {
+      console.error("Error fetching designs:", error);
+      res.status(500).json({ error: "Failed to fetch designs" });
+    }
+  });
+
+  app.get("/api/designs/:id", async (req, res) => {
+    try {
+      const userId = req.headers["x-user-id"] as string;
+      if (!userId) {
+        return res.status(401).json({ error: "User ID required" });
+      }
+      const design = await storage.getDesign(req.params.id, userId);
+      if (!design) {
+        return res.status(404).json({ error: "Design not found" });
+      }
+      res.json(design);
+    } catch (error) {
+      console.error("Error fetching design:", error);
+      res.status(500).json({ error: "Failed to fetch design" });
+    }
+  });
+
+  app.post("/api/designs", async (req, res) => {
+    try {
+      const userId = req.headers["x-user-id"] as string;
+      if (!userId) {
+        return res.status(401).json({ error: "User ID required" });
+      }
+      
+      const parseResult = insertSavedDesignSchema.safeParse({
+        ...req.body,
+        userId,
+      });
+      if (!parseResult.success) {
+        return res.status(400).json({ error: parseResult.error.message });
+      }
+      const design = await storage.createDesign(parseResult.data);
+      res.status(201).json(design);
+    } catch (error) {
+      console.error("Error creating design:", error);
+      res.status(500).json({ error: "Failed to create design" });
+    }
+  });
+
+  app.put("/api/designs/:id", async (req, res) => {
+    try {
+      const userId = req.headers["x-user-id"] as string;
+      if (!userId) {
+        return res.status(401).json({ error: "User ID required" });
+      }
+      const design = await storage.updateDesign(req.params.id, userId, req.body);
+      if (!design) {
+        return res.status(404).json({ error: "Design not found" });
+      }
+      res.json(design);
+    } catch (error) {
+      console.error("Error updating design:", error);
+      res.status(500).json({ error: "Failed to update design" });
+    }
+  });
+
+  app.delete("/api/designs/:id", async (req, res) => {
+    try {
+      const userId = req.headers["x-user-id"] as string;
+      if (!userId) {
+        return res.status(401).json({ error: "User ID required" });
+      }
+      const deleted = await storage.deleteDesign(req.params.id, userId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Design not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting design:", error);
+      res.status(500).json({ error: "Failed to delete design" });
     }
   });
 
