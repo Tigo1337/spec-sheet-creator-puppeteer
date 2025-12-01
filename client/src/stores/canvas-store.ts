@@ -29,7 +29,7 @@ interface CanvasState {
   
   // UI State
   activeTool: "select" | "text" | "shape" | "image";
-  rightPanelTab: "properties" | "data" | "export";
+  rightPanelTab: "properties" | "data" | "export" | "designs";
   
   // Actions
   setCanvasSize: (width: number, height: number) => void;
@@ -75,7 +75,7 @@ interface CanvasState {
   setExportSettings: (settings: Partial<ExportSettings>) => void;
   
   setActiveTool: (tool: "select" | "text" | "shape" | "image") => void;
-  setRightPanelTab: (tab: "properties" | "data" | "export") => void;
+  setRightPanelTab: (tab: "properties" | "data" | "export" | "designs") => void;
   
   undo: () => void;
   redo: () => void;

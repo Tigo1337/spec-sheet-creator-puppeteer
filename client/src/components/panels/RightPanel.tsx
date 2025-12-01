@@ -3,7 +3,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PropertiesTab } from "./PropertiesTab";
 import { DataTab } from "./DataTab";
 import { ExportTab } from "./ExportTab";
-import { Settings2, Database, Download } from "lucide-react";
+import { SavedDesignsTab } from "./SavedDesignsTab";
+import { Settings2, Database, Download, FolderOpen } from "lucide-react";
 
 export function RightPanel() {
   const { rightPanelTab, setRightPanelTab } = useCanvasStore();
@@ -43,6 +44,14 @@ export function RightPanel() {
               <Download className="h-4 w-4" />
               <span className="text-sm">Export</span>
             </TabsTrigger>
+            <TabsTrigger
+              value="designs"
+              className="flex items-center gap-1.5 data-[state=active]:bg-sidebar-accent px-3"
+              data-testid="tab-designs"
+            >
+              <FolderOpen className="h-4 w-4" />
+              <span className="text-sm">Designs</span>
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -63,6 +72,10 @@ export function RightPanel() {
 
         <TabsContent value="export" className="flex-1 m-0 h-full overflow-y-auto">
           <ExportTab />
+        </TabsContent>
+
+        <TabsContent value="designs" className="flex-1 m-0 h-full overflow-hidden">
+          <SavedDesignsTab />
         </TabsContent>
       </Tabs>
     </div>
