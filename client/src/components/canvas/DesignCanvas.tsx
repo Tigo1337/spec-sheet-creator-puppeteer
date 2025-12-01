@@ -2,7 +2,10 @@ import { useRef, useCallback, useEffect, useState } from "react";
 import { useCanvasStore } from "@/stores/canvas-store";
 import { CanvasElement } from "./CanvasElement";
 import { SelectionBox } from "./SelectionBox";
+import { AlignmentGuides } from "./AlignmentGuides";
 import { createTextElement, createShapeElement, snapToGrid } from "@/lib/canvas-utils";
+import { detectAlignmentGuides } from "@/lib/alignment-guides";
+import type { ActiveGuides } from "@/lib/alignment-guides";
 import {
   DndContext,
   DragEndEvent,
@@ -19,6 +22,11 @@ export function DesignCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const startPosRef = useRef({ x: 0, y: 0 });
+  const [activeGuides, setActiveGuides] = useState<ActiveGuides>({
+    vertical: null,
+    horizontal: null,
+    alignments: [],
+  });
 
   const {
     canvasWidth,
@@ -83,7 +91,8 @@ export function DesignCanvas() {
       if (!activeId) return;
 
       const { delta } = event;
-      const element = useCanvasStore.getState().elements.find((el) => el.id === activeId);
+      const allElements = useCanvasStore.getState().elements;
+      const element = allElements.find((el) => el.id === activeId);
       if (!element) return;
 
       // Calculate position from start position + delta
@@ -100,6 +109,12 @@ export function DesignCanvas() {
       newX = Math.max(0, Math.min(newX, canvasWidth - element.dimension.width));
       newY = Math.max(0, Math.min(newY, canvasHeight - element.dimension.height));
 
+      // Create a temporary element with new position to check alignments
+      const tempElement = { ...element, position: { x: newX, y: newY } };
+      const otherElements = allElements.filter((el) => el.id !== activeId);
+      const guides = detectAlignmentGuides(tempElement, otherElements, zoom);
+      setActiveGuides(guides);
+
       moveElement(activeId, newX, newY);
     },
     [activeId, zoom, shouldSnap, canvasWidth, canvasHeight, moveElement]
@@ -112,6 +127,7 @@ export function DesignCanvas() {
     const element = useCanvasStore.getState().elements.find((el) => el.id === id);
     if (!element) {
       setActiveId(null);
+      setActiveGuides({ vertical: null, horizontal: null, alignments: [] });
       return;
     }
 
@@ -133,6 +149,7 @@ export function DesignCanvas() {
 
     moveElement(id, newX, newY);
     setActiveId(null);
+    setActiveGuides({ vertical: null, horizontal: null, alignments: [] });
   }, [zoom, shouldSnap, canvasWidth, canvasHeight, moveElement]);
 
   // Handle keyboard shortcuts
@@ -205,6 +222,8 @@ export function DesignCanvas() {
           }}
           onClick={handleCanvasClick}
         >
+          <AlignmentGuides activeId={activeId} activeGuides={activeGuides} zoom={zoom} />
+
           {sortedElements.map((element) => (
             <CanvasElement
               key={element.id}
