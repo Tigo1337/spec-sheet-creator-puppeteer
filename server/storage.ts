@@ -1,19 +1,29 @@
-import type { Template, InsertTemplate } from "@shared/schema";
+import type { Template, InsertTemplate, SavedDesign, InsertSavedDesign } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
+  // Templates (legacy)
   getTemplates(): Promise<Template[]>;
   getTemplate(id: string): Promise<Template | undefined>;
   createTemplate(template: InsertTemplate): Promise<Template>;
   updateTemplate(id: string, template: Partial<InsertTemplate>): Promise<Template | undefined>;
   deleteTemplate(id: string): Promise<boolean>;
+  
+  // Saved Designs (user-specific)
+  getDesignsByUser(userId: string): Promise<SavedDesign[]>;
+  getDesign(id: string, userId: string): Promise<SavedDesign | undefined>;
+  createDesign(design: InsertSavedDesign): Promise<SavedDesign>;
+  updateDesign(id: string, userId: string, design: Partial<InsertSavedDesign>): Promise<SavedDesign | undefined>;
+  deleteDesign(id: string, userId: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
   private templates: Map<string, Template>;
+  private designs: Map<string, SavedDesign>;
 
   constructor() {
     this.templates = new Map();
+    this.designs = new Map();
   }
 
   async getTemplates(): Promise<Template[]> {
@@ -54,6 +64,52 @@ export class MemStorage implements IStorage {
 
   async deleteTemplate(id: string): Promise<boolean> {
     return this.templates.delete(id);
+  }
+
+  // Saved Designs methods
+  async getDesignsByUser(userId: string): Promise<SavedDesign[]> {
+    return Array.from(this.designs.values())
+      .filter((design) => design.userId === userId)
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }
+
+  async getDesign(id: string, userId: string): Promise<SavedDesign | undefined> {
+    const design = this.designs.get(id);
+    if (!design || design.userId !== userId) return undefined;
+    return design;
+  }
+
+  async createDesign(insertDesign: InsertSavedDesign): Promise<SavedDesign> {
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    const design: SavedDesign = {
+      ...insertDesign,
+      id,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.designs.set(id, design);
+    return design;
+  }
+
+  async updateDesign(id: string, userId: string, updates: Partial<InsertSavedDesign>): Promise<SavedDesign | undefined> {
+    const existing = this.designs.get(id);
+    if (!existing || existing.userId !== userId) return undefined;
+
+    const updated: SavedDesign = {
+      ...existing,
+      ...updates,
+      userId: existing.userId, // Prevent userId from being changed
+      updatedAt: new Date().toISOString(),
+    };
+    this.designs.set(id, updated);
+    return updated;
+  }
+
+  async deleteDesign(id: string, userId: string): Promise<boolean> {
+    const existing = this.designs.get(id);
+    if (!existing || existing.userId !== userId) return false;
+    return this.designs.delete(id);
   }
 }
 
