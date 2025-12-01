@@ -168,17 +168,18 @@ export function CanvasElement({
                   overflow: "auto",
                   fontSize: (element.textStyle?.fontSize || 14) * zoom,
                   lineHeight: element.textStyle?.lineHeight || 1.4,
+                  display: "block",
                 }}
               >
                 <style>{`
-                  ul { list-style-position: inside; margin: 0; padding-left: 1.5em; }
-                  li { display: list-item; margin: 0; }
-                  ol { list-style-position: inside; margin: 0; padding-left: 1.5em; }
+                  ul { list-style-type: disc !important; margin: 0 !important; padding-left: 1.2em !important; display: block !important; }
+                  li { margin: 0.2em 0 !important; display: list-item !important; }
+                  ol { list-style-type: decimal !important; margin: 0 !important; padding-left: 1.2em !important; display: block !important; }
                   strong, b { font-weight: bold; }
                   em, i { font-style: italic; }
-                  p { margin: 0; }
+                  p { margin: 0.2em 0; display: block !important; }
                 `}</style>
-                <div dangerouslySetInnerHTML={{ __html: displayContent }} />
+                <div style={{ display: "block" }} dangerouslySetInnerHTML={{ __html: displayContent }} />
               </div>
             ) : (
               <span className="truncate">{displayContent}</span>

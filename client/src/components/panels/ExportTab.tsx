@@ -129,14 +129,15 @@ export function ExportTab() {
            if (isHtmlContent(content)) {
              const style = document.createElement("style");
              style.textContent = `
-               ul { list-style-position: inside; margin: 0; padding-left: 1.5em; }
-               li { display: list-item; margin: 0; }
-               ol { list-style-position: inside; margin: 0; padding-left: 1.5em; }
+               ul { list-style-type: disc !important; margin: 0 !important; padding-left: 1.2em !important; display: block !important; }
+               li { margin: 0.2em 0 !important; display: list-item !important; }
+               ol { list-style-type: decimal !important; margin: 0 !important; padding-left: 1.2em !important; display: block !important; }
                strong, b { font-weight: bold; }
                em, i { font-style: italic; }
-               p { margin: 0; }
+               p { margin: 0.2em 0; display: block !important; }
              `;
              elementDiv.appendChild(style);
+             elementDiv.style.display = "block";
              elementDiv.innerHTML += content;
            } else {
              elementDiv.textContent = content;
@@ -368,14 +369,15 @@ export function ExportTab() {
             if (isHtmlContent(content)) {
               const style = document.createElement("style");
               style.textContent = `
-                ul { list-style-position: inside; margin: 0; padding-left: 1.5em; }
-                li { display: list-item; margin: 0; }
-                ol { list-style-position: inside; margin: 0; padding-left: 1.5em; }
+                ul { list-style-type: disc !important; margin: 0 !important; padding-left: 1.2em !important; display: block !important; }
+                li { margin: 0.2em 0 !important; display: list-item !important; }
+                ol { list-style-type: decimal !important; margin: 0 !important; padding-left: 1.2em !important; display: block !important; }
                 strong, b { font-weight: bold; }
                 em, i { font-style: italic; }
-                p { margin: 0; }
+                p { margin: 0.2em 0; display: block !important; }
               `;
               elementDiv.appendChild(style);
+              elementDiv.style.display = "block";
               elementDiv.innerHTML += content;
             } else {
               elementDiv.textContent = content;
