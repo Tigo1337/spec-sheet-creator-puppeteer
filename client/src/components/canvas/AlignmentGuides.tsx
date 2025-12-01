@@ -30,10 +30,10 @@ export function AlignmentGuides({ activeId, activeGuides, zoom }: AlignmentGuide
             x2={centerX}
             y2={canvasHeight * zoom}
             stroke="#ff006e"
-            strokeWidth="1"
-            strokeDasharray="4,4"
+            strokeWidth="2"
+            strokeDasharray="6,4"
             pointerEvents="none"
-            opacity="0.6"
+            opacity="0.9"
           />
         );
 
@@ -46,10 +46,10 @@ export function AlignmentGuides({ activeId, activeGuides, zoom }: AlignmentGuide
             x2={canvasWidth * zoom}
             y2={centerY}
             stroke="#ff006e"
-            strokeWidth="1"
-            strokeDasharray="4,4"
+            strokeWidth="2"
+            strokeDasharray="6,4"
             pointerEvents="none"
-            opacity="0.6"
+            opacity="0.9"
           />
         );
       }
