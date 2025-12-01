@@ -6,6 +6,7 @@ SpecSheet Builder is a web-based SaaS application that allows users to create pr
 ## Tech Stack
 - **Frontend**: React with TypeScript, Vite, Tailwind CSS
 - **Backend**: Express.js with TypeScript
+- **Database**: Neon PostgreSQL with Drizzle ORM
 - **Authentication**: Clerk (@clerk/clerk-react + @clerk/express)
 - **State Management**: Zustand
 - **Drag & Drop**: @dnd-kit/core, @dnd-kit/sortable
@@ -50,13 +51,13 @@ SpecSheet Builder is a web-based SaaS application that allows users to create pr
 ├── server/
 │   ├── index.ts                        # Server entry point
 │   ├── routes.ts                       # API routes
-│   ├── storage.ts                      # In-memory storage
+│   ├── storage.ts                      # Database storage (Drizzle ORM)
 │   ├── objectStorage.ts                # Object storage service
 │   ├── objectAcl.ts                    # Access control for objects
 │   ├── vite.ts                         # Vite dev server
 │   └── static.ts                       # Static file serving
 ├── shared/
-│   └── schema.ts                       # Zod schemas & types
+│   └── schema.ts                       # Zod schemas, types & Drizzle tables
 └── design_guidelines.md                # Design system documentation
 ```
 
@@ -131,9 +132,19 @@ npm run dev
 The application runs on port 5000.
 
 ### Environment Variables
+- `DATABASE_URL` - Neon PostgreSQL connection string (required for persistence)
+- `CLERK_SECRET_KEY` - Clerk authentication secret key
+- `VITE_CLERK_PUBLISHABLE_KEY` - Clerk frontend publishable key
 - `PUBLIC_OBJECT_SEARCH_PATHS` - Comma-separated paths for public assets
 - `PRIVATE_OBJECT_DIR` - Directory for private uploads
 - `DEFAULT_OBJECT_STORAGE_BUCKET_ID` - Object storage bucket ID
+
+### Database Schema
+The application uses Drizzle ORM with Neon PostgreSQL. Tables are defined in `shared/schema.ts`:
+- `saved_designs` - Stores user-specific designs with elements as JSONB
+- `templates` - Stores shared design templates
+
+Run `npm run db:push` to sync schema changes to the database.
 
 ## User Preferences
 - Default font: Inter
@@ -149,3 +160,6 @@ The application runs on port 5000.
 - Dark/Light theme support
 - Clerk authentication integration (Dec 1, 2025)
 - Account-specific saved designs with secure server-side authentication
+- Neon PostgreSQL database integration for persistent storage (Dec 1, 2025)
+- Image field designations now persist in saved designs
+- Consolidated page size control to Export tab only

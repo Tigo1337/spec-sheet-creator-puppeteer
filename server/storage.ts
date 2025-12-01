@@ -1,7 +1,7 @@
 import type { Template, InsertTemplate, SavedDesign, InsertSavedDesign, CanvasElement } from "@shared/schema";
 import { savedDesignsTable, templatesTable } from "@shared/schema";
 import { randomUUID } from "crypto";
-import { drizzle } from "drizzle-orm/neon-serverless";
+import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
 import { eq, and, desc } from "drizzle-orm";
 
@@ -34,6 +34,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Helper to convert database row to SavedDesign type
+  // Note: Neon HTTP driver may return timestamps as strings, so we normalize to ISO format
   private toSavedDesign(row: typeof savedDesignsTable.$inferSelect): SavedDesign {
     return {
       id: row.id,
@@ -44,12 +45,13 @@ export class DatabaseStorage implements IStorage {
       canvasHeight: row.canvasHeight,
       backgroundColor: row.backgroundColor,
       elements: row.elements as CanvasElement[],
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: new Date(row.createdAt).toISOString(),
+      updatedAt: new Date(row.updatedAt).toISOString(),
     };
   }
 
   // Helper to convert database row to Template type
+  // Note: Neon HTTP driver may return timestamps as strings, so we normalize to ISO format
   private toTemplate(row: typeof templatesTable.$inferSelect): Template {
     return {
       id: row.id,
@@ -59,8 +61,8 @@ export class DatabaseStorage implements IStorage {
       canvasHeight: row.canvasHeight,
       backgroundColor: row.backgroundColor,
       elements: row.elements as CanvasElement[],
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: new Date(row.createdAt).toISOString(),
+      updatedAt: new Date(row.updatedAt).toISOString(),
     };
   }
 
