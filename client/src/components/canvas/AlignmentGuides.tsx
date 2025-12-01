@@ -9,7 +9,7 @@ interface AlignmentGuidesProps {
 }
 
 export function AlignmentGuides({ activeId, activeGuides, zoom }: AlignmentGuidesProps) {
-  const { elements, canvasHeight, canvasWidth } = useCanvasStore();
+  const { elements, canvasHeight, canvasWidth, gridSize } = useCanvasStore();
 
   const guides = useMemo(() => {
     const guideElements = [];

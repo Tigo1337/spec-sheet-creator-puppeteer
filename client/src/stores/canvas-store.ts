@@ -2,10 +2,39 @@ import { create } from "zustand";
 import type { CanvasElement, ExcelData, Template, ExportSettings } from "@shared/schema";
 import { nanoid } from "nanoid";
 
+// Calculate optimal grid size based on canvas dimensions
+function calculateGridSize(width: number, height: number): number {
+  const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b);
+  const g = gcd(width, height);
+  
+  // Get all divisors of GCD in descending order
+  const divisors: number[] = [];
+  for (let i = 1; i <= Math.sqrt(g); i++) {
+    if (g % i === 0) {
+      divisors.push(i);
+      if (i !== g / i) divisors.push(g / i);
+    }
+  }
+  divisors.sort((a, b) => b - a);
+  
+  // Find best divisor that gives reasonable square count (50-150 squares per dimension)
+  for (const div of divisors) {
+    const squaresW = width / div;
+    const squaresH = height / div;
+    if (squaresW >= 50 && squaresW <= 150 && squaresH >= 50 && squaresH <= 150) {
+      return div;
+    }
+  }
+  
+  // Fallback to largest divisor
+  return divisors[0] || 10;
+}
+
 interface CanvasState {
   // Canvas settings
   canvasWidth: number;
   canvasHeight: number;
+  gridSize: number;
   backgroundColor: string;
   zoom: number;
   showGrid: boolean;
@@ -104,10 +133,14 @@ function saveToHistory(elements: CanvasElement[]) {
   historyIndex = history.length - 1;
 }
 
+const initialWidth = 810;
+const initialHeight = 1050;
+
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   // Initial state
-  canvasWidth: 810,
-  canvasHeight: 1050,
+  canvasWidth: initialWidth,
+  canvasHeight: initialHeight,
+  gridSize: calculateGridSize(initialWidth, initialHeight),
   backgroundColor: "#ffffff",
   zoom: 1,
   showGrid: true,
@@ -134,8 +167,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   rightPanelTab: "properties",
   
   // Actions
-  setCanvasSize: (width, height) =>
-    set({ canvasWidth: width, canvasHeight: height, hasUnsavedChanges: true }),
+  setCanvasSize: (width, height) => {
+    set({ 
+      canvasWidth: width, 
+      canvasHeight: height, 
+      gridSize: calculateGridSize(width, height),
+      hasUnsavedChanges: true 
+    });
+  },
   
   setBackgroundColor: (color) =>
     set({ backgroundColor: color, hasUnsavedChanges: true }),
@@ -219,9 +258,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ selectedElementIds: get().elements.map((el) => el.id) }),
   
   moveElement: (id, x, y) => {
-    const { snapToGrid: shouldSnap } = get();
-    const finalX = shouldSnap ? Math.round(x / 10) * 10 : x;
-    const finalY = shouldSnap ? Math.round(y / 10) * 10 : y;
+    const { snapToGrid: shouldSnap, gridSize } = get();
+    const finalX = shouldSnap ? Math.round(x / gridSize) * gridSize : x;
+    const finalY = shouldSnap ? Math.round(y / gridSize) * gridSize : y;
     
     const elements = get().elements.map((el) =>
       el.id === id
@@ -412,6 +451,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       elements: JSON.parse(JSON.stringify(template.elements)),
       canvasWidth: template.canvasWidth,
       canvasHeight: template.canvasHeight,
+      gridSize: calculateGridSize(template.canvasWidth, template.canvasHeight),
       backgroundColor: template.backgroundColor,
       currentTemplate: template,
       selectedElementIds: [],
@@ -426,9 +466,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       exportSettings: { ...state.exportSettings, ...settings },
     };
     
-    // Helper to snap dimensions to grid (10px grid)
-    const snapToGridDim = (dim: number) => Math.floor(dim / 10) * 10;
-    
     // If page size changed, update canvas dimensions
     if (settings.pageSize) {
       const pageSizes = { letter: { width: 810, height: 1050 }, a4: { width: 790, height: 1120 }, legal: { width: 810, height: 1340 } };
@@ -437,6 +474,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       
       newState.canvasWidth = isLandscape ? pageSize.height : pageSize.width;
       newState.canvasHeight = isLandscape ? pageSize.width : pageSize.height;
+      newState.gridSize = calculateGridSize(newState.canvasWidth, newState.canvasHeight);
     } else if (settings.orientation && settings.pageSize === undefined) {
       // If only orientation changed, swap dimensions
       const pageSizes = { letter: { width: 810, height: 1050 }, a4: { width: 790, height: 1120 }, legal: { width: 810, height: 1340 } };
@@ -445,6 +483,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       
       newState.canvasWidth = isLandscape ? pageSize.height : pageSize.width;
       newState.canvasHeight = isLandscape ? pageSize.width : pageSize.height;
+      newState.gridSize = calculateGridSize(newState.canvasWidth, newState.canvasHeight);
     }
     
     set(newState);
@@ -480,8 +519,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       hasUnsavedChanges: false,
       excelData: null,
       selectedRowIndex: 0,
-      canvasWidth: 810,
-      canvasHeight: 1050,
+      canvasWidth: initialWidth,
+      canvasHeight: initialHeight,
+      gridSize: calculateGridSize(initialWidth, initialHeight),
       backgroundColor: "#ffffff",
       zoom: 1,
     });
