@@ -70,36 +70,6 @@ export function PropertiesTab() {
           <div>
             <h3 className="font-medium text-sm mb-3">Canvas Settings</h3>
             <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Page Size</Label>
-                <Select
-                  value={
-                    canvasWidth === 816 && canvasHeight === 1056
-                      ? "letter"
-                      : canvasWidth === 794 && canvasHeight === 1123
-                      ? "a4"
-                      : canvasWidth === 816 && canvasHeight === 1344
-                      ? "legal"
-                      : "custom"
-                  }
-                  onValueChange={(value) => {
-                    const size = pageSizes[value as keyof typeof pageSizes];
-                    if (size) {
-                      setCanvasSize(size.width, size.height);
-                    }
-                  }}
-                >
-                  <SelectTrigger data-testid="select-page-size">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="letter">Letter (8.5" x 11")</SelectItem>
-                    <SelectItem value="a4">A4 (210mm x 297mm)</SelectItem>
-                    <SelectItem value="legal">Legal (8.5" x 14")</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Width (px)</Label>
