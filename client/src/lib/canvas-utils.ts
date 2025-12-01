@@ -81,7 +81,7 @@ export function createDataFieldElement(
       fontFamily: "JetBrains Mono",
       fontSize: 14,
       fontWeight: 500,
-      color: "#3b82f6",
+      color: "#000000",
       textAlign: "left",
       verticalAlign: "middle",
       lineHeight: 1.4,
