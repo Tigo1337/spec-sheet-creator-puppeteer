@@ -140,8 +140,8 @@ function saveToHistory(elements: CanvasElement[]) {
   historyIndex = history.length - 1;
 }
 
-const initialWidth = 790;
-const initialHeight = 1120;
+const initialWidth = 810;
+const initialHeight = 1050;
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   // Initial state
@@ -164,7 +164,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   imageFieldNames: new Set(),
 
   exportSettings: {
-    pageSize: "letter",
+    pageSize: "a4",
     orientation: "portrait",
     quality: 0.92,
     margin: 0,
