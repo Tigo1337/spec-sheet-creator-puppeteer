@@ -4,7 +4,6 @@ import { parseDataFile } from "@/lib/excel-parser";
 import { createDataFieldElement, createImageFieldElement } from "@/lib/canvas-utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
   Select,
@@ -50,13 +49,14 @@ function DraggableHeader({ header }: { header: string }) {
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={`flex items-center gap-1.5 px-2.5 py-1.5 bg-primary/10 text-primary rounded-md text-sm cursor-grab active:cursor-grabbing transition-all ${
+      // Added max-w-full to prevent a single massive header from breaking layout
+      className={`flex items-center gap-1.5 px-2.5 py-1.5 bg-primary/10 text-primary rounded-md text-sm cursor-grab active:cursor-grabbing transition-all max-w-full ${
         isDragging ? "opacity-50 scale-95" : "hover:bg-primary/15"
       }`}
       data-testid={`draggable-header-${header}`}
     >
-      <GripVertical className="h-3 w-3 opacity-60" />
-      <Database className="h-3 w-3" />
+      <GripVertical className="h-3 w-3 opacity-60 flex-shrink-0" />
+      <Database className="h-3 w-3 flex-shrink-0" />
       <span className="truncate font-medium">{header}</span>
     </div>
   );
@@ -131,13 +131,12 @@ export function DataTab() {
     if (header && excelData) {
       const x = canvasWidth / 2 - 75;
       const y = canvasHeight / 2 - 16;
-      
-      // Check if column is for images by checking column name
+
       const isImageColumn = header.toLowerCase().includes("image") || 
-                           header.toLowerCase().includes("photo") ||
-                           header.toLowerCase().includes("picture") ||
-                           header.toLowerCase().includes("url");
-      
+                            header.toLowerCase().includes("photo") ||
+                            header.toLowerCase().includes("picture") ||
+                            header.toLowerCase().includes("url");
+
       if (isImageColumn) {
         addElement(createImageFieldElement(x, y, header));
         toast({
@@ -172,7 +171,7 @@ export function DataTab() {
       <div className="p-4 space-y-4">
         <div>
           <h3 className="font-medium text-sm mb-3">Import Data</h3>
-          
+
           {!excelData ? (
             <div
               className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
@@ -285,11 +284,13 @@ export function DataTab() {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
+
                   <Select
                     value={String(selectedRowIndex)}
                     onValueChange={(value) => setSelectedRowIndex(Number(value))}
                   >
-                    <SelectTrigger className="w-20 h-7" data-testid="select-row">
+                    {/* UPDATED: Changed w-20 to w-28 to fit text "Row X" */}
+                    <SelectTrigger className="w-28 h-7" data-testid="select-row">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -300,6 +301,7 @@ export function DataTab() {
                       ))}
                     </SelectContent>
                   </Select>
+
                   <Button
                     size="icon"
                     variant="ghost"
@@ -318,20 +320,28 @@ export function DataTab() {
               </p>
 
               <div className="border rounded-lg overflow-hidden">
-                <Table>
+                {/* UPDATED TABLE LOGIC:
+                   1. table-fixed: Forces the table to respect widths and not expand infinitely.
+                   2. w-full: Ensures it takes up 100% of the sidebar width.
+                */}
+                <Table className="table-fixed w-full">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-xs font-medium">Field</TableHead>
-                      <TableHead className="text-xs font-medium">Value</TableHead>
+                      {/* Set explicit widths for columns */}
+                      <TableHead className="text-xs font-medium w-[35%]">Field</TableHead>
+                      <TableHead className="text-xs font-medium w-[65%]">Value</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {excelData.headers.map((header) => (
                       <TableRow key={header}>
-                        <TableCell className="py-2 font-mono text-xs text-muted-foreground">
+                        <TableCell className="py-2 font-mono text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">
                           {header}
                         </TableCell>
-                        <TableCell className="py-2 text-sm">
+                        {/* UPDATED: Added 'break-all' to force long URLs to wrap
+                           This prevents the cell from expanding the entire parent container
+                        */}
+                        <TableCell className="py-2 text-sm break-all">
                           {excelData.rows[selectedRowIndex]?.[header] || "-"}
                         </TableCell>
                       </TableRow>
