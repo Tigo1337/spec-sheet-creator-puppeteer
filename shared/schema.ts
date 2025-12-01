@@ -55,6 +55,7 @@ export const canvasElementSchema = z.object({
   shapeStyle: shapeStyleSchema.optional(),
   shapeType: z.enum(["rectangle", "circle", "line"]).optional(),
   imageSrc: z.string().optional(),
+  isImageField: z.boolean().default(false), // Marks data fields that should load images
 });
 
 export type CanvasElement = z.infer<typeof canvasElementSchema>;

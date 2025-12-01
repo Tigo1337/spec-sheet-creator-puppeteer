@@ -136,6 +136,20 @@ export function SavedDesignsTab() {
       createdAt: design.createdAt,
       updatedAt: design.updatedAt,
     });
+    
+    // Restore image field designations from elements
+    const imageFields = new Set(
+      design.elements
+        .filter((el) => el.isImageField && el.dataBinding)
+        .map((el) => el.dataBinding as string)
+    );
+    
+    if (imageFields.size > 0) {
+      imageFields.forEach((field) => {
+        useCanvasStore.getState().toggleImageField(field);
+      });
+    }
+    
     toast({
       title: "Design loaded",
       description: `"${design.name}" has been loaded.`,

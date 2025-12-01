@@ -428,7 +428,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       } else {
         newSet.add(fieldName);
       }
-      return { imageFieldNames: newSet };
+      
+      // Update elements with matching dataBinding to mark/unmark as image field
+      const elements = state.elements.map((el) =>
+        el.dataBinding === fieldName
+          ? { ...el, isImageField: !newSet.has(fieldName) ? false : true }
+          : el
+      );
+      
+      return { imageFieldNames: newSet, elements };
     });
   },
   
