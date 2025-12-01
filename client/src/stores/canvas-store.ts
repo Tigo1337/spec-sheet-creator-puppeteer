@@ -22,7 +22,8 @@ interface CanvasState {
   // Data
   excelData: ExcelData | null;
   selectedRowIndex: number;
-  
+  imageFieldNames: Set<string>;
+
   // Export
   exportSettings: ExportSettings;
   
@@ -65,7 +66,8 @@ interface CanvasState {
   
   setExcelData: (data: ExcelData | null) => void;
   setSelectedRowIndex: (index: number) => void;
-  
+  toggleImageField: (fieldName: string) => void;
+
   setCurrentTemplate: (template: Template | null) => void;
   saveAsTemplate: (name: string, description?: string) => Template;
   loadTemplate: (template: Template) => void;
@@ -119,7 +121,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   
   excelData: null,
   selectedRowIndex: 0,
-  
+  imageFieldNames: new Set(),
+
   exportSettings: {
     pageSize: "letter",
     orientation: "portrait",
@@ -367,9 +370,21 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ elements: updated, hasUnsavedChanges: true });
   },
   
-  setExcelData: (data) => set({ excelData: data, selectedRowIndex: 0 }),
+  setExcelData: (data) => set({ excelData: data, selectedRowIndex: 0, imageFieldNames: new Set() }),
   
   setSelectedRowIndex: (index) => set({ selectedRowIndex: index }),
+
+  toggleImageField: (fieldName) => {
+    set((state) => {
+      const newSet = new Set(state.imageFieldNames);
+      if (newSet.has(fieldName)) {
+        newSet.delete(fieldName);
+      } else {
+        newSet.add(fieldName);
+      }
+      return { imageFieldNames: newSet };
+    });
+  },
   
   setCurrentTemplate: (template) => set({ currentTemplate: template }),
   

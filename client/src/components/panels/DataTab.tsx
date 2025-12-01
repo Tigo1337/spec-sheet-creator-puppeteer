@@ -5,6 +5,8 @@ import { createDataFieldElement, createImageFieldElement } from "@/lib/canvas-ut
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -76,6 +78,8 @@ export function DataTab() {
     addElement,
     canvasWidth,
     canvasHeight,
+    imageFieldNames,
+    toggleImageField,
   } = useCanvasStore();
 
   const handleFileChange = useCallback(
@@ -132,10 +136,13 @@ export function DataTab() {
       const x = canvasWidth / 2 - 75;
       const y = canvasHeight / 2 - 16;
 
-      const isImageColumn = header.toLowerCase().includes("image") || 
-                            header.toLowerCase().includes("photo") ||
-                            header.toLowerCase().includes("picture") ||
-                            header.toLowerCase().includes("url");
+      // Check if field is manually marked as image or auto-detected
+      const isManuallyMarked = imageFieldNames.has(header);
+      const isAutoDetected = header.toLowerCase().includes("image") || 
+                             header.toLowerCase().includes("photo") ||
+                             header.toLowerCase().includes("picture") ||
+                             header.toLowerCase().includes("url");
+      const isImageColumn = isManuallyMarked || isAutoDetected;
 
       if (isImageColumn) {
         addElement(createImageFieldElement(x, y, header));
@@ -251,7 +258,7 @@ export function DataTab() {
               </p>
 
               <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1.5 mb-4">
                   {excelData.headers.map((header) => (
                     <DraggableHeader key={header} header={header} />
                   ))}
@@ -266,6 +273,36 @@ export function DataTab() {
                   )}
                 </DragOverlay>
               </DndContext>
+
+              <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+                <p className="text-xs font-medium text-foreground">Mark as Image Fields</p>
+                {excelData.headers.map((header) => {
+                  const isAutoDetected = header.toLowerCase().includes("image") || 
+                                        header.toLowerCase().includes("photo") ||
+                                        header.toLowerCase().includes("picture") ||
+                                        header.toLowerCase().includes("url");
+                  const isMarked = imageFieldNames.has(header);
+                  
+                  return (
+                    <div key={header} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`image-field-${header}`}
+                        checked={isMarked || isAutoDetected}
+                        onCheckedChange={() => toggleImageField(header)}
+                        disabled={isAutoDetected}
+                        data-testid={`checkbox-image-field-${header}`}
+                      />
+                      <Label 
+                        htmlFor={`image-field-${header}`}
+                        className={`text-xs cursor-pointer flex-1 ${isAutoDetected ? 'text-muted-foreground' : ''}`}
+                      >
+                        {header}
+                        {isAutoDetected && <span className="text-muted-foreground ml-1">(auto-detected)</span>}
+                      </Label>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             <Separator />
