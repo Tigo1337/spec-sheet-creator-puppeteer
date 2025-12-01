@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { pgTable, varchar, text, timestamp, json, serial } from "drizzle-orm/pg-core";
 
 // Canvas Element Types
 export type ElementType = "text" | "shape" | "image" | "table" | "dataField";
