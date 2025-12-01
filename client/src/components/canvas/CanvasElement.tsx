@@ -169,8 +169,17 @@ export function CanvasElement({
                   fontSize: (element.textStyle?.fontSize || 14) * zoom,
                   lineHeight: element.textStyle?.lineHeight || 1.4,
                 }}
-                dangerouslySetInnerHTML={{ __html: displayContent }}
-              />
+              >
+                <style>{`
+                  ul { list-style-position: inside; margin: 0; padding-left: 1.5em; }
+                  li { display: list-item; margin: 0; }
+                  ol { list-style-position: inside; margin: 0; padding-left: 1.5em; }
+                  strong, b { font-weight: bold; }
+                  em, i { font-style: italic; }
+                  p { margin: 0; }
+                `}</style>
+                <div dangerouslySetInnerHTML={{ __html: displayContent }} />
+              </div>
             ) : (
               <span className="truncate">{displayContent}</span>
             )}

@@ -127,7 +127,17 @@ export function ExportTab() {
              content = excelData.rows[selectedRowIndex][element.dataBinding] || content;
            }
            if (isHtmlContent(content)) {
-             elementDiv.innerHTML = content;
+             const style = document.createElement("style");
+             style.textContent = `
+               ul { list-style-position: inside; margin: 0; padding-left: 1.5em; }
+               li { display: list-item; margin: 0; }
+               ol { list-style-position: inside; margin: 0; padding-left: 1.5em; }
+               strong, b { font-weight: bold; }
+               em, i { font-style: italic; }
+               p { margin: 0; }
+             `;
+             elementDiv.appendChild(style);
+             elementDiv.innerHTML += content;
            } else {
              elementDiv.textContent = content;
            }
@@ -356,7 +366,17 @@ export function ExportTab() {
                 content = rowData[element.dataBinding];
             }
             if (isHtmlContent(content)) {
-              elementDiv.innerHTML = content;
+              const style = document.createElement("style");
+              style.textContent = `
+                ul { list-style-position: inside; margin: 0; padding-left: 1.5em; }
+                li { display: list-item; margin: 0; }
+                ol { list-style-position: inside; margin: 0; padding-left: 1.5em; }
+                strong, b { font-weight: bold; }
+                em, i { font-style: italic; }
+                p { margin: 0; }
+              `;
+              elementDiv.appendChild(style);
+              elementDiv.innerHTML += content;
             } else {
               elementDiv.textContent = content;
             }
