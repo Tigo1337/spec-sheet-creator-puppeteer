@@ -26,6 +26,7 @@ import {
 import { pageSizes } from "@shared/schema";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { isHtmlContent } from "@/lib/canvas-utils";
 
 export function ExportTab() {
   const [isExporting, setIsExporting] = useState(false);
@@ -125,7 +126,11 @@ export function ExportTab() {
            if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
              content = excelData.rows[selectedRowIndex][element.dataBinding] || content;
            }
-           elementDiv.textContent = content;
+           if (isHtmlContent(content)) {
+             elementDiv.innerHTML = content;
+           } else {
+             elementDiv.textContent = content;
+           }
         } else if (element.type === "shape") {
            const shapeStyle = element.shapeStyle || {};
            elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
@@ -350,7 +355,11 @@ export function ExportTab() {
             if (element.dataBinding && rowData[element.dataBinding]) {
                 content = rowData[element.dataBinding];
             }
-            elementDiv.textContent = content;
+            if (isHtmlContent(content)) {
+              elementDiv.innerHTML = content;
+            } else {
+              elementDiv.textContent = content;
+            }
             } else if (element.type === "shape") {
             const shapeStyle = element.shapeStyle || {};
             elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";

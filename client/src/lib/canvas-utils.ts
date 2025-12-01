@@ -214,3 +214,8 @@ export function applyDataToTemplate(
     return element;
   });
 }
+
+export function isHtmlContent(content: string): boolean {
+  if (!content || typeof content !== "string") return false;
+  return /<[a-z][\s\S]*>/i.test(content);
+}

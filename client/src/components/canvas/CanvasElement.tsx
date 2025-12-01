@@ -3,6 +3,7 @@ import type { CanvasElement as CanvasElementType } from "@shared/schema";
 import { useCanvasStore } from "@/stores/canvas-store";
 import { useEffect, useState } from "react";
 import { Database } from "lucide-react";
+import { isHtmlContent } from "@/lib/canvas-utils";
 
 interface CanvasElementProps {
   element: CanvasElementType;
@@ -137,6 +138,8 @@ export function CanvasElement({
           middle: "center",
           bottom: "flex-end",
         };
+        const displayContent = getDisplayContent();
+        const hasHtml = isHtmlContent(displayContent);
         return (
           <div
             className="w-full h-full rounded border-2 border-dashed overflow-hidden"
@@ -158,7 +161,19 @@ export function CanvasElement({
             }}
           >
             <Database className="flex-shrink-0" style={{ width: 12 * zoom, height: 12 * zoom, opacity: 0.6 }} />
-            <span className="truncate">{getDisplayContent()}</span>
+            {hasHtml ? (
+              <div
+                style={{
+                  flex: 1,
+                  overflow: "auto",
+                  fontSize: (element.textStyle?.fontSize || 14) * zoom,
+                  lineHeight: element.textStyle?.lineHeight || 1.4,
+                }}
+                dangerouslySetInnerHTML={{ __html: displayContent }}
+              />
+            ) : (
+              <span className="truncate">{displayContent}</span>
+            )}
           </div>
         );
 
