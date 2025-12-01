@@ -3,7 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/clerk-react";
+import { SignedIn, SignedOut, SignIn, UserButton } from "@clerk/clerk-react";
 import Editor from "@/pages/Editor";
 import NotFound from "@/pages/not-found";
 
@@ -22,11 +22,22 @@ function App() {
       <TooltipProvider>
         <Toaster />
         <SignedOut>
-          <div className="flex items-center justify-center h-screen bg-background">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold mb-4">SpecSheet Builder</h1>
-              <p className="text-muted-foreground mb-6">Sign in to continue</p>
-              <SignInButton mode="modal" />
+          <div className="flex items-center justify-center min-h-screen bg-background">
+            <div className="w-full max-w-md p-6">
+              <div className="text-center mb-8">
+                <h1 className="text-2xl font-bold">SpecSheet Builder</h1>
+                <p className="text-muted-foreground mt-2">Sign in to continue</p>
+              </div>
+              <SignIn 
+                routing="hash"
+                signUpUrl="#/sign-up"
+                appearance={{
+                  elements: {
+                    rootBox: "mx-auto",
+                    card: "shadow-none"
+                  }
+                }}
+              />
             </div>
           </div>
         </SignedOut>
