@@ -411,14 +411,23 @@ export function PropertiesTab() {
               <Input
                 type="number"
                 value={Math.round(selectedElement.dimension.width)}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const newWidth = Number(e.target.value);
+                  let newDimension = {
+                    width: newWidth,
+                    height: selectedElement.dimension.height,
+                  };
+                  
+                  // For image elements, maintain aspect ratio
+                  if (selectedElement.type === "image") {
+                    const ratio = selectedElement.dimension.width / selectedElement.dimension.height;
+                    newDimension.height = Math.round(newWidth / ratio);
+                  }
+                  
                   updateElement(selectedElement.id, {
-                    dimension: {
-                      ...selectedElement.dimension,
-                      width: Number(e.target.value),
-                    },
-                  })
-                }
+                    dimension: newDimension,
+                  });
+                }}
                 data-testid="input-width"
               />
             </div>
@@ -427,14 +436,23 @@ export function PropertiesTab() {
               <Input
                 type="number"
                 value={Math.round(selectedElement.dimension.height)}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const newHeight = Number(e.target.value);
+                  let newDimension = {
+                    width: selectedElement.dimension.width,
+                    height: newHeight,
+                  };
+                  
+                  // For image elements, maintain aspect ratio
+                  if (selectedElement.type === "image") {
+                    const ratio = selectedElement.dimension.width / selectedElement.dimension.height;
+                    newDimension.width = Math.round(newHeight * ratio);
+                  }
+                  
                   updateElement(selectedElement.id, {
-                    dimension: {
-                      ...selectedElement.dimension,
-                      height: Number(e.target.value),
-                    },
-                  })
-                }
+                    dimension: newDimension,
+                  });
+                }}
                 data-testid="input-height"
               />
             </div>
