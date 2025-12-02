@@ -145,22 +145,28 @@ export type InsertSavedDesign = z.infer<typeof insertSavedDesignSchema>;
 
 // Available fonts for the editor (Free Google Fonts + System fonts)
 export const availableFonts = [
+  "Arial",
+  "Comic Sans MS",
+  "Courier New",
+  "Georgia",
+  "Impact",
   "Inter",
   "JetBrains Mono",
-  "Roboto",
-  "Open Sans",
   "Lato",
-  "Poppins",
+  "Lora",
+  "Merriweather",
   "Montserrat",
+  "Nunito",
+  "Open Sans",
+  "Oswald",
   "Playfair Display",
-  "Georgia",
-  "Arial",
-  "Verdana",
+  "Poppins",
+  "Raleway",
+  "Roboto",
+  "Roboto Slab",
   "Times New Roman",
-  "Courier New",
   "Trebuchet MS",
-  "Impact",
-  "Comic Sans MS",
+  "Verdana",
 ] as const;
 
 // Page sizes for export

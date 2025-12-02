@@ -30,9 +30,9 @@ import {
   Unlock,
   Eye,
   EyeOff,
-  AlignStartVertical,
-  AlignCenterVertical,
-  AlignEndVertical,
+  AlignStartHorizontal,
+  AlignCenterHorizontal,
+  AlignEndHorizontal,
 } from "lucide-react";
 import { availableFonts, type CanvasElement, pageSizes } from "@shared/schema";
 
@@ -544,6 +544,7 @@ export function PropertiesTab() {
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Vertical Alignment</Label>
                 <div className="flex gap-1">
+                  {/* TOP ALIGNMENT */}
                   <Button
                     size="icon"
                     variant={
@@ -552,8 +553,11 @@ export function PropertiesTab() {
                     onClick={() => handleTextStyleChange("verticalAlign", "top")}
                     data-testid="btn-text-vertical-top"
                   >
-                    <AlignStartVertical className="h-4 w-4" />
+                    {/* Visual: Bar at the top, content below */}
+                    <AlignStartHorizontal className="h-4 w-4" />
                   </Button>
+
+                  {/* MIDDLE ALIGNMENT */}
                   <Button
                     size="icon"
                     variant={
@@ -562,8 +566,11 @@ export function PropertiesTab() {
                     onClick={() => handleTextStyleChange("verticalAlign", "middle")}
                     data-testid="btn-text-vertical-middle"
                   >
-                    <AlignCenterVertical className="h-4 w-4" />
+                    {/* Visual: Bar through the middle */}
+                    <AlignCenterHorizontal className="h-4 w-4" />
                   </Button>
+
+                  {/* BOTTOM ALIGNMENT */}
                   <Button
                     size="icon"
                     variant={
@@ -572,7 +579,8 @@ export function PropertiesTab() {
                     onClick={() => handleTextStyleChange("verticalAlign", "bottom")}
                     data-testid="btn-text-vertical-bottom"
                   >
-                    <AlignEndVertical className="h-4 w-4" />
+                    {/* Visual: Bar at the bottom, content above */}
+                    <AlignEndHorizontal className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
