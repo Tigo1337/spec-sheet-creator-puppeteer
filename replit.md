@@ -163,3 +163,38 @@ Run `npm run db:push` to sync schema changes to the database.
 - Neon PostgreSQL database integration for persistent storage (Dec 1, 2025)
 - Image field designations now persist in saved designs
 - Consolidated page size control to Export tab only
+- Stripe integration with register-first flow (Dec 2, 2025)
+  - Pricing page with Free, Pro Monthly ($19.99/mo), and Pro Annual ($159.90/yr) plans
+  - Register-first checkout flow: select plan → sign up → checkout → webhook updates subscription
+  - Users table with Stripe subscription tracking fields
+  - Webhook handlers for subscription lifecycle events (checkout, updates, cancellations)
+  - Customer portal for subscription management
+
+## Stripe Integration
+
+### Products & Prices
+Products are seeded using `scripts/seed-stripe-products.ts`:
+- Pro Monthly: $19.99/month (price_1SZtioEFufdmlbEL2SX2yEof)
+- Pro Annual: $159.90/year (price_1SZtioEFufdmlbELICbVr7lk)
+
+### Checkout Flow (Register-First)
+1. User selects plan on /pricing page
+2. User registers via Clerk at /registration (with plan/priceId in URL params)
+3. After registration, user is redirected to /checkout
+4. Checkout page creates Stripe session and redirects to Stripe
+5. After successful payment, user is redirected to /checkout/success
+6. Webhook updates user's plan status in database
+
+### API Endpoints (Stripe)
+- `GET /api/stripe/config` - Get Stripe publishable key
+- `POST /api/users/sync` - Sync user from Clerk to database
+- `GET /api/subscription` - Get current user's subscription status
+- `POST /api/checkout` - Create Stripe checkout session
+- `POST /api/customer-portal` - Create Stripe customer portal session
+
+### Key Files
+- `server/stripeClient.ts` - Stripe client using Replit connection
+- `server/stripeService.ts` - Stripe service methods
+- `server/webhookHandlers.ts` - Webhook event handlers
+- `client/src/pages/Checkout.tsx` - Checkout page
+- `client/src/pages/CheckoutSuccess.tsx` - Success page

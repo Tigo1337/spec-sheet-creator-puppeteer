@@ -56,9 +56,9 @@ export class WebhookHandlers {
       return;
     }
 
-    const userId = session.metadata?.userId;
+    const userId = session.metadata?.clerk_user_id;
     if (!userId) {
-      console.error('No userId in checkout session metadata');
+      console.error('No clerk_user_id in checkout session metadata');
       return;
     }
 
