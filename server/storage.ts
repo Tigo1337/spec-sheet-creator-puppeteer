@@ -23,11 +23,12 @@ export interface IStorage {
   // Users (with Stripe info)
   getUser(id: string): Promise<DbUser | undefined>;
   getUserByEmail(email: string): Promise<DbUser | undefined>;
+  getUserByStripeCustomerId(stripeCustomerId: string): Promise<DbUser | undefined>;
   createUser(user: InsertDbUser): Promise<DbUser>;
   updateUser(id: string, updates: Partial<InsertDbUser>): Promise<DbUser | undefined>;
   updateUserStripeInfo(userId: string, stripeInfo: {
-    stripeCustomerId?: string;
-    stripeSubscriptionId?: string;
+    stripeCustomerId?: string | null;
+    stripeSubscriptionId?: string | null;
     plan?: string;
     planStatus?: string;
   }): Promise<DbUser | undefined>;
@@ -237,6 +238,15 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(usersTable)
       .where(eq(usersTable.email, email))
+      .limit(1);
+    return rows[0] ? this.toDbUser(rows[0]) : undefined;
+  }
+
+  async getUserByStripeCustomerId(stripeCustomerId: string): Promise<DbUser | undefined> {
+    const rows = await this.db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.stripeCustomerId, stripeCustomerId))
       .limit(1);
     return rows[0] ? this.toDbUser(rows[0]) : undefined;
   }
@@ -466,6 +476,10 @@ export class MemStorage implements IStorage {
 
   async getUserByEmail(email: string): Promise<DbUser | undefined> {
     return Array.from(this.users.values()).find(u => u.email === email);
+  }
+
+  async getUserByStripeCustomerId(stripeCustomerId: string): Promise<DbUser | undefined> {
+    return Array.from(this.users.values()).find(u => u.stripeCustomerId === stripeCustomerId);
   }
 
   async createUser(user: InsertDbUser): Promise<DbUser> {

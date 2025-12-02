@@ -12,6 +12,8 @@ import Features from "@/pages/Features";
 import Pricing from "@/pages/Pricing";
 import Login from "@/pages/Login";
 import Registration from "@/pages/Registration";
+import Checkout from "@/pages/Checkout";
+import CheckoutSuccess from "@/pages/CheckoutSuccess";
 import NotFound from "@/pages/not-found";
 
 function PublicRouter() {
@@ -23,6 +25,8 @@ function PublicRouter() {
       <Route path="/pricing" component={Pricing} />
       <Route path="/login" component={Login} />
       <Route path="/registration" component={Registration} />
+      <Route path="/checkout" component={Checkout} />
+      <Route path="/checkout/success" component={CheckoutSuccess} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -32,6 +36,10 @@ function ProtectedRouter() {
   return (
     <Switch>
       <Route path="/" component={Editor} />
+      <Route path="/editor" component={Editor} />
+      <Route path="/checkout" component={Checkout} />
+      <Route path="/checkout/success" component={CheckoutSuccess} />
+      <Route path="/pricing" component={Pricing} />
       <Route component={NotFound} />
     </Switch>
   );

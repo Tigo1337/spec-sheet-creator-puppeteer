@@ -1,5 +1,11 @@
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { Button } from "@/components/ui/button";
+import { Check } from "lucide-react";
+
+const PRICE_IDS = {
+  proMonthly: "price_1SZtioEFufdmlbEL2SX2yEof",
+  proAnnual: "price_1SZtioEFufdmlbELICbVr7lk",
+};
 
 export default function Pricing() {
   return (
@@ -14,61 +20,107 @@ export default function Pricing() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 mt-12">
-            {/* Starter Plan */}
-            <div className="p-8 border rounded-lg">
-              <h3 className="font-semibold text-xl mb-2">Starter</h3>
+            {/* Free Plan */}
+            <div className="p-8 border rounded-lg bg-card">
+              <h3 className="font-semibold text-xl mb-2">Free</h3>
               <p className="text-muted-foreground mb-6">For getting started</p>
               <div className="mb-6">
-                <span className="text-3xl font-bold">Free</span>
-              </div>
-              <ul className="space-y-3 mb-8 text-sm">
-                <li className="text-muted-foreground">• 5 designs</li>
-                <li className="text-muted-foreground">• Basic export</li>
-                <li className="text-muted-foreground">• Community support</li>
-              </ul>
-              <a href="/registration">
-                <Button variant="outline" className="w-full" data-testid="btn-pricing-starter">
-                  Get Started
-                </Button>
-              </a>
-            </div>
-
-            {/* Professional Plan */}
-            <div className="p-8 border rounded-lg border-primary">
-              <h3 className="font-semibold text-xl mb-2">Professional</h3>
-              <p className="text-muted-foreground mb-6">Most popular</p>
-              <div className="mb-6">
-                <span className="text-3xl font-bold">$29</span>
+                <span className="text-3xl font-bold">$0</span>
                 <span className="text-muted-foreground">/month</span>
               </div>
               <ul className="space-y-3 mb-8 text-sm">
-                <li className="text-muted-foreground">• Unlimited designs</li>
-                <li className="text-muted-foreground">• Batch export</li>
-                <li className="text-muted-foreground">• Priority support</li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-primary" />
+                  <span>5 saved designs</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-primary" />
+                  <span>Basic export (10 pages)</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-primary" />
+                  <span>Community support</span>
+                </li>
               </ul>
               <a href="/registration">
-                <Button className="w-full" data-testid="btn-pricing-professional">
-                  Get Started
+                <Button variant="outline" className="w-full" data-testid="btn-pricing-free">
+                  Get Started Free
                 </Button>
               </a>
             </div>
 
-            {/* Enterprise Plan */}
-            <div className="p-8 border rounded-lg">
-              <h3 className="font-semibold text-xl mb-2">Enterprise</h3>
-              <p className="text-muted-foreground mb-6">For large teams</p>
+            {/* Pro Monthly Plan */}
+            <div className="p-8 border-2 border-primary rounded-lg bg-card relative">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-medium">
+                Most Popular
+              </div>
+              <h3 className="font-semibold text-xl mb-2">Pro</h3>
+              <p className="text-muted-foreground mb-6">For professionals</p>
               <div className="mb-6">
-                <span className="text-3xl font-bold">Custom</span>
+                <span className="text-3xl font-bold">$19.99</span>
+                <span className="text-muted-foreground">/month</span>
               </div>
               <ul className="space-y-3 mb-8 text-sm">
-                <li className="text-muted-foreground">• Custom features</li>
-                <li className="text-muted-foreground">• Dedicated support</li>
-                <li className="text-muted-foreground">• SSO & advanced security</li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-primary" />
+                  <span>Unlimited saved designs</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-primary" />
+                  <span>Unlimited data imports</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-primary" />
+                  <span>Batch export (unlimited pages)</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-primary" />
+                  <span>Custom branding</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-primary" />
+                  <span>Priority support</span>
+                </li>
               </ul>
-              <Button variant="outline" className="w-full" data-testid="btn-pricing-enterprise">
-                Contact Sales
-              </Button>
+              <a href={`/registration?plan=pro_monthly&priceId=${PRICE_IDS.proMonthly}`}>
+                <Button className="w-full" data-testid="btn-pricing-pro-monthly">
+                  Start Pro Monthly
+                </Button>
+              </a>
             </div>
+
+            {/* Pro Annual Plan */}
+            <div className="p-8 border rounded-lg bg-card">
+              <h3 className="font-semibold text-xl mb-2">Pro Annual</h3>
+              <p className="text-muted-foreground mb-6">Save 2 months</p>
+              <div className="mb-6">
+                <span className="text-3xl font-bold">$159.90</span>
+                <span className="text-muted-foreground">/year</span>
+              </div>
+              <ul className="space-y-3 mb-8 text-sm">
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-primary" />
+                  <span>Everything in Pro</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-primary" />
+                  <span>2 months free</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-primary" />
+                  <span>Priority onboarding</span>
+                </li>
+              </ul>
+              <a href={`/registration?plan=pro_annual&priceId=${PRICE_IDS.proAnnual}`}>
+                <Button variant="outline" className="w-full" data-testid="btn-pricing-pro-annual">
+                  Start Pro Annual
+                </Button>
+              </a>
+            </div>
+          </div>
+
+          <div className="text-center text-sm text-muted-foreground mt-8">
+            All plans include a 14-day free trial. Cancel anytime.
           </div>
         </div>
       </section>
