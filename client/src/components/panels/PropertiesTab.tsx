@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useCanvasStore } from "@/stores/canvas-store";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -5,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
+import { getImageDimensions } from "@/lib/canvas-utils";
 import {
   Select,
   SelectContent,
@@ -37,6 +39,8 @@ import {
 import { availableFonts, type CanvasElement, pageSizes } from "@shared/schema";
 
 export function PropertiesTab() {
+  const [imageLoadingId, setImageLoadingId] = useState<string | null>(null);
+
   const {
     elements,
     selectedElementIds,
@@ -57,6 +61,33 @@ export function PropertiesTab() {
     setCanvasSize,
     setBackgroundColor,
   } = useCanvasStore();
+
+  const handleImageUrlChange = async (elementId: string, url: string) => {
+    updateElement(elementId, { imageSrc: url });
+    
+    if (url) {
+      setImageLoadingId(elementId);
+      const dimensions = await getImageDimensions(url);
+      if (dimensions) {
+        // Scale to reasonable size while maintaining aspect ratio
+        const maxWidth = 300;
+        let width = maxWidth;
+        let height = Math.round((maxWidth / dimensions.width) * dimensions.height);
+        
+        // Make sure height doesn't exceed max reasonable size
+        const maxHeight = 300;
+        if (height > maxHeight) {
+          height = maxHeight;
+          width = Math.round((maxHeight / dimensions.height) * dimensions.width);
+        }
+        
+        updateElement(elementId, {
+          dimension: { width, height }
+        });
+      }
+      setImageLoadingId(null);
+    }
+  };
 
   const selectedElement =
     selectedElementIds.length === 1
@@ -707,9 +738,10 @@ export function PropertiesTab() {
                 <Input
                   value={selectedElement.imageSrc || ""}
                   onChange={(e) =>
-                    updateElement(selectedElement.id, { imageSrc: e.target.value })
+                    handleImageUrlChange(selectedElement.id, e.target.value)
                   }
                   placeholder="https://..."
+                  disabled={imageLoadingId === selectedElement.id}
                   data-testid="input-image-url"
                 />
               </div>
