@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { Button } from "@/components/ui/button";
-import { SignUpButton } from "@clerk/clerk-react";
 
 export default function Homepage() {
   return (
@@ -44,12 +43,12 @@ export default function Homepage() {
 
             <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
               {/* Your Existing Buttons with attributes preserved */}
-              <SignUpButton mode="modal">
+              <a href="/registration">
                 <Button size="lg" data-testid="btn-cta-signup" className="h-14 px-8 text-lg shadow-blue-200 shadow-xl hover:shadow-2xl transition-all">
                   Get Started Free
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
-              </SignUpButton>
+              </a>
 
               <Button variant="outline" size="lg" data-testid="btn-learn-more" className="h-14 px-8 text-lg">
                 Learn More
@@ -316,11 +315,11 @@ export default function Homepage() {
             Join thousands of marketers and engineers saving hours every week.
           </p>
           <div className="flex justify-center gap-4">
-             <SignUpButton mode="modal">
+             <a href="/registration">
                 <Button size="lg" data-testid="btn-cta-signup" className="h-14 px-8 text-lg">
                   Get Started Free
                 </Button>
-             </SignUpButton>
+             </a>
           </div>
         </div>
       </section>

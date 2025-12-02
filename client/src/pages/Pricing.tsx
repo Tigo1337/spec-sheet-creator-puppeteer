@@ -1,6 +1,5 @@
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { Button } from "@/components/ui/button";
-import { SignUpButton } from "@clerk/clerk-react";
 
 export default function Pricing() {
   return (
@@ -27,11 +26,11 @@ export default function Pricing() {
                 <li className="text-muted-foreground">• Basic export</li>
                 <li className="text-muted-foreground">• Community support</li>
               </ul>
-              <SignUpButton mode="modal">
+              <a href="/registration">
                 <Button variant="outline" className="w-full" data-testid="btn-pricing-starter">
                   Get Started
                 </Button>
-              </SignUpButton>
+              </a>
             </div>
 
             {/* Professional Plan */}
@@ -47,11 +46,11 @@ export default function Pricing() {
                 <li className="text-muted-foreground">• Batch export</li>
                 <li className="text-muted-foreground">• Priority support</li>
               </ul>
-              <SignUpButton mode="modal">
+              <a href="/registration">
                 <Button className="w-full" data-testid="btn-pricing-professional">
                   Get Started
                 </Button>
-              </SignUpButton>
+              </a>
             </div>
 
             {/* Enterprise Plan */}

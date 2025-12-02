@@ -1,6 +1,5 @@
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { SignInButton, SignUpButton } from "@clerk/clerk-react";
 
 export function PublicHeader() {
   const [location] = useLocation();
@@ -15,9 +14,9 @@ export function PublicHeader() {
     <header className="border-b bg-background">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
-        <div className="flex items-center gap-2">
+        <a href="/" className="flex items-center gap-2">
           <h1 className="text-xl font-bold">SpecSheet Builder</h1>
-        </div>
+        </a>
 
         {/* Navigation Menu */}
         <nav className="hidden md:flex items-center gap-6">
@@ -39,16 +38,16 @@ export function PublicHeader() {
 
         {/* Auth Buttons */}
         <div className="flex items-center gap-3">
-          <SignInButton mode="modal">
+          <a href="/login">
             <Button variant="ghost" size="sm" data-testid="btn-sign-in">
               Sign In
             </Button>
-          </SignInButton>
-          <SignUpButton mode="modal">
+          </a>
+          <a href="/registration">
             <Button size="sm" data-testid="btn-sign-up">
               Sign Up
             </Button>
-          </SignUpButton>
+          </a>
         </div>
       </div>
     </header>
