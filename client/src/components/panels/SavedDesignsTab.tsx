@@ -30,7 +30,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Save, FolderOpen, Trash2, Loader2, FileText } from "lucide-react";
+import { Save, Pencil, Trash2, Loader2, FileText } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export function SavedDesignsTab() {
@@ -136,7 +136,6 @@ export function SavedDesignsTab() {
       updatedAt: design.updatedAt,
     });
 
-    // Restore image field designations from elements
     const imageFields = new Set(
       design.elements
         .filter((el) => el.isImageField && el.dataBinding)
@@ -192,8 +191,8 @@ export function SavedDesignsTab() {
               Save Current Design
             </Button>
           </DialogTrigger>
-          {/* FIX 1: Updated to z-[99999] to match global fix and beat canvas elements */}
-          <DialogContent className="z-[99999]">
+          {/* FIX: Use style prop with max int z-index to guarantee overlay */}
+          <DialogContent style={{ zIndex: 2147483647 }}>
             <DialogHeader>
               <DialogTitle>Save Design</DialogTitle>
               <DialogDescription>
@@ -290,7 +289,7 @@ export function SavedDesignsTab() {
                       title="Load design"
                       data-testid={`button-load-design-${design.id}`}
                     >
-                      <FolderOpen className="h-4 w-4" />
+                      <Pencil className="h-4 w-4" />
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
@@ -303,8 +302,8 @@ export function SavedDesignsTab() {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </AlertDialogTrigger>
-                      {/* FIX 2: Added z-[99999] here too, otherwise the delete confirmation will be hidden */}
-                      <AlertDialogContent className="z-[99999]">
+                      {/* FIX: Use style prop with max int z-index here as well */}
+                      <AlertDialogContent style={{ zIndex: 2147483647 }}>
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete Design?</AlertDialogTitle>
                           <AlertDialogDescription>
