@@ -1,9 +1,9 @@
-import type { Template, InsertTemplate, SavedDesign, InsertSavedDesign, CanvasElement } from "@shared/schema";
-import { savedDesignsTable, templatesTable } from "@shared/schema";
+import type { Template, InsertTemplate, SavedDesign, InsertSavedDesign, CanvasElement, DbUser, InsertDbUser } from "@shared/schema";
+import { savedDesignsTable, templatesTable, usersTable } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Templates (legacy)
@@ -19,6 +19,18 @@ export interface IStorage {
   createDesign(design: InsertSavedDesign): Promise<SavedDesign>;
   updateDesign(id: string, userId: string, design: Partial<InsertSavedDesign>): Promise<SavedDesign | undefined>;
   deleteDesign(id: string, userId: string): Promise<boolean>;
+  
+  // Users (with Stripe info)
+  getUser(id: string): Promise<DbUser | undefined>;
+  getUserByEmail(email: string): Promise<DbUser | undefined>;
+  createUser(user: InsertDbUser): Promise<DbUser>;
+  updateUser(id: string, updates: Partial<InsertDbUser>): Promise<DbUser | undefined>;
+  updateUserStripeInfo(userId: string, stripeInfo: {
+    stripeCustomerId?: string;
+    stripeSubscriptionId?: string;
+    plan?: string;
+    planStatus?: string;
+  }): Promise<DbUser | undefined>;
 }
 
 // Database Storage implementation using Drizzle ORM with Neon PostgreSQL
@@ -195,6 +207,159 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return result.length > 0;
   }
+
+  // Helper to convert database row to DbUser type
+  private toDbUser(row: typeof usersTable.$inferSelect): DbUser {
+    return {
+      id: row.id,
+      email: row.email,
+      stripeCustomerId: row.stripeCustomerId,
+      stripeSubscriptionId: row.stripeSubscriptionId,
+      plan: row.plan,
+      planStatus: row.planStatus,
+      createdAt: new Date(row.createdAt).toISOString(),
+      updatedAt: new Date(row.updatedAt).toISOString(),
+    };
+  }
+
+  // User methods
+  async getUser(id: string): Promise<DbUser | undefined> {
+    const rows = await this.db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, id))
+      .limit(1);
+    return rows[0] ? this.toDbUser(rows[0]) : undefined;
+  }
+
+  async getUserByEmail(email: string): Promise<DbUser | undefined> {
+    const rows = await this.db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.email, email))
+      .limit(1);
+    return rows[0] ? this.toDbUser(rows[0]) : undefined;
+  }
+
+  async createUser(user: InsertDbUser): Promise<DbUser> {
+    const now = new Date();
+    const rows = await this.db
+      .insert(usersTable)
+      .values({
+        id: user.id,
+        email: user.email,
+        stripeCustomerId: user.stripeCustomerId,
+        stripeSubscriptionId: user.stripeSubscriptionId,
+        plan: user.plan || 'free',
+        planStatus: user.planStatus || 'active',
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    return this.toDbUser(rows[0]);
+  }
+
+  async updateUser(id: string, updates: Partial<InsertDbUser>): Promise<DbUser | undefined> {
+    const rows = await this.db
+      .update(usersTable)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(usersTable.id, id))
+      .returning();
+    return rows[0] ? this.toDbUser(rows[0]) : undefined;
+  }
+
+  async updateUserStripeInfo(userId: string, stripeInfo: {
+    stripeCustomerId?: string;
+    stripeSubscriptionId?: string;
+    plan?: string;
+    planStatus?: string;
+  }): Promise<DbUser | undefined> {
+    const rows = await this.db
+      .update(usersTable)
+      .set({
+        ...stripeInfo,
+        updatedAt: new Date(),
+      })
+      .where(eq(usersTable.id, userId))
+      .returning();
+    return rows[0] ? this.toDbUser(rows[0]) : undefined;
+  }
+
+  // Stripe data queries (from stripe schema managed by stripe-replit-sync)
+  async getProduct(productId: string) {
+    const result = await this.db.execute(
+      sql`SELECT * FROM stripe.products WHERE id = ${productId}`
+    );
+    return result.rows[0] || null;
+  }
+
+  async listProducts(active = true, limit = 20, offset = 0) {
+    const result = await this.db.execute(
+      sql`SELECT * FROM stripe.products WHERE active = ${active} LIMIT ${limit} OFFSET ${offset}`
+    );
+    return result.rows;
+  }
+
+  async listProductsWithPrices(active = true, limit = 20, offset = 0) {
+    const result = await this.db.execute(
+      sql`
+        WITH paginated_products AS (
+          SELECT id, name, description, metadata, active
+          FROM stripe.products
+          WHERE active = ${active}
+          ORDER BY id
+          LIMIT ${limit} OFFSET ${offset}
+        )
+        SELECT 
+          p.id as product_id,
+          p.name as product_name,
+          p.description as product_description,
+          p.active as product_active,
+          p.metadata as product_metadata,
+          pr.id as price_id,
+          pr.unit_amount,
+          pr.currency,
+          pr.recurring,
+          pr.active as price_active,
+          pr.metadata as price_metadata
+        FROM paginated_products p
+        LEFT JOIN stripe.prices pr ON pr.product = p.id AND pr.active = true
+        ORDER BY p.id, pr.unit_amount
+      `
+    );
+    return result.rows;
+  }
+
+  async getPrice(priceId: string) {
+    const result = await this.db.execute(
+      sql`SELECT * FROM stripe.prices WHERE id = ${priceId}`
+    );
+    return result.rows[0] || null;
+  }
+
+  async listPrices(active = true, limit = 20, offset = 0) {
+    const result = await this.db.execute(
+      sql`SELECT * FROM stripe.prices WHERE active = ${active} LIMIT ${limit} OFFSET ${offset}`
+    );
+    return result.rows;
+  }
+
+  async getPricesForProduct(productId: string) {
+    const result = await this.db.execute(
+      sql`SELECT * FROM stripe.prices WHERE product = ${productId} AND active = true`
+    );
+    return result.rows;
+  }
+
+  async getSubscription(subscriptionId: string) {
+    const result = await this.db.execute(
+      sql`SELECT * FROM stripe.subscriptions WHERE id = ${subscriptionId}`
+    );
+    return result.rows[0] || null;
+  }
 }
 
 // Legacy MemStorage for fallback (kept for reference)
@@ -290,6 +455,50 @@ export class MemStorage implements IStorage {
     const existing = this.designs.get(id);
     if (!existing || existing.userId !== userId) return false;
     return this.designs.delete(id);
+  }
+
+  // User methods (stub implementations - MemStorage requires DATABASE_URL for real use)
+  private users: Map<string, DbUser> = new Map();
+
+  async getUser(id: string): Promise<DbUser | undefined> {
+    return this.users.get(id);
+  }
+
+  async getUserByEmail(email: string): Promise<DbUser | undefined> {
+    return Array.from(this.users.values()).find(u => u.email === email);
+  }
+
+  async createUser(user: InsertDbUser): Promise<DbUser> {
+    const now = new Date().toISOString();
+    const dbUser: DbUser = {
+      id: user.id,
+      email: user.email,
+      stripeCustomerId: user.stripeCustomerId || null,
+      stripeSubscriptionId: user.stripeSubscriptionId || null,
+      plan: user.plan || 'free',
+      planStatus: user.planStatus || 'active',
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.users.set(user.id, dbUser);
+    return dbUser;
+  }
+
+  async updateUser(id: string, updates: Partial<InsertDbUser>): Promise<DbUser | undefined> {
+    const existing = this.users.get(id);
+    if (!existing) return undefined;
+    const updated: DbUser = { ...existing, ...updates, updatedAt: new Date().toISOString() };
+    this.users.set(id, updated);
+    return updated;
+  }
+
+  async updateUserStripeInfo(userId: string, stripeInfo: {
+    stripeCustomerId?: string;
+    stripeSubscriptionId?: string;
+    plan?: string;
+    planStatus?: string;
+  }): Promise<DbUser | undefined> {
+    return this.updateUser(userId, stripeInfo);
   }
 }
 

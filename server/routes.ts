@@ -1,12 +1,14 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { getAuth } from "@clerk/express";
+import { getAuth, clerkClient } from "@clerk/express";
 import { storage } from "./storage";
 import {
   ObjectStorageService,
   ObjectNotFoundError,
 } from "./objectStorage";
 import { insertTemplateSchema, insertSavedDesignSchema } from "@shared/schema";
+import { stripeService } from "./stripeService";
+import { getStripePublishableKey } from "./stripeClient";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -225,6 +227,173 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error processing uploaded object:", error);
       res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ============================================
+  // Stripe Checkout Routes
+  // ============================================
+
+  // Get Stripe publishable key for frontend
+  app.get("/api/stripe/config", async (req, res) => {
+    try {
+      const publishableKey = await getStripePublishableKey();
+      res.json({ publishableKey });
+    } catch (error) {
+      console.error("Error getting Stripe config:", error);
+      res.status(500).json({ error: "Failed to get Stripe configuration" });
+    }
+  });
+
+  // Get or create user in database (called after Clerk authentication)
+  app.post("/api/users/sync", async (req, res) => {
+    try {
+      const auth = getAuth(req);
+      if (!auth.userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      // Get user from Clerk to get email
+      const clerkUser = await clerkClient.users.getUser(auth.userId);
+      const email = clerkUser.emailAddresses[0]?.emailAddress;
+
+      if (!email) {
+        return res.status(400).json({ error: "User email not found" });
+      }
+
+      // Check if user exists in our database
+      let user = await storage.getUser(auth.userId);
+
+      if (!user) {
+        // Create new user
+        user = await storage.createUser({
+          id: auth.userId,
+          email,
+          plan: "free",
+          planStatus: "active",
+        });
+      }
+
+      res.json(user);
+    } catch (error) {
+      console.error("Error syncing user:", error);
+      res.status(500).json({ error: "Failed to sync user" });
+    }
+  });
+
+  // Get current user's subscription status
+  app.get("/api/subscription", async (req, res) => {
+    try {
+      const auth = getAuth(req);
+      if (!auth.userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const user = await storage.getUser(auth.userId);
+      if (!user) {
+        return res.json({ subscription: null, plan: "free" });
+      }
+
+      res.json({
+        plan: user.plan,
+        planStatus: user.planStatus,
+        stripeCustomerId: user.stripeCustomerId,
+        stripeSubscriptionId: user.stripeSubscriptionId,
+      });
+    } catch (error) {
+      console.error("Error fetching subscription:", error);
+      res.status(500).json({ error: "Failed to fetch subscription" });
+    }
+  });
+
+  // Create Stripe checkout session
+  app.post("/api/checkout", async (req, res) => {
+    try {
+      const auth = getAuth(req);
+      if (!auth.userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { priceId } = req.body;
+      if (!priceId) {
+        return res.status(400).json({ error: "Price ID is required" });
+      }
+
+      // Get or create user
+      let user = await storage.getUser(auth.userId);
+      
+      if (!user) {
+        // Get email from Clerk
+        const clerkUser = await clerkClient.users.getUser(auth.userId);
+        const email = clerkUser.emailAddresses[0]?.emailAddress;
+        
+        if (!email) {
+          return res.status(400).json({ error: "User email not found" });
+        }
+
+        user = await storage.createUser({
+          id: auth.userId,
+          email,
+          plan: "free",
+          planStatus: "active",
+        });
+      }
+
+      // Create or get Stripe customer
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripeService.createCustomer(user.email, user.id);
+        await storage.updateUserStripeInfo(user.id, { stripeCustomerId: customer.id });
+        customerId = customer.id;
+      }
+
+      // Get base URL for redirects
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+      const host = req.headers['x-forwarded-host'] || req.get('host');
+      const baseUrl = `${protocol}://${host}`;
+
+      // Create checkout session
+      const session = await stripeService.createCheckoutSession(
+        customerId,
+        priceId,
+        `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+        `${baseUrl}/pricing`,
+        auth.userId
+      );
+
+      res.json({ url: session.url });
+    } catch (error) {
+      console.error("Error creating checkout session:", error);
+      res.status(500).json({ error: "Failed to create checkout session" });
+    }
+  });
+
+  // Create customer portal session for managing subscription
+  app.post("/api/customer-portal", async (req, res) => {
+    try {
+      const auth = getAuth(req);
+      if (!auth.userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const user = await storage.getUser(auth.userId);
+      if (!user?.stripeCustomerId) {
+        return res.status(400).json({ error: "No subscription found" });
+      }
+
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+      const host = req.headers['x-forwarded-host'] || req.get('host');
+      const baseUrl = `${protocol}://${host}`;
+
+      const session = await stripeService.createCustomerPortalSession(
+        user.stripeCustomerId,
+        `${baseUrl}/editor`
+      );
+
+      res.json({ url: session.url });
+    } catch (error) {
+      console.error("Error creating portal session:", error);
+      res.status(500).json({ error: "Failed to create portal session" });
     }
   });
 
