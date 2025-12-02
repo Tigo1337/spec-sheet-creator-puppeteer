@@ -290,35 +290,16 @@ export function LeftPanel() {
               </div>
             </AccordionTrigger>
             <AccordionContent className="pt-1 pb-3">
-              <div className="space-y-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start gap-2 h-10"
-                  onClick={handleAddTextElement}
-                  data-testid="add-text-heading"
-                >
-                  <span className="font-semibold text-base">Heading</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start gap-2 h-10"
-                  onClick={handleAddTextElement}
-                  data-testid="add-text-body"
-                >
-                  <span className="text-sm">Body Text</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start gap-2 h-10"
-                  onClick={handleAddTextElement}
-                  data-testid="add-text-caption"
-                >
-                  <span className="text-xs text-muted-foreground">Caption</span>
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start gap-2"
+                onClick={handleAddTextElement}
+                data-testid="add-text-box"
+              >
+                <Type className="h-4 w-4" />
+                <span>Text Box</span>
+              </Button>
             </AccordionContent>
           </AccordionItem>
 

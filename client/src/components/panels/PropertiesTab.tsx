@@ -742,6 +742,36 @@ export function PropertiesTab() {
                   data-testid="slider-opacity"
                 />
               </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Layer</Label>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => {
+                      const minZIndex = Math.min(...elements.map(el => el.zIndex || 0));
+                      updateElement(selectedElement.id, { zIndex: minZIndex - 1 });
+                    }}
+                    data-testid="btn-send-to-back"
+                  >
+                    Send to Back
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => {
+                      const maxZIndex = Math.max(...elements.map(el => el.zIndex || 0));
+                      updateElement(selectedElement.id, { zIndex: maxZIndex + 1 });
+                    }}
+                    data-testid="btn-bring-to-front"
+                  >
+                    Bring to Front
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         )}
