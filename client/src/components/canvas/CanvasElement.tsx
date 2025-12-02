@@ -2,7 +2,7 @@ import { useDraggable } from "@dnd-kit/core";
 import type { CanvasElement as CanvasElementType } from "@shared/schema";
 import { useCanvasStore } from "@/stores/canvas-store";
 import { useEffect, useState } from "react";
-import { Database } from "lucide-react";
+// REMOVED: Database icon import
 import { isHtmlContent } from "@/lib/canvas-utils";
 
 interface CanvasElementProps {
@@ -74,7 +74,7 @@ export function CanvasElement({
         const naturalWidth = img.naturalWidth;
         const naturalHeight = img.naturalHeight;
         setImageDimensions({ width: naturalWidth, height: naturalHeight });
-        
+
         // Auto-adjust height to maintain aspect ratio
         const aspectRatio = naturalWidth / naturalHeight;
         const newHeight = Math.round(element.dimension.width / aspectRatio);
@@ -147,20 +147,21 @@ export function CanvasElement({
               display: "flex",
               alignItems: dataFieldVerticalAlignMap[element.textStyle?.verticalAlign || "middle"] as any,
               justifyContent: element.textStyle?.textAlign === "center" ? "center" : element.textStyle?.textAlign === "right" ? "flex-end" : "flex-start",
-              gap: 4 * zoom,
-              paddingLeft: 8 * zoom,
-              paddingRight: 8 * zoom,
+              // UPDATED: Removed paddingLeft: 8 * zoom and gap that was accommodating the icon
+              padding: 4 * zoom, 
               fontFamily: element.textStyle?.fontFamily || "JetBrains Mono",
               fontSize: (element.textStyle?.fontSize || 14) * zoom,
               fontWeight: element.textStyle?.fontWeight || 500,
               color: element.textStyle?.color || "#000000",
               backgroundColor: "transparent",
-              borderColor: "#000000",
+              // UPDATED: Changed border color to Violet (#8b5cf6) to distinguish Data Fields
+              borderColor: "#8b5cf6", 
               lineHeight: element.textStyle?.lineHeight || 1.4,
               letterSpacing: `${element.textStyle?.letterSpacing || 0}px`,
             }}
           >
-            <Database className="flex-shrink-0" style={{ width: 12 * zoom, height: 12 * zoom, opacity: 0.6 }} />
+            {/* REMOVED: Database icon */}
+
             {hasHtml ? (
               <div
                 style={{
@@ -252,14 +253,9 @@ export function CanvasElement({
       style={{
         ...style,
         ...(isSelected && {
-          // UPDATED: Using a 1px Blue outline instead of 2px Black
-          // Blue (#3b82f6) signifies "active state" vs "print design"
-          outline: "1px solid #3b82f6", 
-
-          // UPDATED: Adds a 2px gap between element and selection ring
-          // This makes it feel less "heavy" and separates it from element borders
+          // Blue (#3b82f6) signifies "active state"
+          outline: "2px solid #3b82f6", 
           outlineOffset: "2px", 
-
           backgroundColor: "transparent",
         }),
       }}

@@ -32,9 +32,10 @@ import {
   Unlock,
   Eye,
   EyeOff,
-  AlignStartHorizontal,
-  AlignCenterHorizontal,
-  AlignEndHorizontal,
+  // UPDATED: Imported correct Vertical Alignment icons
+  AlignVerticalJustifyStart,  // Top
+  AlignVerticalJustifyCenter, // Middle
+  AlignVerticalJustifyEnd,    // Bottom
 } from "lucide-react";
 import { availableFonts, type CanvasElement, pageSizes } from "@shared/schema";
 
@@ -64,7 +65,7 @@ export function PropertiesTab() {
 
   const handleImageUrlChange = async (elementId: string, url: string) => {
     updateElement(elementId, { imageSrc: url });
-    
+
     if (url) {
       setImageLoadingId(elementId);
       const dimensions = await getImageDimensions(url);
@@ -73,14 +74,14 @@ export function PropertiesTab() {
         const maxWidth = 300;
         let width = maxWidth;
         let height = Math.round((maxWidth / dimensions.width) * dimensions.height);
-        
+
         // Make sure height doesn't exceed max reasonable size
         const maxHeight = 300;
         if (height > maxHeight) {
           height = maxHeight;
           width = Math.round((maxHeight / dimensions.height) * dimensions.width);
         }
-        
+
         updateElement(elementId, {
           dimension: { width, height }
         });
@@ -330,7 +331,7 @@ export function PropertiesTab() {
                       onClick={() => alignTop()}
                       data-testid="btn-align-top"
                     >
-                      <AlignStartVertical className="h-4 w-4" />
+                      <AlignVerticalJustifyStart className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Align Top</TooltipContent>
@@ -344,7 +345,7 @@ export function PropertiesTab() {
                       onClick={() => alignMiddle()}
                       data-testid="btn-align-center-v"
                     >
-                      <AlignCenterVertical className="h-4 w-4" />
+                      <AlignVerticalJustifyCenter className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Align Middle (Vertical)</TooltipContent>
@@ -358,7 +359,7 @@ export function PropertiesTab() {
                       onClick={() => alignBottom()}
                       data-testid="btn-align-bottom"
                     >
-                      <AlignEndVertical className="h-4 w-4" />
+                      <AlignVerticalJustifyEnd className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Align Bottom</TooltipContent>
@@ -417,13 +418,13 @@ export function PropertiesTab() {
                     width: newWidth,
                     height: selectedElement.dimension.height,
                   };
-                  
+
                   // For image elements, maintain aspect ratio
                   if (selectedElement.type === "image") {
                     const ratio = selectedElement.dimension.width / selectedElement.dimension.height;
                     newDimension.height = Math.round(newWidth / ratio);
                   }
-                  
+
                   updateElement(selectedElement.id, {
                     dimension: newDimension,
                   });
@@ -442,13 +443,13 @@ export function PropertiesTab() {
                     width: selectedElement.dimension.width,
                     height: newHeight,
                   };
-                  
+
                   // For image elements, maintain aspect ratio
                   if (selectedElement.type === "image") {
                     const ratio = selectedElement.dimension.width / selectedElement.dimension.height;
                     newDimension.width = Math.round(newHeight * ratio);
                   }
-                  
+
                   updateElement(selectedElement.id, {
                     dimension: newDimension,
                   });
@@ -602,8 +603,8 @@ export function PropertiesTab() {
                     onClick={() => handleTextStyleChange("verticalAlign", "top")}
                     data-testid="btn-text-vertical-top"
                   >
-                    {/* Visual: Bar at the top, content below */}
-                    <AlignStartHorizontal className="h-4 w-4" />
+                    {/* UPDATED: Correct Vertical Icon */}
+                    <AlignVerticalJustifyStart className="h-4 w-4" />
                   </Button>
 
                   {/* MIDDLE ALIGNMENT */}
@@ -615,8 +616,8 @@ export function PropertiesTab() {
                     onClick={() => handleTextStyleChange("verticalAlign", "middle")}
                     data-testid="btn-text-vertical-middle"
                   >
-                    {/* Visual: Bar through the middle */}
-                    <AlignCenterHorizontal className="h-4 w-4" />
+                     {/* UPDATED: Correct Vertical Icon */}
+                    <AlignVerticalJustifyCenter className="h-4 w-4" />
                   </Button>
 
                   {/* BOTTOM ALIGNMENT */}
@@ -628,8 +629,8 @@ export function PropertiesTab() {
                     onClick={() => handleTextStyleChange("verticalAlign", "bottom")}
                     data-testid="btn-text-vertical-bottom"
                   >
-                    {/* Visual: Bar at the bottom, content above */}
-                    <AlignEndHorizontal className="h-4 w-4" />
+                     {/* UPDATED: Correct Vertical Icon */}
+                    <AlignVerticalJustifyEnd className="h-4 w-4" />
                   </Button>
                 </div>
               </div>

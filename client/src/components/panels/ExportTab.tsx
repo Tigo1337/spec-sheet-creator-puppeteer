@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useCanvasStore } from "@/stores/canvas-store";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -22,16 +22,23 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  FileSignature,
+  Plus,
+  FileArchive, // Added icon for ZIP
 } from "lucide-react";
 import { pageSizes } from "@shared/schema";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import JSZip from "jszip"; // NEW IMPORT
 import { isHtmlContent } from "@/lib/canvas-utils";
 
 export function ExportTab() {
   const [isExporting, setIsExporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [exportStatus, setExportStatus] = useState<"idle" | "success" | "error">("idle");
+
+  const [filenamePattern, setFilenamePattern] = useState("");
+
   const { toast } = useToast();
 
   const {
@@ -45,18 +52,40 @@ export function ExportTab() {
     selectedRowIndex,
   } = useCanvasStore();
 
+  const insertVariable = (header: string) => {
+    setFilenamePattern((prev) => `${prev}{{${header}}}`);
+  };
+
+  const getConstructedFilename = (rowIndex: number) => {
+    if (!filenamePattern.trim()) {
+      const timestamp = new Date().toISOString().slice(0, 10);
+      return `specsheet-${timestamp}`;
+    }
+
+    let finalName = filenamePattern;
+    const rowData = excelData?.rows[rowIndex] || {};
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    finalName = finalName.replace(/{{Date}}/gi, dateStr);
+
+    finalName = finalName.replace(/{{(.*?)}}/g, (match, p1) => {
+      const headerName = p1.trim();
+      if (rowData[headerName] !== undefined && rowData[headerName] !== null) {
+        return String(rowData[headerName]);
+      }
+      return ""; 
+    });
+
+    return finalName.replace(/[^a-z0-9\s\-_.]/gi, "_");
+  };
+
   const generatePDF = async () => {
     setIsExporting(true);
     setProgress(0);
     setExportStatus("idle");
 
     try {
-      // Create a temporary canvas for rendering
       const tempDiv = document.createElement("div");
-
-      // FIXED: Use fixed positioning at 0,0 with negative z-index
-      // This ensures it is technically "in view" for the renderer but hidden from the user
-      // avoiding issues where browsers don't render off-screen pixels fully.
       tempDiv.style.position = "fixed"; 
       tempDiv.style.left = "0";
       tempDiv.style.top = "0";
@@ -64,14 +93,11 @@ export function ExportTab() {
       tempDiv.style.width = `${canvasWidth}px`;
       tempDiv.style.height = `${canvasHeight}px`;
       tempDiv.style.backgroundColor = backgroundColor;
-
-      // Important: Reset box-sizing to ensure calculations match
       tempDiv.style.boxSizing = "border-box"; 
       document.body.appendChild(tempDiv);
 
       setProgress(20);
 
-      // Render elements to the temp div
       const sortedElements = [...elements].sort((a, b) => a.zIndex - b.zIndex);
 
       for (const element of sortedElements) {
@@ -85,7 +111,6 @@ export function ExportTab() {
         elementDiv.style.height = `${element.dimension.height}px`;
         elementDiv.style.transform = element.rotation ? `rotate(${element.rotation}deg)` : "";
 
-        // ... (Your existing styling logic for text/shapes/images remains exactly the same) ...
         if (element.type === "text" || element.type === "dataField") {
            const textStyle = element.textStyle || {};
            elementDiv.style.fontFamily = textStyle.fontFamily || "Inter";
@@ -99,12 +124,10 @@ export function ExportTab() {
            elementDiv.style.padding = "4px";
            elementDiv.style.wordBreak = "break-word";
            elementDiv.style.overflow = "hidden";
-           
-           // Handle horizontal alignment
+
            const hAlign = textStyle.textAlign || "left";
            elementDiv.style.textAlign = hAlign;
-           
-           // Handle vertical alignment
+
            const vAlign = textStyle.verticalAlign || "middle";
            const justifyMap: Record<string, string> = {
              top: "flex-start",
@@ -112,8 +135,7 @@ export function ExportTab() {
              bottom: "flex-end"
            };
            elementDiv.style.justifyContent = justifyMap[vAlign];
-           
-           // Set alignItems based on horizontal alignment
+
            if (hAlign === "center") {
              elementDiv.style.alignItems = "center";
            } else if (hAlign === "right") {
@@ -171,31 +193,24 @@ export function ExportTab() {
              elementDiv.appendChild(img);
            }
         }
-        // ... (End styling logic) ...
 
         tempDiv.appendChild(elementDiv);
       }
 
       setProgress(40);
 
-      // Wait a bit for fonts to load
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Capture to canvas
       const canvas = await html2canvas(tempDiv, {
         scale: 2 * exportSettings.quality,
         backgroundColor: backgroundColor,
         useCORS: true,
         allowTaint: true,
         logging: false,
-        // FIXED: Explicitly set dimensions to match the desired canvas size
         width: canvasWidth,
         height: canvasHeight,
-        // FIXED: Force the "window" to be the exact size of the canvas
-        // This prevents scrollbars or window padding from affecting the capture
         windowWidth: canvasWidth,
         windowHeight: canvasHeight,
-        // FIXED: Force scroll position to 0 to prevent top margins
         scrollX: 0,
         scrollY: 0,
         x: 0,
@@ -204,14 +219,12 @@ export function ExportTab() {
 
       setProgress(70);
 
-      // Create PDF with proper dimensions
       const pageSize = pageSizes[exportSettings.pageSize];
       const orientation = exportSettings.orientation;
 
       const pdfWidth = orientation === "portrait" ? pageSize.width : pageSize.height;
       const pdfHeight = orientation === "portrait" ? pageSize.height : pageSize.width;
 
-      // Convert pixels to mm (96 dpi = 25.4mm per inch)
       const mmWidth = (pdfWidth / 96) * 25.4;
       const mmHeight = (pdfHeight / 96) * 25.4;
 
@@ -221,7 +234,6 @@ export function ExportTab() {
         format: [mmWidth, mmHeight],
       });
 
-      // Add the canvas image to PDF with exact page dimensions
       const imgData = canvas.toDataURL("image/png", exportSettings.quality);
 
       pdf.addImage(
@@ -232,13 +244,13 @@ export function ExportTab() {
         mmWidth,
         mmHeight,
         undefined, 
-        "FAST" // Optimization for rendering speed
+        "FAST"
       );
 
       setProgress(90);
 
-      const timestamp = new Date().toISOString().slice(0, 10);
-      pdf.save(`specsheet-${timestamp}.pdf`);
+      const fileName = getConstructedFilename(selectedRowIndex);
+      pdf.save(`${fileName}.pdf`);
 
       document.body.removeChild(tempDiv);
       setProgress(100);
@@ -246,7 +258,7 @@ export function ExportTab() {
 
       toast({
         title: "PDF exported successfully",
-        description: "Your spec sheet has been downloaded.",
+        description: `Downloaded as ${fileName}.pdf`,
       });
     } catch (error) {
       console.error("Export error:", error);
@@ -280,6 +292,12 @@ export function ExportTab() {
     setExportStatus("idle");
 
     try {
+      // Initialize ZIP
+      const zip = new JSZip();
+
+      // Track used filenames to prevent overwrites
+      const usedFilenames = new Set<string>();
+
       const pageSize = pageSizes[exportSettings.pageSize];
       const orientation = exportSettings.orientation;
       const pdfWidth = orientation === "portrait" ? pageSize.width : pageSize.height;
@@ -288,22 +306,15 @@ export function ExportTab() {
       const mmWidth = (pdfWidth / 96) * 25.4;
       const mmHeight = (pdfHeight / 96) * 25.4;
 
-      const pdf = new jsPDF({
-        orientation: orientation,
-        unit: "mm",
-        format: [mmWidth, mmHeight],
-      });
-
+      // Loop through every row
       for (let rowIndex = 0; rowIndex < excelData.rows.length; rowIndex++) {
-        if (rowIndex > 0) {
-          pdf.addPage();
-        }
-
         const rowData = excelData.rows[rowIndex];
+
+        // Update progress (0% to 80% covers the generation phase)
         setProgress(Math.round((rowIndex / excelData.rows.length) * 80));
 
+        // Create temp container
         const tempDiv = document.createElement("div");
-        // FIXED: Same fixed positioning logic as single export
         tempDiv.style.position = "fixed";
         tempDiv.style.left = "0";
         tempDiv.style.top = "0";
@@ -314,10 +325,9 @@ export function ExportTab() {
         tempDiv.style.boxSizing = "border-box";
         document.body.appendChild(tempDiv);
 
-        // ... (Your element rendering logic remains the same, omitted for brevity) ...
+        // Render elements
         const sortedElements = [...elements].sort((a, b) => a.zIndex - b.zIndex);
         for (const element of sortedElements) {
-            // ... (Copy inner logic from original code or single export above) ...
             if (!element.visible) continue;
 
             const elementDiv = document.createElement("div");
@@ -328,93 +338,90 @@ export function ExportTab() {
             elementDiv.style.height = `${element.dimension.height}px`;
 
             if (element.type === "text" || element.type === "dataField") {
-            const textStyle = element.textStyle || {};
-            elementDiv.style.fontFamily = textStyle.fontFamily || "Inter";
-            elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
-            elementDiv.style.fontWeight = String(textStyle.fontWeight || 400);
-            elementDiv.style.color = textStyle.color || "#000000";
-            elementDiv.style.lineHeight = String(textStyle.lineHeight || 1.5);
-            elementDiv.style.letterSpacing = `${textStyle.letterSpacing || 0}px`;
-            elementDiv.style.display = "flex";
-            elementDiv.style.flexDirection = "column";
-            elementDiv.style.padding = "4px";
-            elementDiv.style.overflow = "hidden";
-            
-            // Handle horizontal alignment
-            const hAlign = textStyle.textAlign || "left";
-            elementDiv.style.textAlign = hAlign;
-            
-            // Handle vertical alignment
-            const vAlign = textStyle.verticalAlign || "middle";
-            const justifyMap: Record<string, string> = {
-              top: "flex-start",
-              middle: "center",
-              bottom: "flex-end"
-            };
-            elementDiv.style.justifyContent = justifyMap[vAlign];
-            
-            // Set alignItems based on horizontal alignment
-            if (hAlign === "center") {
-              elementDiv.style.alignItems = "center";
-            } else if (hAlign === "right") {
-              elementDiv.style.alignItems = "flex-end";
-            } else {
-              elementDiv.style.alignItems = "flex-start";
-            }
+                const textStyle = element.textStyle || {};
+                elementDiv.style.fontFamily = textStyle.fontFamily || "Inter";
+                elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
+                elementDiv.style.fontWeight = String(textStyle.fontWeight || 400);
+                elementDiv.style.color = textStyle.color || "#000000";
+                elementDiv.style.lineHeight = String(textStyle.lineHeight || 1.5);
+                elementDiv.style.letterSpacing = `${textStyle.letterSpacing || 0}px`;
+                elementDiv.style.display = "flex";
+                elementDiv.style.flexDirection = "column";
+                elementDiv.style.padding = "4px";
+                elementDiv.style.overflow = "hidden";
 
-            let content = element.content || "";
-            if (element.dataBinding && rowData[element.dataBinding]) {
-                content = rowData[element.dataBinding];
-            }
-            if (isHtmlContent(content)) {
-              const style = document.createElement("style");
-              style.textContent = `
-                ul { list-style-type: disc !important; margin: 0 !important; padding-left: 1.2em !important; display: block !important; }
-                li { margin: 0.2em 0 !important; display: list-item !important; }
-                ol { list-style-type: decimal !important; margin: 0 !important; padding-left: 1.2em !important; display: block !important; }
-                strong, b { font-weight: bold; }
-                em, i { font-style: italic; }
-                p { margin: 0.2em 0; display: block !important; }
-              `;
-              elementDiv.appendChild(style);
-              elementDiv.style.display = "block";
-              elementDiv.innerHTML += content;
-            } else {
-              elementDiv.textContent = content;
-            }
+                const hAlign = textStyle.textAlign || "left";
+                elementDiv.style.textAlign = hAlign;
+
+                const vAlign = textStyle.verticalAlign || "middle";
+                const justifyMap: Record<string, string> = {
+                top: "flex-start",
+                middle: "center",
+                bottom: "flex-end"
+                };
+                elementDiv.style.justifyContent = justifyMap[vAlign];
+
+                if (hAlign === "center") {
+                elementDiv.style.alignItems = "center";
+                } else if (hAlign === "right") {
+                elementDiv.style.alignItems = "flex-end";
+                } else {
+                elementDiv.style.alignItems = "flex-start";
+                }
+
+                let content = element.content || "";
+                if (element.dataBinding && rowData[element.dataBinding]) {
+                    content = rowData[element.dataBinding];
+                }
+                if (isHtmlContent(content)) {
+                const style = document.createElement("style");
+                style.textContent = `
+                    ul { list-style-type: disc !important; margin: 0 !important; padding-left: 1.2em !important; display: block !important; }
+                    li { margin: 0.2em 0 !important; display: list-item !important; }
+                    ol { list-style-type: decimal !important; margin: 0 !important; padding-left: 1.2em !important; display: block !important; }
+                    strong, b { font-weight: bold; }
+                    em, i { font-style: italic; }
+                    p { margin: 0.2em 0; display: block !important; }
+                `;
+                elementDiv.appendChild(style);
+                elementDiv.style.display = "block";
+                elementDiv.innerHTML += content;
+                } else {
+                elementDiv.textContent = content;
+                }
             } else if (element.type === "shape") {
-            const shapeStyle = element.shapeStyle || {};
-            elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
-            elementDiv.style.border = `${shapeStyle.strokeWidth || 1}px solid ${shapeStyle.stroke || "#9ca3af"}`;
-            elementDiv.style.borderRadius = element.shapeType === "circle" ? "50%" : `${shapeStyle.borderRadius || 0}px`;
+                const shapeStyle = element.shapeStyle || {};
+                elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
+                elementDiv.style.border = `${shapeStyle.strokeWidth || 1}px solid ${shapeStyle.stroke || "#9ca3af"}`;
+                elementDiv.style.borderRadius = element.shapeType === "circle" ? "50%" : `${shapeStyle.borderRadius || 0}px`;
             } else if (element.type === "image") {
-            let imgSrc = element.imageSrc;
-            if (element.dataBinding && rowData[element.dataBinding]) {
-                imgSrc = rowData[element.dataBinding];
-            }
-            if (imgSrc) {
-              const img = document.createElement("img");
-              img.src = imgSrc;
-              img.style.width = "100%";
-              img.style.height = "100%";
-              img.style.objectFit = "contain";
-              img.style.objectPosition = "center";
-              elementDiv.appendChild(img);
-            }
+                let imgSrc = element.imageSrc;
+                if (element.dataBinding && rowData[element.dataBinding]) {
+                    imgSrc = rowData[element.dataBinding];
+                }
+                if (imgSrc) {
+                const img = document.createElement("img");
+                img.src = imgSrc;
+                img.style.width = "100%";
+                img.style.height = "100%";
+                img.style.objectFit = "contain";
+                img.style.objectPosition = "center";
+                elementDiv.appendChild(img);
+                }
             }
 
             tempDiv.appendChild(elementDiv);
         }
 
-
+        // Slight delay to ensure DOM rendering
         await new Promise((resolve) => setTimeout(resolve, 50));
 
+        // Capture Canvas
         const canvas = await html2canvas(tempDiv, {
           scale: 2 * exportSettings.quality,
           backgroundColor: backgroundColor,
           useCORS: true,
           logging: false,
-          // FIXED: Explicit dimensions and scrolling reset
           width: canvasWidth,
           height: canvasHeight,
           windowWidth: canvasWidth,
@@ -423,6 +430,13 @@ export function ExportTab() {
           scrollY: 0,
           x: 0,
           y: 0
+        });
+
+        // Create PDF for this specific row
+        const pdf = new jsPDF({
+            orientation: orientation,
+            unit: "mm",
+            format: [mmWidth, mmHeight],
         });
 
         const imgData = canvas.toDataURL("image/png", exportSettings.quality);
@@ -437,20 +451,48 @@ export function ExportTab() {
           "FAST"
         );
 
+        // Calculate Filename for this specific PDF
+        let pdfName = getConstructedFilename(rowIndex);
+
+        // Deduplication logic: If name exists, append _1, _2, etc.
+        let uniqueName = pdfName;
+        let counter = 1;
+        while (usedFilenames.has(uniqueName)) {
+            uniqueName = `${pdfName}_${counter}`;
+            counter++;
+        }
+        usedFilenames.add(uniqueName);
+
+        // Add to ZIP (get PDF as blob)
+        zip.file(`${uniqueName}.pdf`, pdf.output('blob'));
+
+        // Clean up DOM
         document.body.removeChild(tempDiv);
       }
 
-      setProgress(95);
+      // Generation Phase (80% -> 100%)
+      setProgress(85);
 
-      const timestamp = new Date().toISOString().slice(0, 10);
-      pdf.save(`specsheet-bulk-${timestamp}.pdf`);
-
+      // Generate the zip file
+      const zipBlob = await zip.generateAsync({ type: "blob" });
       setProgress(100);
+
+      // Trigger download
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const url = window.URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `specsheets-bulk-${timestamp}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
       setExportStatus("success");
 
       toast({
         title: "Bulk export complete",
-        description: `Generated ${excelData.rows.length} pages in the PDF.`,
+        description: `Downloaded ZIP containing ${excelData.rows.length} files.`,
       });
     } catch (error) {
       console.error("Bulk export error:", error);
@@ -472,6 +514,59 @@ export function ExportTab() {
   return (
     <ScrollArea className="h-full">
       <div className="p-4 space-y-4">
+
+        {/* Filename Construction Section */}
+        <div>
+          <h3 className="font-medium text-sm mb-3 flex items-center gap-2">
+            <FileSignature className="h-4 w-4" />
+            File Naming
+          </h3>
+          <div className="space-y-3">
+             <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Filename Pattern</Label>
+                <Input 
+                   value={filenamePattern}
+                   onChange={(e) => setFilenamePattern(e.target.value)}
+                   placeholder="e.g. Specsheet-{{Model}}-{{Date}}"
+                   className="font-mono text-xs"
+                   data-testid="input-filename-pattern"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                   Use valid characters only. Illegal characters will be replaced with _.
+                </p>
+             </div>
+
+             {excelData && excelData.headers.length > 0 && (
+                <div className="space-y-1.5">
+                   <Label className="text-xs text-muted-foreground">Insert Variable</Label>
+                   <div className="flex flex-wrap gap-1">
+                      <Button
+                         variant="outline"
+                         size="sm"
+                         className="h-6 px-2 text-[10px] bg-muted/50 hover:bg-muted border-dashed"
+                         onClick={() => setFilenamePattern((prev) => `${prev}{{Date}}`)}
+                      >
+                         <Plus className="h-2 w-2 mr-1" /> Date
+                      </Button>
+                      {excelData.headers.map((header) => (
+                         <Button
+                            key={header}
+                            variant="outline"
+                            size="sm"
+                            className="h-6 px-2 text-[10px] bg-muted/50 hover:bg-muted border-dashed"
+                            onClick={() => insertVariable(header)}
+                         >
+                            <Plus className="h-2 w-2 mr-1" /> {header}
+                         </Button>
+                      ))}
+                   </div>
+                </div>
+             )}
+          </div>
+        </div>
+
+        <Separator />
+
         <div>
           <h3 className="font-medium text-sm mb-3 flex items-center gap-2">
             <Settings className="h-4 w-4" />
@@ -555,7 +650,7 @@ export function ExportTab() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm">
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              <span>Generating PDF...</span>
+              <span>Generating files...</span>
             </div>
             <Progress value={progress} className="h-2" />
           </div>
@@ -564,7 +659,7 @@ export function ExportTab() {
         {!isExporting && exportStatus === "success" && (
           <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950/50 p-3 rounded-lg">
             <CheckCircle2 className="h-4 w-4" />
-            <span>PDF exported successfully!</span>
+            <span>Export completed successfully!</span>
           </div>
         )}
 
@@ -601,9 +696,9 @@ export function ExportTab() {
               {isExporting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <FileText className="h-4 w-4" />
+                <FileArchive className="h-4 w-4" />
               )}
-              Bulk Export ({excelData.rows.length} pages)
+              Bulk Export as ZIP ({excelData.rows.length} files)
             </Button>
           )}
         </div>
@@ -612,8 +707,8 @@ export function ExportTab() {
           <p className="font-medium">Tips:</p>
           <ul className="list-disc list-inside space-y-0.5">
             <li>Single export uses the current preview row</li>
-            <li>Bulk export creates one page per data row</li>
-            <li>Higher quality = larger file size</li>
+            <li>Use <strong>{`{{Variable}}`}</strong> tags to create dynamic file names</li>
+            <li>Bulk export creates a ZIP containing individual PDF files</li>
           </ul>
         </div>
       </div>
