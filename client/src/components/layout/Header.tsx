@@ -264,7 +264,7 @@ export function Header() {
               <span className="hidden sm:inline">Save</span>
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="z-[9999]">
             <DialogHeader>
               <DialogTitle>Save Design</DialogTitle>
               <DialogDescription>
