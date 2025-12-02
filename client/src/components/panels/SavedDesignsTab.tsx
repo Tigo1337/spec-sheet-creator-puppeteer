@@ -46,7 +46,6 @@ export function SavedDesignsTab() {
     canvasHeight,
     backgroundColor,
     loadTemplate,
-    hasUnsavedChanges,
   } = useCanvasStore();
 
   const { data: designs = [], isLoading } = useQuery<SavedDesign[]>({
@@ -136,20 +135,20 @@ export function SavedDesignsTab() {
       createdAt: design.createdAt,
       updatedAt: design.updatedAt,
     });
-    
+
     // Restore image field designations from elements
     const imageFields = new Set(
       design.elements
         .filter((el) => el.isImageField && el.dataBinding)
         .map((el) => el.dataBinding as string)
     );
-    
+
     if (imageFields.size > 0) {
       imageFields.forEach((field) => {
         useCanvasStore.getState().toggleImageField(field);
       });
     }
-    
+
     toast({
       title: "Design loaded",
       description: `"${design.name}" has been loaded.`,
@@ -193,7 +192,8 @@ export function SavedDesignsTab() {
               Save Current Design
             </Button>
           </DialogTrigger>
-          <DialogContent className="z-[9999]">
+          {/* FIX 1: Updated to z-[99999] to match global fix and beat canvas elements */}
+          <DialogContent className="z-[99999]">
             <DialogHeader>
               <DialogTitle>Save Design</DialogTitle>
               <DialogDescription>
@@ -270,7 +270,7 @@ export function SavedDesignsTab() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-sm truncate">{design.name}</h4>
+                    <h4 className="font-medium text-sm break-words leading-tight">{design.name}</h4>
                     {design.description && (
                       <p className="text-xs text-muted-foreground truncate mt-0.5">
                         {design.description}
@@ -303,7 +303,8 @@ export function SavedDesignsTab() {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </AlertDialogTrigger>
-                      <AlertDialogContent>
+                      {/* FIX 2: Added z-[99999] here too, otherwise the delete confirmation will be hidden */}
+                      <AlertDialogContent className="z-[99999]">
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete Design?</AlertDialogTitle>
                           <AlertDialogDescription>
