@@ -17,8 +17,7 @@ export default function Registration() {
           <p className="text-muted-foreground mt-2">Create your account</p>
         </div>
         <SignUp
-          routing="path"
-          path="/registration"
+          routing="hash"
           signInUrl="/login"
           afterSignUpUrl={afterSignUpUrl}
           appearance={{

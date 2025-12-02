@@ -9,8 +9,7 @@ export default function Login() {
           <p className="text-muted-foreground mt-2">Sign in to your account</p>
         </div>
         <SignIn
-          routing="path"
-          path="/login"
+          routing="hash"
           signUpUrl="/registration"
           afterSignInUrl="/"
           appearance={{
