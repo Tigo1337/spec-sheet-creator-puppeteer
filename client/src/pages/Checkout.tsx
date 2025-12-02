@@ -12,8 +12,17 @@ export default function Checkout() {
   const [error, setError] = useState<string | null>(null);
 
   const urlParams = new URLSearchParams(window.location.search);
-  const priceId = urlParams.get("priceId");
-  const plan = urlParams.get("plan");
+  let priceId = urlParams.get("priceId");
+  let plan = urlParams.get("plan");
+
+  if (!priceId || !plan) {
+    const pending = sessionStorage.getItem("pendingCheckout");
+    if (pending) {
+      const { plan: p, priceId: pid } = JSON.parse(pending);
+      plan = p;
+      priceId = pid;
+    }
+  }
 
   useEffect(() => {
     if (!isLoaded) return;

@@ -1,13 +1,17 @@
 import { SignUp } from "@clerk/clerk-react";
+import { useEffect } from "react";
 
 export default function Registration() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const priceId = urlParams.get("priceId");
-  const plan = urlParams.get("plan");
+  const plan = sessionStorage.getItem("checkoutPlan");
+  const priceId = sessionStorage.getItem("checkoutPriceId");
 
-  const afterSignUpUrl = priceId && plan 
-    ? `/checkout?plan=${plan}&priceId=${priceId}`
-    : "/editor";
+  useEffect(() => {
+    if (plan && priceId) {
+      sessionStorage.setItem("pendingCheckout", JSON.stringify({ plan, priceId }));
+    }
+  }, []);
+
+  const afterSignUpUrl = "/checkout";
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">

@@ -1,6 +1,7 @@
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
+import { useLocation } from "wouter";
 
 const PRICE_IDS = {
   proMonthly: "price_1SZtioEFufdmlbEL2SX2yEof",
@@ -8,6 +9,14 @@ const PRICE_IDS = {
 };
 
 export default function Pricing() {
+  const [, setLocation] = useLocation();
+
+  const handlePlanSelect = (plan: string, priceId: string) => {
+    sessionStorage.setItem("checkoutPlan", plan);
+    sessionStorage.setItem("checkoutPriceId", priceId);
+    setLocation(`/registration`);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <PublicHeader />
@@ -42,11 +51,14 @@ export default function Pricing() {
                   <span>Community support</span>
                 </li>
               </ul>
-              <a href="/registration">
-                <Button variant="outline" className="w-full" data-testid="btn-pricing-free">
-                  Get Started Free
-                </Button>
-              </a>
+              <Button 
+                variant="outline" 
+                className="w-full" 
+                data-testid="btn-pricing-free"
+                onClick={() => setLocation("/registration")}
+              >
+                Get Started Free
+              </Button>
             </div>
 
             {/* Pro Monthly Plan */}
@@ -82,11 +94,13 @@ export default function Pricing() {
                   <span>Priority support</span>
                 </li>
               </ul>
-              <a href={`/registration?plan=pro_monthly&priceId=${PRICE_IDS.proMonthly}`}>
-                <Button className="w-full" data-testid="btn-pricing-pro-monthly">
-                  Start Pro Monthly
-                </Button>
-              </a>
+              <Button 
+                className="w-full" 
+                data-testid="btn-pricing-pro-monthly"
+                onClick={() => handlePlanSelect("pro_monthly", PRICE_IDS.proMonthly)}
+              >
+                Start Pro Monthly
+              </Button>
             </div>
 
             {/* Pro Annual Plan */}
@@ -111,11 +125,14 @@ export default function Pricing() {
                   <span>Priority onboarding</span>
                 </li>
               </ul>
-              <a href={`/registration?plan=pro_annual&priceId=${PRICE_IDS.proAnnual}`}>
-                <Button variant="outline" className="w-full" data-testid="btn-pricing-pro-annual">
-                  Start Pro Annual
-                </Button>
-              </a>
+              <Button 
+                variant="outline" 
+                className="w-full" 
+                data-testid="btn-pricing-pro-annual"
+                onClick={() => handlePlanSelect("pro_annual", PRICE_IDS.proAnnual)}
+              >
+                Start Pro Annual
+              </Button>
             </div>
           </div>
 
