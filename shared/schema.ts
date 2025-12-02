@@ -206,3 +206,33 @@ export const templatesTable = pgTable("templates", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+// Users table - stores Clerk users with Stripe subscription info
+export const usersTable = pgTable("users", {
+  id: varchar("id", { length: 255 }).primaryKey(), // Clerk user ID
+  email: varchar("email", { length: 255 }).notNull(),
+  stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
+  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
+  plan: varchar("plan", { length: 50 }).notNull().default("free"), // free, pro
+  planStatus: varchar("plan_status", { length: 50 }).notNull().default("active"), // active, canceled, past_due
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Drizzle types for users table
+export type DbUser = typeof usersTable.$inferSelect;
+export type InsertDbUser = typeof usersTable.$inferInsert;
+
+// Zod schema for users
+export const dbUserSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  stripeCustomerId: z.string().nullable(),
+  stripeSubscriptionId: z.string().nullable(),
+  plan: z.enum(["free", "pro"]).default("free"),
+  planStatus: z.enum(["active", "canceled", "past_due"]).default("active"),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const insertDbUserSchema = dbUserSchema.omit({ createdAt: true, updatedAt: true });
