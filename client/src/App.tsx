@@ -6,9 +6,25 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SignedIn, SignedOut, SignIn, useClerk } from "@clerk/clerk-react";
 import Editor from "@/pages/Editor";
+import Homepage from "@/pages/Homepage";
+import Solutions from "@/pages/Solutions";
+import Features from "@/pages/Features";
+import Pricing from "@/pages/Pricing";
 import NotFound from "@/pages/not-found";
 
-function Router() {
+function PublicRouter() {
+  return (
+    <Switch>
+      <Route path="/" component={Homepage} />
+      <Route path="/solutions" component={Solutions} />
+      <Route path="/features" component={Features} />
+      <Route path="/pricing" component={Pricing} />
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+function ProtectedRouter() {
   return (
     <Switch>
       <Route path="/" component={Editor} />
@@ -22,7 +38,6 @@ function AppContent() {
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    // Wait for Clerk to finish loading and checking for an existing session
     if (loaded) {
       setIsInitializing(false);
     }
@@ -42,27 +57,10 @@ function AppContent() {
   return (
     <>
       <SignedOut>
-        <div className="flex items-center justify-center min-h-screen bg-background">
-          <div className="w-full max-w-md p-6">
-            <div className="text-center mb-8">
-              <h1 className="text-2xl font-bold">SpecSheet Builder</h1>
-              <p className="text-muted-foreground mt-2">Sign in to continue</p>
-            </div>
-            <SignIn 
-              routing="hash"
-              signUpUrl="#/sign-up"
-              appearance={{
-                elements: {
-                  rootBox: "mx-auto",
-                  card: "shadow-none"
-                }
-              }}
-            />
-          </div>
-        </div>
+        <PublicRouter />
       </SignedOut>
       <SignedIn>
-        <Router />
+        <ProtectedRouter />
       </SignedIn>
     </>
   );
