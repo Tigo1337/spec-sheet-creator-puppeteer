@@ -13,15 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -31,7 +22,6 @@ import {
   ZoomOut,
   Grid3X3,
   Magnet,
-  Save,
   FileDown,
   MoreHorizontal,
   FilePlus,
@@ -42,8 +32,6 @@ import {
 import { useState, useEffect } from "react";
 
 export function Header() {
-  const [templateName, setTemplateName] = useState("Untitled Design");
-  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
   const {
@@ -77,13 +65,6 @@ export function Header() {
     document.documentElement.classList.toggle("dark", newTheme === "dark");
   };
 
-  const handleSave = () => {
-    if (templateName.trim()) {
-      saveAsTemplate(templateName);
-      setIsSaveDialogOpen(false);
-    }
-  };
-
   const handleNewDesign = () => {
     if (hasUnsavedChanges) {
       if (!confirm("You have unsaved changes. Create a new design anyway?")) {
@@ -91,7 +72,6 @@ export function Header() {
       }
     }
     resetCanvas();
-    setTemplateName("Untitled Design");
   };
 
   const handleExport = () => {
@@ -115,7 +95,7 @@ export function Header() {
 
         <div className="flex items-center gap-1 min-w-0">
           <span className="text-sm truncate max-w-40 sm:max-w-60" data-testid="text-template-name">
-            {currentTemplate?.name || templateName}
+            {currentTemplate?.name || "Untitled Design"}
           </span>
           {hasUnsavedChanges && (
             <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" title="Unsaved changes" />
@@ -256,43 +236,6 @@ export function Header() {
           </TooltipTrigger>
           <TooltipContent>Toggle Theme</TooltipContent>
         </Tooltip>
-
-        <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-1.5" data-testid="btn-save">
-              <Save className="h-4 w-4" />
-              <span className="hidden sm:inline">Save</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="z-[9999]">
-            <DialogHeader>
-              <DialogTitle>Save Design</DialogTitle>
-              <DialogDescription>
-                Give your design a name to save it as a template.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="template-name">Template Name</Label>
-                <Input
-                  id="template-name"
-                  value={templateName}
-                  onChange={(e) => setTemplateName(e.target.value)}
-                  placeholder="My Spec Sheet Template"
-                  data-testid="input-template-name"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsSaveDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSave} disabled={!templateName.trim()} data-testid="btn-confirm-save">
-                Save Template
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         <Button size="sm" className="gap-1.5" onClick={handleExport} data-testid="btn-header-export">
           <FileDown className="h-4 w-4" />

@@ -193,7 +193,7 @@ export function SavedDesignsTab() {
               Save Current Design
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="z-[9999]">
             <DialogHeader>
               <DialogTitle>Save Design</DialogTitle>
               <DialogDescription>
