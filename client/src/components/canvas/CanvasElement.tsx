@@ -2,8 +2,9 @@ import { useDraggable } from "@dnd-kit/core";
 import type { CanvasElement as CanvasElementType } from "@shared/schema";
 import { useCanvasStore } from "@/stores/canvas-store";
 import { useEffect, useState } from "react";
-// REMOVED: Database icon import
 import { isHtmlContent } from "@/lib/canvas-utils";
+// NEW: Import the formatter engine
+import { formatContent } from "@/lib/formatter";
 
 interface CanvasElementProps {
   element: CanvasElementType;
@@ -128,7 +129,8 @@ export function CanvasElement({
               padding: 4 * zoom,
             }}
           >
-            {element.content || "Text"}
+            {/* UPDATED: Apply Formatting to static text */}
+            {formatContent(element.content || "Text", element.format)}
           </div>
         );
 
@@ -138,8 +140,16 @@ export function CanvasElement({
           middle: "center",
           bottom: "flex-end",
         };
-        const displayContent = getDisplayContent();
+
+        // 1. Get the Raw Data (from Excel or Placeholder)
+        const rawContent = getDisplayContent();
+
+        // 2. UPDATED: Apply the Formatting Logic (e.g. 10.5 -> 10 1/2)
+        const displayContent = formatContent(rawContent, element.format);
+
+        // 3. Check if result is HTML (only relevant if not formatted as number/date)
         const hasHtml = isHtmlContent(displayContent);
+
         return (
           <div
             className="w-full h-full rounded border-2 border-dashed overflow-hidden"
@@ -147,21 +157,17 @@ export function CanvasElement({
               display: "flex",
               alignItems: dataFieldVerticalAlignMap[element.textStyle?.verticalAlign || "middle"] as any,
               justifyContent: element.textStyle?.textAlign === "center" ? "center" : element.textStyle?.textAlign === "right" ? "flex-end" : "flex-start",
-              // UPDATED: Removed paddingLeft: 8 * zoom and gap that was accommodating the icon
               padding: 4 * zoom, 
               fontFamily: element.textStyle?.fontFamily || "JetBrains Mono",
               fontSize: (element.textStyle?.fontSize || 14) * zoom,
               fontWeight: element.textStyle?.fontWeight || 500,
               color: element.textStyle?.color || "#000000",
               backgroundColor: "transparent",
-              // UPDATED: Changed border color to Violet (#8b5cf6) to distinguish Data Fields
               borderColor: "#8b5cf6", 
               lineHeight: element.textStyle?.lineHeight || 1.4,
               letterSpacing: `${element.textStyle?.letterSpacing || 0}px`,
             }}
           >
-            {/* REMOVED: Database icon */}
-
             {hasHtml ? (
               <div
                 style={{

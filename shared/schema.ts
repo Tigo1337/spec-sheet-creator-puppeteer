@@ -42,6 +42,32 @@ export const shapeStyleSchema = z.object({
 
 export type ShapeStyle = z.infer<typeof shapeStyleSchema>;
 
+// ==========================================
+// NEW: Data Formatting Schema
+// ==========================================
+export const formatSchema = z.object({
+  // The type of data this element expects
+  dataType: z.enum(["text", "number", "date", "boolean"]).default("text"),
+
+  // Text Options
+  casing: z.enum(["none", "title", "upper", "lower"]).default("none"),
+
+  // Number Options
+  decimalPlaces: z.number().default(2),
+  useFractions: z.boolean().default(false),
+  fractionPrecision: z.number().default(16), // 2, 4, 8, 16, 32, 64
+  unit: z.string().optional(), // e.g. "mm", "kg", "$"
+
+  // Date Options
+  dateFormat: z.string().default("MM/DD/YYYY"),
+
+  // Boolean Options
+  trueLabel: z.string().optional(), // e.g. "Included"
+  falseLabel: z.string().optional(), // e.g. "Not Included"
+});
+
+export type ElementFormat = z.infer<typeof formatSchema>;
+
 // Canvas element schema
 export const canvasElementSchema = z.object({
   id: z.string(),
@@ -54,8 +80,13 @@ export const canvasElementSchema = z.object({
   zIndex: z.number().default(0),
   content: z.string().optional(),
   dataBinding: z.string().optional(), // Column name from Excel
+
   textStyle: textStyleSchema.optional(),
   shapeStyle: shapeStyleSchema.optional(),
+
+  // NEW: Formatting options are now part of the element
+  format: formatSchema.optional(),
+
   shapeType: z.enum(["rectangle", "circle", "line"]).optional(),
   imageSrc: z.string().optional(),
   isImageField: z.boolean().default(false), // Marks data fields that should load images

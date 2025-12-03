@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { getImageDimensions } from "@/lib/canvas-utils";
+import { Switch } from "@/components/ui/switch"; 
 import {
   Select,
   SelectContent,
@@ -23,7 +24,6 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  Bold,
   Trash2,
   Copy,
   ArrowUp,
@@ -32,12 +32,15 @@ import {
   Unlock,
   Eye,
   EyeOff,
-  // UPDATED: Imported correct Vertical Alignment icons
-  AlignVerticalJustifyStart,  // Top
-  AlignVerticalJustifyCenter, // Middle
-  AlignVerticalJustifyEnd,    // Bottom
+  AlignVerticalJustifyStart,
+  AlignVerticalJustifyCenter,
+  AlignVerticalJustifyEnd,
+  Type,
+  Hash,
+  Calendar,
+  CheckSquare
 } from "lucide-react";
-import { availableFonts, type CanvasElement, pageSizes } from "@shared/schema";
+import { availableFonts, type CanvasElement } from "@shared/schema";
 
 export function PropertiesTab() {
   const [imageLoadingId, setImageLoadingId] = useState<string | null>(null);
@@ -56,10 +59,7 @@ export function PropertiesTab() {
     alignTop,
     alignMiddle,
     alignBottom,
-    canvasWidth,
-    canvasHeight,
     backgroundColor,
-    setCanvasSize,
     setBackgroundColor,
   } = useCanvasStore();
 
@@ -152,6 +152,16 @@ export function PropertiesTab() {
     updateElement(selectedElement.id, {
       shapeStyle: {
         ...selectedElement.shapeStyle,
+        [key]: value,
+      },
+    });
+  };
+
+  // NEW: Formatting Handler
+  const handleFormatChange = (key: string, value: any) => {
+    updateElement(selectedElement.id, {
+      format: {
+        ...selectedElement.format,
         [key]: value,
       },
     });
@@ -419,7 +429,6 @@ export function PropertiesTab() {
                     height: selectedElement.dimension.height,
                   };
 
-                  // For image elements, maintain aspect ratio
                   if (selectedElement.type === "image") {
                     const ratio = selectedElement.dimension.width / selectedElement.dimension.height;
                     newDimension.height = Math.round(newWidth / ratio);
@@ -444,7 +453,6 @@ export function PropertiesTab() {
                     height: newHeight,
                   };
 
-                  // For image elements, maintain aspect ratio
                   if (selectedElement.type === "image") {
                     const ratio = selectedElement.dimension.width / selectedElement.dimension.height;
                     newDimension.width = Math.round(newHeight * ratio);
@@ -462,7 +470,7 @@ export function PropertiesTab() {
 
         <Separator />
 
-        {/* Text Properties */}
+        {/* Text Properties & Data Formatting */}
         {(selectedElement.type === "text" ||
           selectedElement.type === "dataField") && (
           <div>
@@ -594,7 +602,6 @@ export function PropertiesTab() {
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Vertical Alignment</Label>
                 <div className="flex gap-1">
-                  {/* TOP ALIGNMENT */}
                   <Button
                     size="icon"
                     variant={
@@ -603,11 +610,9 @@ export function PropertiesTab() {
                     onClick={() => handleTextStyleChange("verticalAlign", "top")}
                     data-testid="btn-text-vertical-top"
                   >
-                    {/* UPDATED: Correct Vertical Icon */}
                     <AlignVerticalJustifyStart className="h-4 w-4" />
                   </Button>
 
-                  {/* MIDDLE ALIGNMENT */}
                   <Button
                     size="icon"
                     variant={
@@ -616,11 +621,9 @@ export function PropertiesTab() {
                     onClick={() => handleTextStyleChange("verticalAlign", "middle")}
                     data-testid="btn-text-vertical-middle"
                   >
-                     {/* UPDATED: Correct Vertical Icon */}
                     <AlignVerticalJustifyCenter className="h-4 w-4" />
                   </Button>
 
-                  {/* BOTTOM ALIGNMENT */}
                   <Button
                     size="icon"
                     variant={
@@ -629,7 +632,6 @@ export function PropertiesTab() {
                     onClick={() => handleTextStyleChange("verticalAlign", "bottom")}
                     data-testid="btn-text-vertical-bottom"
                   >
-                     {/* UPDATED: Correct Vertical Icon */}
                     <AlignVerticalJustifyEnd className="h-4 w-4" />
                   </Button>
                 </div>
@@ -647,6 +649,189 @@ export function PropertiesTab() {
                   step={0.1}
                   data-testid="slider-line-height"
                 />
+              </div>
+            </div>
+
+            <Separator className="my-4" />
+
+            {/* ========================================================= */}
+            {/* NEW SECTION: DATA FORMATTING & TRANSFORMATIONS            */}
+            {/* ========================================================= */}
+            <div>
+              <h3 className="font-medium text-sm mb-3 flex items-center gap-2">
+                Data Formatting
+                <Tooltip>
+                  <TooltipTrigger><div className="text-[10px] px-1.5 py-0.5 bg-muted rounded-full border">?</div></TooltipTrigger>
+                  <TooltipContent>Apply logic to transform your data automatically</TooltipContent>
+                </Tooltip>
+              </h3>
+
+              <div className="space-y-4">
+                {/* 1. Data Type Selector */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Treat Data As</Label>
+                  <Select
+                    value={selectedElement.format?.dataType || "text"}
+                    onValueChange={(value) => handleFormatChange("dataType", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="text"><div className="flex items-center gap-2"><Type className="w-3 h-3"/> Text</div></SelectItem>
+                      <SelectItem value="number"><div className="flex items-center gap-2"><Hash className="w-3 h-3"/> Number</div></SelectItem>
+                      <SelectItem value="date"><div className="flex items-center gap-2"><Calendar className="w-3 h-3"/> Date</div></SelectItem>
+                      <SelectItem value="boolean"><div className="flex items-center gap-2"><CheckSquare className="w-3 h-3"/> Boolean (True/False)</div></SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* OPTION A: TEXT FORMATTING */}
+                {(selectedElement.format?.dataType === "text" || !selectedElement.format?.dataType) && (
+                  <div className="space-y-3 p-3 bg-muted/30 rounded-md border">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Casing</Label>
+                      <Select
+                        value={selectedElement.format?.casing || "none"}
+                        onValueChange={(value) => handleFormatChange("casing", value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Original (No Change)</SelectItem>
+                          <SelectItem value="title">Title Case (Aa)</SelectItem>
+                          <SelectItem value="upper">UPPER CASE (AA)</SelectItem>
+                          <SelectItem value="lower">lower case (aa)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
+                {/* OPTION B: NUMBER FORMATTING */}
+                {selectedElement.format?.dataType === "number" && (
+                  <div className="space-y-3 p-3 bg-muted/30 rounded-md border">
+
+                    {/* Fraction Toggle */}
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-muted-foreground">Display as Fraction</Label>
+                      <Switch 
+                        checked={selectedElement.format?.useFractions || false}
+                        onCheckedChange={(checked) => handleFormatChange("useFractions", checked)}
+                      />
+                    </div>
+
+                    {selectedElement.format?.useFractions ? (
+                       /* Fractions Settings */
+                      <div className="space-y-1.5 animate-in fade-in zoom-in-95 duration-200">
+                        <Label className="text-xs text-muted-foreground">Precision (Rounding)</Label>
+                        <Select
+                          value={String(selectedElement.format?.fractionPrecision || 16)}
+                          onValueChange={(value) => handleFormatChange("fractionPrecision", Number(value))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="2">Halves (1/2)</SelectItem>
+                            <SelectItem value="4">Quarters (1/4)</SelectItem>
+                            <SelectItem value="8">Eighths (1/8)</SelectItem>
+                            <SelectItem value="16">Sixteenths (1/16)</SelectItem>
+                            <SelectItem value="32">32nds (1/32)</SelectItem>
+                            <SelectItem value="64">64ths (1/64)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : (
+                      /* Decimal Settings */
+                      <div className="space-y-1.5 animate-in fade-in zoom-in-95 duration-200">
+                         <Label className="text-xs text-muted-foreground">Decimal Places</Label>
+                         <Input 
+                           type="number" 
+                           min={0} 
+                           max={10}
+                           value={selectedElement.format?.decimalPlaces ?? 2}
+                           onChange={(e) => handleFormatChange("decimalPlaces", Number(e.target.value))}
+                         />
+                      </div>
+                    )}
+
+                    {/* Unit Affixes */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Append Unit</Label>
+                      <Select
+                        value={selectedElement.format?.unit || "none"}
+                        onValueChange={(value) => handleFormatChange("unit", value === "none" ? undefined : value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="None" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          <SelectItem value="mm">Millimeters (mm)</SelectItem>
+                          <SelectItem value="cm">Centimeters (cm)</SelectItem>
+                          <SelectItem value="m">Meters (m)</SelectItem>
+                          <SelectItem value="in">Inches (in)</SelectItem>
+                          <SelectItem value="ft">Feet (ft)</SelectItem>
+                          <SelectItem value="kg">Kilograms (kg)</SelectItem>
+                          <SelectItem value="lbs">Pounds (lbs)</SelectItem>
+                          <SelectItem value="$">Dollars ($)</SelectItem>
+                          <SelectItem value="%">Percentage (%)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
+                {/* OPTION C: DATE FORMATTING */}
+                {selectedElement.format?.dataType === "date" && (
+                  <div className="space-y-3 p-3 bg-muted/30 rounded-md border">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Output Format</Label>
+                      <Select
+                        value={selectedElement.format?.dateFormat || "MM/DD/YYYY"}
+                        onValueChange={(value) => handleFormatChange("dateFormat", value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="MM/DD/YYYY">12/25/2025</SelectItem>
+                          <SelectItem value="DD/MM/YYYY">25/12/2025</SelectItem>
+                          <SelectItem value="YYYY-MM-DD">2025-12-25</SelectItem>
+                          <SelectItem value="MMM D, YYYY">Dec 25, 2025</SelectItem>
+                          <SelectItem value="MMMM D, YYYY">December 25, 2025</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
+                {/* OPTION D: BOOLEAN MAPPING */}
+                {selectedElement.format?.dataType === "boolean" && (
+                   <div className="space-y-3 p-3 bg-muted/30 rounded-md border">
+                    <div className="grid grid-cols-2 gap-2">
+                       <div className="space-y-1.5">
+                         <Label className="text-xs text-muted-foreground text-green-600">If TRUE (1)</Label>
+                         <Input 
+                            placeholder="Included"
+                            value={selectedElement.format?.trueLabel || ""}
+                            onChange={(e) => handleFormatChange("trueLabel", e.target.value)}
+                         />
+                       </div>
+                       <div className="space-y-1.5">
+                         <Label className="text-xs text-muted-foreground text-red-500">If FALSE (0)</Label>
+                         <Input 
+                            placeholder="-"
+                            value={selectedElement.format?.falseLabel || ""}
+                            onChange={(e) => handleFormatChange("falseLabel", e.target.value)}
+                         />
+                       </div>
+                    </div>
+                   </div>
+                )}
+
               </div>
             </div>
           </div>
