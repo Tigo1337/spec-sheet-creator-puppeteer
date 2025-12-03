@@ -42,9 +42,7 @@ export const shapeStyleSchema = z.object({
 
 export type ShapeStyle = z.infer<typeof shapeStyleSchema>;
 
-// ==========================================
-// NEW: Data Formatting Schema
-// ==========================================
+// Data Formatting Schema
 export const formatSchema = z.object({
   // The type of data this element expects
   dataType: z.enum(["text", "number", "date", "boolean"]).default("text"),
@@ -80,6 +78,9 @@ export const canvasElementSchema = z.object({
   zIndex: z.number().default(0),
   content: z.string().optional(),
   dataBinding: z.string().optional(), // Column name from Excel
+
+  // NEW: Track which page this element belongs to (0-indexed)
+  pageIndex: z.number().default(0),
 
   textStyle: textStyleSchema.optional(),
   shapeStyle: shapeStyleSchema.optional(),

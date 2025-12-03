@@ -6,7 +6,7 @@ import { nanoid } from "nanoid";
 function calculateGridSize(width: number, height: number): number {
   const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b);
   const g = gcd(width, height);
-  
+
   // Get all divisors of GCD in descending order
   const divisors: number[] = [];
   for (let i = 1; i <= Math.sqrt(g); i++) {
@@ -16,16 +16,16 @@ function calculateGridSize(width: number, height: number): number {
     }
   }
   divisors.sort((a, b) => b - a);
-  
+
   // Target approximately 80-100 squares per dimension for consistency
   const targetSquares = 90;
   const avgDim = (width + height) / 2;
   const targetGridSize = Math.round(avgDim / targetSquares);
-  
+
   // Find best divisor closest to target that divides both dimensions evenly
   let bestDiv = divisors[0];
   let bestDiff = Math.abs(targetGridSize - bestDiv);
-  
+
   for (const div of divisors) {
     const diff = Math.abs(targetGridSize - div);
     if (diff < bestDiff) {
@@ -33,7 +33,7 @@ function calculateGridSize(width: number, height: number): number {
       bestDiv = div;
     }
   }
-  
+
   return bestDiv || 10;
 }
 
@@ -46,15 +46,19 @@ interface CanvasState {
   zoom: number;
   showGrid: boolean;
   snapToGrid: boolean;
-  
+
+  // Multi-page state
+  pageCount: number;
+  activePageIndex: number;
+
   // Elements
   elements: CanvasElement[];
   selectedElementIds: string[];
-  
+
   // Template
   currentTemplate: Template | null;
   hasUnsavedChanges: boolean;
-  
+
   // Data
   excelData: ExcelData | null;
   selectedRowIndex: number;
@@ -62,35 +66,39 @@ interface CanvasState {
 
   // Export
   exportSettings: ExportSettings;
-  
+
   // UI State
   activeTool: "select" | "text" | "shape" | "image";
   rightPanelTab: "properties" | "data" | "export" | "designs";
-  
+
   // Actions
   setCanvasSize: (width: number, height: number) => void;
   setBackgroundColor: (color: string) => void;
   setZoom: (zoom: number) => void;
   toggleGrid: () => void;
   toggleSnapToGrid: () => void;
-  
+
+  addPage: () => void;
+  removePage: (index: number) => void;
+  setActivePage: (index: number) => void;
+
   addElement: (element: CanvasElement) => void;
   updateElement: (id: string, updates: Partial<CanvasElement>) => void;
   deleteElement: (id: string) => void;
   deleteSelectedElements: () => void;
   duplicateElement: (id: string) => void;
-  
+
   selectElement: (id: string, addToSelection?: boolean) => void;
   selectElements: (ids: string[]) => void;
   clearSelection: () => void;
   selectAll: () => void;
-  
+
   moveElement: (id: string, x: number, y: number) => void;
   resizeElement: (id: string, width: number, height: number) => void;
-  
+
   bringToFront: (id: string) => void;
   sendToBack: (id: string) => void;
-  
+
   alignLeft: () => void;
   alignCenter: () => void;
   alignRight: () => void;
@@ -99,7 +107,7 @@ interface CanvasState {
   alignBottom: () => void;
   distributeHorizontal: () => void;
   distributeVertical: () => void;
-  
+
   setExcelData: (data: ExcelData | null) => void;
   setSelectedRowIndex: (index: number) => void;
   toggleImageField: (fieldName: string) => void;
@@ -107,15 +115,15 @@ interface CanvasState {
   setCurrentTemplate: (template: Template | null) => void;
   saveAsTemplate: (name: string, description?: string) => Template;
   loadTemplate: (template: Template) => void;
-  
+
   setExportSettings: (settings: Partial<ExportSettings>) => void;
-  
+
   setActiveTool: (tool: "select" | "text" | "shape" | "image") => void;
   setRightPanelTab: (tab: "properties" | "data" | "export" | "designs") => void;
-  
+
   undo: () => void;
   redo: () => void;
-  
+
   resetCanvas: () => void;
 }
 
@@ -152,13 +160,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   zoom: 1,
   showGrid: true,
   snapToGrid: true,
-  
+
+  pageCount: 1,
+  activePageIndex: 0,
+
   elements: [],
   selectedElementIds: [],
-  
+
   currentTemplate: null,
   hasUnsavedChanges: false,
-  
+
   excelData: null,
   selectedRowIndex: 0,
   imageFieldNames: new Set(),
@@ -169,10 +180,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     quality: 0.92,
     margin: 0,
   },
-  
+
   activeTool: "select",
   rightPanelTab: "properties",
-  
+
   // Actions
   setCanvasSize: (width, height) => {
     set({ 
@@ -182,22 +193,57 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       hasUnsavedChanges: true 
     });
   },
-  
+
   setBackgroundColor: (color) =>
     set({ backgroundColor: color, hasUnsavedChanges: true }),
-  
+
   setZoom: (zoom) => set({ zoom: Math.max(0.25, Math.min(2, zoom)) }),
-  
+
   toggleGrid: () => set((state) => ({ showGrid: !state.showGrid })),
-  
+
   toggleSnapToGrid: () => set((state) => ({ snapToGrid: !state.snapToGrid })),
-  
-  addElement: (element) => {
-    const elements = [...get().elements, element];
-    saveToHistory(elements);
-    set({ elements, hasUnsavedChanges: true });
+
+  addPage: () => {
+    set((state) => ({ 
+      pageCount: state.pageCount + 1,
+      activePageIndex: state.pageCount // Switch to the new page
+    }));
   },
-  
+
+  removePage: (index) => {
+    const { pageCount, elements } = get();
+    if (pageCount <= 1) return; // Don't delete the last page
+
+    // 1. Remove elements on this page
+    const newElements = elements.filter(el => el.pageIndex !== index);
+
+    // 2. Shift elements on subsequent pages up by one
+    const shiftedElements = newElements.map(el => {
+      if (el.pageIndex !== undefined && el.pageIndex > index) {
+        return { ...el, pageIndex: el.pageIndex - 1 };
+      }
+      return el;
+    });
+
+    set({
+      pageCount: pageCount - 1,
+      elements: shiftedElements,
+      activePageIndex: Math.max(0, index - 1),
+      hasUnsavedChanges: true
+    });
+  },
+
+  setActivePage: (index) => set({ activePageIndex: index }),
+
+  addElement: (element) => {
+    const { elements, activePageIndex } = get();
+    // Assign the new element to the currently active page
+    const newElement = { ...element, pageIndex: activePageIndex };
+    const newElements = [...elements, newElement];
+    saveToHistory(newElements);
+    set({ elements: newElements, hasUnsavedChanges: true });
+  },
+
   updateElement: (id, updates) => {
     const elements = get().elements.map((el) =>
       el.id === id ? { ...el, ...updates } : el
@@ -205,7 +251,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(elements);
     set({ elements, hasUnsavedChanges: true });
   },
-  
+
   deleteElement: (id) => {
     const elements = get().elements.filter((el) => el.id !== id);
     saveToHistory(elements);
@@ -215,20 +261,20 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       hasUnsavedChanges: true,
     });
   },
-  
+
   deleteSelectedElements: () => {
     const selectedIds = get().selectedElementIds;
     if (selectedIds.length === 0) return;
-    
+
     const elements = get().elements.filter((el) => !selectedIds.includes(el.id));
     saveToHistory(elements);
     set({ elements, selectedElementIds: [], hasUnsavedChanges: true });
   },
-  
+
   duplicateElement: (id) => {
     const element = get().elements.find((el) => el.id === id);
     if (!element) return;
-    
+
     const newElement: CanvasElement = {
       ...element,
       id: nanoid(),
@@ -236,14 +282,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         x: element.position.x + 20,
         y: element.position.y + 20,
       },
+      // Keep on same page as original
+      pageIndex: element.pageIndex,
       zIndex: Date.now(),
     };
-    
+
     const elements = [...get().elements, newElement];
     saveToHistory(elements);
     set({ elements, selectedElementIds: [newElement.id], hasUnsavedChanges: true });
   },
-  
+
   selectElement: (id, addToSelection = false) => {
     if (addToSelection) {
       const currentIds = get().selectedElementIds;
@@ -256,19 +304,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       set({ selectedElementIds: [id] });
     }
   },
-  
+
   selectElements: (ids) => set({ selectedElementIds: ids }),
-  
+
   clearSelection: () => set({ selectedElementIds: [] }),
-  
+
   selectAll: () =>
     set({ selectedElementIds: get().elements.map((el) => el.id) }),
-  
+
   moveElement: (id, x, y) => {
     const { snapToGrid: shouldSnap, gridSize } = get();
     const finalX = shouldSnap ? Math.round(x / gridSize) * gridSize : x;
     const finalY = shouldSnap ? Math.round(y / gridSize) * gridSize : y;
-    
+
     const elements = get().elements.map((el) =>
       el.id === id
         ? { ...el, position: { x: finalX, y: finalY } }
@@ -276,7 +324,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     );
     set({ elements, hasUnsavedChanges: true });
   },
-  
+
   resizeElement: (id, width, height) => {
     const elements = get().elements.map((el) =>
       el.id === id
@@ -285,7 +333,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     );
     set({ elements, hasUnsavedChanges: true });
   },
-  
+
   bringToFront: (id) => {
     const maxZ = Math.max(...get().elements.map((el) => el.zIndex), 0);
     const elements = get().elements.map((el) =>
@@ -294,7 +342,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(elements);
     set({ elements, hasUnsavedChanges: true });
   },
-  
+
   sendToBack: (id) => {
     const minZ = Math.min(...get().elements.map((el) => el.zIndex), 0);
     const elements = get().elements.map((el) =>
@@ -303,7 +351,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(elements);
     set({ elements, hasUnsavedChanges: true });
   },
-  
+
   alignLeft: () => {
     const { selectedElementIds, elements } = get();
     if (selectedElementIds.length < 2) return;
@@ -315,7 +363,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(updated);
     set({ elements: updated, hasUnsavedChanges: true });
   },
-  
+
   alignCenter: () => {
     const { selectedElementIds, elements } = get();
     if (selectedElementIds.length < 2) return;
@@ -327,7 +375,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(updated);
     set({ elements: updated, hasUnsavedChanges: true });
   },
-  
+
   alignRight: () => {
     const { selectedElementIds, elements } = get();
     if (selectedElementIds.length < 2) return;
@@ -339,7 +387,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(updated);
     set({ elements: updated, hasUnsavedChanges: true });
   },
-  
+
   alignTop: () => {
     const { selectedElementIds, elements } = get();
     if (selectedElementIds.length < 2) return;
@@ -351,7 +399,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(updated);
     set({ elements: updated, hasUnsavedChanges: true });
   },
-  
+
   alignMiddle: () => {
     const { selectedElementIds, elements } = get();
     if (selectedElementIds.length < 2) return;
@@ -363,7 +411,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(updated);
     set({ elements: updated, hasUnsavedChanges: true });
   },
-  
+
   alignBottom: () => {
     const { selectedElementIds, elements } = get();
     if (selectedElementIds.length < 2) return;
@@ -375,7 +423,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(updated);
     set({ elements: updated, hasUnsavedChanges: true });
   },
-  
+
   distributeHorizontal: () => {
     const { selectedElementIds, elements } = get();
     if (selectedElementIds.length < 3) return;
@@ -395,7 +443,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(updated);
     set({ elements: updated, hasUnsavedChanges: true });
   },
-  
+
   distributeVertical: () => {
     const { selectedElementIds, elements } = get();
     if (selectedElementIds.length < 3) return;
@@ -415,9 +463,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(updated);
     set({ elements: updated, hasUnsavedChanges: true });
   },
-  
+
   setExcelData: (data) => set({ excelData: data, selectedRowIndex: 0, imageFieldNames: new Set() }),
-  
+
   setSelectedRowIndex: (index) => set({ selectedRowIndex: index }),
 
   toggleImageField: (fieldName) => {
@@ -428,20 +476,20 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       } else {
         newSet.add(fieldName);
       }
-      
+
       // Update elements with matching dataBinding to mark/unmark as image field
       const elements = state.elements.map((el) =>
         el.dataBinding === fieldName
           ? { ...el, isImageField: !newSet.has(fieldName) ? false : true }
           : el
       );
-      
+
       return { imageFieldNames: newSet, elements };
     });
   },
-  
+
   setCurrentTemplate: (template) => set({ currentTemplate: template }),
-  
+
   saveAsTemplate: (name, description) => {
     const { elements, canvasWidth, canvasHeight, backgroundColor } = get();
     const template: Template = {
@@ -458,10 +506,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ currentTemplate: template, hasUnsavedChanges: false });
     return template;
   },
-  
+
   loadTemplate: (template) => {
     history = [];
     historyIndex = -1;
+
+    // Determine page count from loaded elements
+    // Find the max pageIndex in elements, or default to 0. Add 1 to get count.
+    const maxPageIndex = template.elements.reduce((max, el) => {
+      return Math.max(max, el.pageIndex ?? 0);
+    }, 0);
+
     set({
       elements: JSON.parse(JSON.stringify(template.elements)),
       canvasWidth: template.canvasWidth,
@@ -471,22 +526,24 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       currentTemplate: template,
       selectedElementIds: [],
       hasUnsavedChanges: false,
+      pageCount: maxPageIndex + 1, // Set correct page count
+      activePageIndex: 0, // Reset to first page
     });
     saveToHistory(template.elements);
   },
-  
+
   setExportSettings: (settings) => {
     const state = get();
     const newState: any = {
       exportSettings: { ...state.exportSettings, ...settings },
     };
-    
+
     // If page size changed, update canvas dimensions
     if (settings.pageSize) {
       const pageSizes = { letter: { width: 810, height: 1050 }, a4: { width: 790, height: 1120 }, legal: { width: 810, height: 1340 } };
       const pageSize = pageSizes[settings.pageSize];
       const isLandscape = settings.orientation === "landscape" || (settings.orientation === undefined && state.exportSettings.orientation === "landscape");
-      
+
       newState.canvasWidth = isLandscape ? pageSize.height : pageSize.width;
       newState.canvasHeight = isLandscape ? pageSize.width : pageSize.height;
       newState.gridSize = calculateGridSize(newState.canvasWidth, newState.canvasHeight);
@@ -495,19 +552,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const pageSizes = { letter: { width: 810, height: 1050 }, a4: { width: 790, height: 1120 }, legal: { width: 810, height: 1340 } };
       const pageSize = pageSizes[state.exportSettings.pageSize];
       const isLandscape = settings.orientation === "landscape";
-      
+
       newState.canvasWidth = isLandscape ? pageSize.height : pageSize.width;
       newState.canvasHeight = isLandscape ? pageSize.width : pageSize.height;
       newState.gridSize = calculateGridSize(newState.canvasWidth, newState.canvasHeight);
     }
-    
+
     set(newState);
   },
-  
+
   setActiveTool: (tool) => set({ activeTool: tool }),
-  
+
   setRightPanelTab: (tab) => set({ rightPanelTab: tab }),
-  
+
   undo: () => {
     if (historyIndex > 0) {
       historyIndex--;
@@ -515,7 +572,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       set({ elements: JSON.parse(JSON.stringify(state.elements)) });
     }
   },
-  
+
   redo: () => {
     if (historyIndex < history.length - 1) {
       historyIndex++;
@@ -523,7 +580,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       set({ elements: JSON.parse(JSON.stringify(state.elements)) });
     }
   },
-  
+
   resetCanvas: () => {
     history = [];
     historyIndex = -1;
@@ -539,6 +596,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       gridSize: calculateGridSize(initialWidth, initialHeight),
       backgroundColor: "#ffffff",
       zoom: 1,
+      pageCount: 1,
+      activePageIndex: 0,
     });
   },
 }));

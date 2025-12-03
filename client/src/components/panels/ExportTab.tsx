@@ -31,6 +31,7 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import JSZip from "jszip"; // NEW IMPORT
 import { isHtmlContent } from "@/lib/canvas-utils";
+import { formatContent } from "@/lib/formatter";
 
 export function ExportTab() {
   const [isExporting, setIsExporting] = useState(false);
@@ -50,6 +51,7 @@ export function ExportTab() {
     canvasHeight,
     backgroundColor,
     selectedRowIndex,
+    pageCount, // Added
   } = useCanvasStore();
 
   const insertVariable = (header: string) => {
@@ -85,140 +87,6 @@ export function ExportTab() {
     setExportStatus("idle");
 
     try {
-      const tempDiv = document.createElement("div");
-      tempDiv.style.position = "fixed"; 
-      tempDiv.style.left = "0";
-      tempDiv.style.top = "0";
-      tempDiv.style.zIndex = "-9999"; 
-      tempDiv.style.width = `${canvasWidth}px`;
-      tempDiv.style.height = `${canvasHeight}px`;
-      tempDiv.style.backgroundColor = backgroundColor;
-      tempDiv.style.boxSizing = "border-box"; 
-      document.body.appendChild(tempDiv);
-
-      setProgress(20);
-
-      const sortedElements = [...elements].sort((a, b) => a.zIndex - b.zIndex);
-
-      for (const element of sortedElements) {
-        if (!element.visible) continue;
-
-        const elementDiv = document.createElement("div");
-        elementDiv.style.position = "absolute";
-        elementDiv.style.left = `${element.position.x}px`;
-        elementDiv.style.top = `${element.position.y}px`;
-        elementDiv.style.width = `${element.dimension.width}px`;
-        elementDiv.style.height = `${element.dimension.height}px`;
-        elementDiv.style.transform = element.rotation ? `rotate(${element.rotation}deg)` : "";
-
-        if (element.type === "text" || element.type === "dataField") {
-           const textStyle = element.textStyle || {};
-           elementDiv.style.fontFamily = textStyle.fontFamily || "Inter";
-           elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
-           elementDiv.style.fontWeight = String(textStyle.fontWeight || 400);
-           elementDiv.style.color = textStyle.color || "#000000";
-           elementDiv.style.lineHeight = String(textStyle.lineHeight || 1.5);
-           elementDiv.style.letterSpacing = `${textStyle.letterSpacing || 0}px`;
-           elementDiv.style.display = "flex";
-           elementDiv.style.flexDirection = "column";
-           elementDiv.style.padding = "4px";
-           elementDiv.style.wordBreak = "break-word";
-           elementDiv.style.overflow = "hidden";
-
-           const hAlign = textStyle.textAlign || "left";
-           elementDiv.style.textAlign = hAlign;
-
-           const vAlign = textStyle.verticalAlign || "middle";
-           const justifyMap: Record<string, string> = {
-             top: "flex-start",
-             middle: "center",
-             bottom: "flex-end"
-           };
-           elementDiv.style.justifyContent = justifyMap[vAlign];
-
-           if (hAlign === "center") {
-             elementDiv.style.alignItems = "center";
-           } else if (hAlign === "right") {
-             elementDiv.style.alignItems = "flex-end";
-           } else {
-             elementDiv.style.alignItems = "flex-start";
-           }
-
-           let content = element.content || "";
-           if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
-             content = excelData.rows[selectedRowIndex][element.dataBinding] || content;
-           }
-           if (isHtmlContent(content)) {
-             const style = document.createElement("style");
-             style.textContent = `
-               ul { list-style-type: disc !important; margin: 0 !important; padding-left: 1.2em !important; display: block !important; }
-               li { margin: 0.2em 0 !important; display: list-item !important; }
-               ol { list-style-type: decimal !important; margin: 0 !important; padding-left: 1.2em !important; display: block !important; }
-               strong, b { font-weight: bold; }
-               em, i { font-style: italic; }
-               p { margin: 0.2em 0; display: block !important; }
-             `;
-             elementDiv.appendChild(style);
-             elementDiv.style.display = "block";
-             elementDiv.innerHTML += content;
-           } else {
-             elementDiv.textContent = content;
-           }
-        } else if (element.type === "shape") {
-           const shapeStyle = element.shapeStyle || {};
-           elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
-           elementDiv.style.border = `${shapeStyle.strokeWidth || 1}px solid ${shapeStyle.stroke || "#9ca3af"}`;
-           elementDiv.style.borderRadius = element.shapeType === "circle" ? "50%" : `${shapeStyle.borderRadius || 0}px`;
-           elementDiv.style.opacity = String(shapeStyle.opacity || 1);
-
-           if (element.shapeType === "line") {
-             elementDiv.style.height = `${shapeStyle.strokeWidth || 1}px`;
-             elementDiv.style.backgroundColor = shapeStyle.stroke || "#9ca3af";
-             elementDiv.style.border = "none";
-             elementDiv.style.position = "absolute";
-             elementDiv.style.top = `${element.position.y + element.dimension.height / 2}px`;
-           }
-        } else if (element.type === "image") {
-           let imgSrc = element.imageSrc;
-           if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
-             imgSrc = excelData.rows[selectedRowIndex][element.dataBinding];
-           }
-           if (imgSrc) {
-             const img = document.createElement("img");
-             img.src = imgSrc;
-             img.style.width = "100%";
-             img.style.height = "100%";
-             img.style.objectFit = "contain";
-             img.style.objectPosition = "center";
-             elementDiv.appendChild(img);
-           }
-        }
-
-        tempDiv.appendChild(elementDiv);
-      }
-
-      setProgress(40);
-
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      const canvas = await html2canvas(tempDiv, {
-        scale: 2 * exportSettings.quality,
-        backgroundColor: backgroundColor,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        width: canvasWidth,
-        height: canvasHeight,
-        windowWidth: canvasWidth,
-        windowHeight: canvasHeight,
-        scrollX: 0,
-        scrollY: 0,
-        x: 0,
-        y: 0
-      });
-
-      setProgress(70);
-
       const pageSize = pageSizes[exportSettings.pageSize];
       const orientation = exportSettings.orientation;
 
@@ -234,26 +102,191 @@ export function ExportTab() {
         format: [mmWidth, mmHeight],
       });
 
-      const imgData = canvas.toDataURL("image/png", exportSettings.quality);
+      // Loop through each page in the design
+      for (let i = 0; i < pageCount; i++) {
+        // Create temp container for THIS page
+        const tempDiv = document.createElement("div");
+        tempDiv.style.position = "fixed"; 
+        tempDiv.style.left = "0";
+        tempDiv.style.top = "0";
+        tempDiv.style.zIndex = "-9999"; 
+        tempDiv.style.width = `${canvasWidth}px`;
+        tempDiv.style.height = `${canvasHeight}px`;
+        tempDiv.style.backgroundColor = backgroundColor;
+        tempDiv.style.boxSizing = "border-box"; 
+        document.body.appendChild(tempDiv);
 
-      pdf.addImage(
-        imgData,
-        "PNG",
-        0,
-        0,
-        mmWidth,
-        mmHeight,
-        undefined, 
-        "FAST"
-      );
+        // Filter elements that belong to current page
+        const pageElements = elements
+          .filter(el => (el.pageIndex ?? 0) === i)
+          .sort((a, b) => a.zIndex - b.zIndex);
 
-      setProgress(90);
+        for (const element of pageElements) {
+          if (!element.visible) continue;
+
+          const elementDiv = document.createElement("div");
+          elementDiv.style.position = "absolute";
+          elementDiv.style.left = `${element.position.x}px`;
+          elementDiv.style.top = `${element.position.y}px`;
+          elementDiv.style.width = `${element.dimension.width}px`;
+          elementDiv.style.height = `${element.dimension.height}px`;
+          elementDiv.style.transform = element.rotation ? `rotate(${element.rotation}deg)` : "";
+
+          if (element.type === "text" || element.type === "dataField") {
+             const textStyle = element.textStyle || {};
+             elementDiv.style.fontFamily = textStyle.fontFamily || "Inter";
+             elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
+             elementDiv.style.fontWeight = String(textStyle.fontWeight || 400);
+             elementDiv.style.color = textStyle.color || "#000000";
+             elementDiv.style.lineHeight = String(textStyle.lineHeight || 1.5);
+             elementDiv.style.letterSpacing = `${textStyle.letterSpacing || 0}px`;
+             elementDiv.style.display = "flex";
+             elementDiv.style.flexDirection = "column";
+             elementDiv.style.padding = "4px";
+             elementDiv.style.wordBreak = "break-word";
+             elementDiv.style.overflow = "hidden";
+
+             const hAlign = textStyle.textAlign || "left";
+             elementDiv.style.textAlign = hAlign;
+
+             const vAlign = textStyle.verticalAlign || "middle";
+             const justifyMap: Record<string, string> = {
+               top: "flex-start",
+               middle: "center",
+               bottom: "flex-end"
+             };
+             elementDiv.style.justifyContent = justifyMap[vAlign];
+
+             if (hAlign === "center") {
+               elementDiv.style.alignItems = "center";
+             } else if (hAlign === "right") {
+               elementDiv.style.alignItems = "flex-end";
+             } else {
+               elementDiv.style.alignItems = "flex-start";
+             }
+
+             let content = element.content || "";
+             if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
+               content = excelData.rows[selectedRowIndex][element.dataBinding] || content;
+             }
+
+             // Apply formatting
+             content = formatContent(content, element.format);
+
+             if (isHtmlContent(content)) {
+               const style = document.createElement("style");
+               // FIX: Replaced standard list-style with pseudo-elements for better PDF rendering
+               style.textContent = `
+                 ul { 
+                   list-style-type: none !important; 
+                   margin: 0 !important; 
+                   padding-left: 0 !important; 
+                   display: block !important; 
+                 }
+                 li { 
+                   position: relative !important;
+                   margin: 0.2em 0 !important; 
+                   padding-left: 1.2em !important;
+                   display: block !important; 
+                 }
+                 li::before {
+                   content: "•" !important;
+                   position: absolute !important;
+                   left: 0 !important;
+                   top: 0 !important;
+                 }
+                 ol { 
+                   list-style-type: decimal !important; 
+                   margin: 0 !important; 
+                   padding-left: 1.2em !important; 
+                   display: block !important; 
+                 }
+                 strong, b { font-weight: bold; }
+                 em, i { font-style: italic; }
+                 p { margin: 0.2em 0; display: block !important; }
+               `;
+               elementDiv.appendChild(style);
+               elementDiv.style.display = "block";
+               elementDiv.innerHTML += content;
+             } else {
+               elementDiv.textContent = content;
+             }
+          } else if (element.type === "shape") {
+             const shapeStyle = element.shapeStyle || {};
+             elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
+             elementDiv.style.border = `${shapeStyle.strokeWidth || 1}px solid ${shapeStyle.stroke || "#9ca3af"}`;
+             elementDiv.style.borderRadius = element.shapeType === "circle" ? "50%" : `${shapeStyle.borderRadius || 0}px`;
+             elementDiv.style.opacity = String(shapeStyle.opacity || 1);
+
+             if (element.shapeType === "line") {
+               elementDiv.style.height = `${shapeStyle.strokeWidth || 1}px`;
+               elementDiv.style.backgroundColor = shapeStyle.stroke || "#9ca3af";
+               elementDiv.style.border = "none";
+               elementDiv.style.position = "absolute";
+               elementDiv.style.top = `${element.position.y + element.dimension.height / 2}px`;
+             }
+          } else if (element.type === "image") {
+             let imgSrc = element.imageSrc;
+             if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
+               imgSrc = excelData.rows[selectedRowIndex][element.dataBinding];
+             }
+             if (imgSrc) {
+               const img = document.createElement("img");
+               img.src = imgSrc;
+               img.style.width = "100%";
+               img.style.height = "100%";
+               img.style.objectFit = "contain";
+               img.style.objectPosition = "center";
+               elementDiv.appendChild(img);
+             }
+          }
+
+          tempDiv.appendChild(elementDiv);
+        }
+
+        // Slight delay to ensure render
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        const canvas = await html2canvas(tempDiv, {
+          scale: 2 * exportSettings.quality,
+          backgroundColor: backgroundColor,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          width: canvasWidth,
+          height: canvasHeight,
+          windowWidth: canvasWidth,
+          windowHeight: canvasHeight,
+          scrollX: 0,
+          scrollY: 0,
+          x: 0,
+          y: 0
+        });
+
+        const imgData = canvas.toDataURL("image/png", exportSettings.quality);
+
+        if (i > 0) {
+          pdf.addPage([mmWidth, mmHeight], orientation);
+        }
+
+        pdf.addImage(
+          imgData,
+          "PNG",
+          0,
+          0,
+          mmWidth,
+          mmHeight,
+          undefined, 
+          "FAST"
+        );
+
+        document.body.removeChild(tempDiv);
+        setProgress(Math.round(((i + 1) / pageCount) * 100));
+      }
 
       const fileName = getConstructedFilename(selectedRowIndex);
       pdf.save(`${fileName}.pdf`);
 
-      document.body.removeChild(tempDiv);
-      setProgress(100);
       setExportStatus("success");
 
       toast({
@@ -292,10 +325,7 @@ export function ExportTab() {
     setExportStatus("idle");
 
     try {
-      // Initialize ZIP
       const zip = new JSZip();
-
-      // Track used filenames to prevent overwrites
       const usedFilenames = new Set<string>();
 
       const pageSize = pageSizes[exportSettings.pageSize];
@@ -310,151 +340,169 @@ export function ExportTab() {
       for (let rowIndex = 0; rowIndex < excelData.rows.length; rowIndex++) {
         const rowData = excelData.rows[rowIndex];
 
-        // Update progress (0% to 80% covers the generation phase)
-        setProgress(Math.round((rowIndex / excelData.rows.length) * 80));
-
-        // Create temp container
-        const tempDiv = document.createElement("div");
-        tempDiv.style.position = "fixed";
-        tempDiv.style.left = "0";
-        tempDiv.style.top = "0";
-        tempDiv.style.zIndex = "-9999";
-        tempDiv.style.width = `${canvasWidth}px`;
-        tempDiv.style.height = `${canvasHeight}px`;
-        tempDiv.style.backgroundColor = backgroundColor;
-        tempDiv.style.boxSizing = "border-box";
-        document.body.appendChild(tempDiv);
-
-        // Render elements
-        const sortedElements = [...elements].sort((a, b) => a.zIndex - b.zIndex);
-        for (const element of sortedElements) {
-            if (!element.visible) continue;
-
-            const elementDiv = document.createElement("div");
-            elementDiv.style.position = "absolute";
-            elementDiv.style.left = `${element.position.x}px`;
-            elementDiv.style.top = `${element.position.y}px`;
-            elementDiv.style.width = `${element.dimension.width}px`;
-            elementDiv.style.height = `${element.dimension.height}px`;
-
-            if (element.type === "text" || element.type === "dataField") {
-                const textStyle = element.textStyle || {};
-                elementDiv.style.fontFamily = textStyle.fontFamily || "Inter";
-                elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
-                elementDiv.style.fontWeight = String(textStyle.fontWeight || 400);
-                elementDiv.style.color = textStyle.color || "#000000";
-                elementDiv.style.lineHeight = String(textStyle.lineHeight || 1.5);
-                elementDiv.style.letterSpacing = `${textStyle.letterSpacing || 0}px`;
-                elementDiv.style.display = "flex";
-                elementDiv.style.flexDirection = "column";
-                elementDiv.style.padding = "4px";
-                elementDiv.style.overflow = "hidden";
-
-                const hAlign = textStyle.textAlign || "left";
-                elementDiv.style.textAlign = hAlign;
-
-                const vAlign = textStyle.verticalAlign || "middle";
-                const justifyMap: Record<string, string> = {
-                top: "flex-start",
-                middle: "center",
-                bottom: "flex-end"
-                };
-                elementDiv.style.justifyContent = justifyMap[vAlign];
-
-                if (hAlign === "center") {
-                elementDiv.style.alignItems = "center";
-                } else if (hAlign === "right") {
-                elementDiv.style.alignItems = "flex-end";
-                } else {
-                elementDiv.style.alignItems = "flex-start";
-                }
-
-                let content = element.content || "";
-                if (element.dataBinding && rowData[element.dataBinding]) {
-                    content = rowData[element.dataBinding];
-                }
-                if (isHtmlContent(content)) {
-                const style = document.createElement("style");
-                style.textContent = `
-                    ul { list-style-type: disc !important; margin: 0 !important; padding-left: 1.2em !important; display: block !important; }
-                    li { margin: 0.2em 0 !important; display: list-item !important; }
-                    ol { list-style-type: decimal !important; margin: 0 !important; padding-left: 1.2em !important; display: block !important; }
-                    strong, b { font-weight: bold; }
-                    em, i { font-style: italic; }
-                    p { margin: 0.2em 0; display: block !important; }
-                `;
-                elementDiv.appendChild(style);
-                elementDiv.style.display = "block";
-                elementDiv.innerHTML += content;
-                } else {
-                elementDiv.textContent = content;
-                }
-            } else if (element.type === "shape") {
-                const shapeStyle = element.shapeStyle || {};
-                elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
-                elementDiv.style.border = `${shapeStyle.strokeWidth || 1}px solid ${shapeStyle.stroke || "#9ca3af"}`;
-                elementDiv.style.borderRadius = element.shapeType === "circle" ? "50%" : `${shapeStyle.borderRadius || 0}px`;
-            } else if (element.type === "image") {
-                let imgSrc = element.imageSrc;
-                if (element.dataBinding && rowData[element.dataBinding]) {
-                    imgSrc = rowData[element.dataBinding];
-                }
-                if (imgSrc) {
-                const img = document.createElement("img");
-                img.src = imgSrc;
-                img.style.width = "100%";
-                img.style.height = "100%";
-                img.style.objectFit = "contain";
-                img.style.objectPosition = "center";
-                elementDiv.appendChild(img);
-                }
-            }
-
-            tempDiv.appendChild(elementDiv);
-        }
-
-        // Slight delay to ensure DOM rendering
-        await new Promise((resolve) => setTimeout(resolve, 50));
-
-        // Capture Canvas
-        const canvas = await html2canvas(tempDiv, {
-          scale: 2 * exportSettings.quality,
-          backgroundColor: backgroundColor,
-          useCORS: true,
-          logging: false,
-          width: canvasWidth,
-          height: canvasHeight,
-          windowWidth: canvasWidth,
-          windowHeight: canvasHeight,
-          scrollX: 0,
-          scrollY: 0,
-          x: 0,
-          y: 0
-        });
-
-        // Create PDF for this specific row
+        // Create PDF instance for this row
         const pdf = new jsPDF({
             orientation: orientation,
             unit: "mm",
             format: [mmWidth, mmHeight],
         });
 
-        const imgData = canvas.toDataURL("image/png", exportSettings.quality);
-        pdf.addImage(
-          imgData,
-          "PNG",
-          0,
-          0,
-          mmWidth,
-          mmHeight,
-          undefined,
-          "FAST"
-        );
+        // Loop through every PAGE in the design
+        for (let i = 0; i < pageCount; i++) {
+            const tempDiv = document.createElement("div");
+            tempDiv.style.position = "fixed";
+            tempDiv.style.left = "0";
+            tempDiv.style.top = "0";
+            tempDiv.style.zIndex = "-9999";
+            tempDiv.style.width = `${canvasWidth}px`;
+            tempDiv.style.height = `${canvasHeight}px`;
+            tempDiv.style.backgroundColor = backgroundColor;
+            tempDiv.style.boxSizing = "border-box";
+            document.body.appendChild(tempDiv);
 
-        // Calculate Filename for this specific PDF
+            const pageElements = elements
+                .filter(el => (el.pageIndex ?? 0) === i)
+                .sort((a, b) => a.zIndex - b.zIndex);
+
+            for (const element of pageElements) {
+                if (!element.visible) continue;
+
+                const elementDiv = document.createElement("div");
+                elementDiv.style.position = "absolute";
+                elementDiv.style.left = `${element.position.x}px`;
+                elementDiv.style.top = `${element.position.y}px`;
+                elementDiv.style.width = `${element.dimension.width}px`;
+                elementDiv.style.height = `${element.dimension.height}px`;
+
+                if (element.type === "text" || element.type === "dataField") {
+                    const textStyle = element.textStyle || {};
+                    elementDiv.style.fontFamily = textStyle.fontFamily || "Inter";
+                    elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
+                    elementDiv.style.fontWeight = String(textStyle.fontWeight || 400);
+                    elementDiv.style.color = textStyle.color || "#000000";
+                    elementDiv.style.lineHeight = String(textStyle.lineHeight || 1.5);
+                    elementDiv.style.letterSpacing = `${textStyle.letterSpacing || 0}px`;
+                    elementDiv.style.display = "flex";
+                    elementDiv.style.flexDirection = "column";
+                    elementDiv.style.padding = "4px";
+                    elementDiv.style.overflow = "hidden";
+
+                    const hAlign = textStyle.textAlign || "left";
+                    elementDiv.style.textAlign = hAlign;
+
+                    const vAlign = textStyle.verticalAlign || "middle";
+                    const justifyMap: Record<string, string> = {
+                    top: "flex-start",
+                    middle: "center",
+                    bottom: "flex-end"
+                    };
+                    elementDiv.style.justifyContent = justifyMap[vAlign];
+
+                    if (hAlign === "center") {
+                    elementDiv.style.alignItems = "center";
+                    } else if (hAlign === "right") {
+                    elementDiv.style.alignItems = "flex-end";
+                    } else {
+                    elementDiv.style.alignItems = "flex-start";
+                    }
+
+                    let content = element.content || "";
+                    if (element.dataBinding && rowData[element.dataBinding]) {
+                        content = rowData[element.dataBinding];
+                    }
+
+                    content = formatContent(content, element.format);
+
+                    if (isHtmlContent(content)) {
+                    const style = document.createElement("style");
+                    // FIX: Replaced standard list-style with pseudo-elements for better PDF rendering
+                    style.textContent = `
+                        ul { 
+                          list-style-type: none !important; 
+                          margin: 0 !important; 
+                          padding-left: 0 !important; 
+                          display: block !important; 
+                        }
+                        li { 
+                          position: relative !important;
+                          margin: 0.2em 0 !important; 
+                          padding-left: 1.2em !important;
+                          display: block !important; 
+                        }
+                        li::before {
+                          content: "•" !important;
+                          position: absolute !important;
+                          left: 0 !important;
+                          top: 0 !important;
+                        }
+                        ol { 
+                          list-style-type: decimal !important; 
+                          margin: 0 !important; 
+                          padding-left: 1.2em !important; 
+                          display: block !important; 
+                        }
+                        strong, b { font-weight: bold; }
+                        em, i { font-style: italic; }
+                        p { margin: 0.2em 0; display: block !important; }
+                    `;
+                    elementDiv.appendChild(style);
+                    elementDiv.style.display = "block";
+                    elementDiv.innerHTML += content;
+                    } else {
+                    elementDiv.textContent = content;
+                    }
+                } else if (element.type === "shape") {
+                    const shapeStyle = element.shapeStyle || {};
+                    elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
+                    elementDiv.style.border = `${shapeStyle.strokeWidth || 1}px solid ${shapeStyle.stroke || "#9ca3af"}`;
+                    elementDiv.style.borderRadius = element.shapeType === "circle" ? "50%" : `${shapeStyle.borderRadius || 0}px`;
+                } else if (element.type === "image") {
+                    let imgSrc = element.imageSrc;
+                    if (element.dataBinding && rowData[element.dataBinding]) {
+                        imgSrc = rowData[element.dataBinding];
+                    }
+                    if (imgSrc) {
+                    const img = document.createElement("img");
+                    img.src = imgSrc;
+                    img.style.width = "100%";
+                    img.style.height = "100%";
+                    img.style.objectFit = "contain";
+                    img.style.objectPosition = "center";
+                    elementDiv.appendChild(img);
+                    }
+                }
+
+                tempDiv.appendChild(elementDiv);
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, 50));
+
+            const canvas = await html2canvas(tempDiv, {
+                scale: 2 * exportSettings.quality,
+                backgroundColor: backgroundColor,
+                useCORS: true,
+                logging: false,
+                width: canvasWidth,
+                height: canvasHeight,
+                windowWidth: canvasWidth,
+                windowHeight: canvasHeight,
+                scrollX: 0,
+                scrollY: 0,
+                x: 0,
+                y: 0
+            });
+
+            const imgData = canvas.toDataURL("image/png", exportSettings.quality);
+
+            if (i > 0) {
+                pdf.addPage([mmWidth, mmHeight], orientation);
+            }
+            pdf.addImage(imgData, "PNG", 0, 0, mmWidth, mmHeight, undefined, "FAST");
+
+            document.body.removeChild(tempDiv);
+        }
+
         let pdfName = getConstructedFilename(rowIndex);
-
-        // Deduplication logic: If name exists, append _1, _2, etc.
         let uniqueName = pdfName;
         let counter = 1;
         while (usedFilenames.has(uniqueName)) {
@@ -463,21 +511,12 @@ export function ExportTab() {
         }
         usedFilenames.add(uniqueName);
 
-        // Add to ZIP (get PDF as blob)
         zip.file(`${uniqueName}.pdf`, pdf.output('blob'));
 
-        // Clean up DOM
-        document.body.removeChild(tempDiv);
+        setProgress(Math.round(((rowIndex + 1) / excelData.rows.length) * 100));
       }
 
-      // Generation Phase (80% -> 100%)
-      setProgress(85);
-
-      // Generate the zip file
       const zipBlob = await zip.generateAsync({ type: "blob" });
-      setProgress(100);
-
-      // Trigger download
       const timestamp = new Date().toISOString().slice(0, 10);
       const url = window.URL.createObjectURL(zipBlob);
       const a = document.createElement("a");
@@ -489,7 +528,6 @@ export function ExportTab() {
       document.body.removeChild(a);
 
       setExportStatus("success");
-
       toast({
         title: "Bulk export complete",
         description: `Downloaded ZIP containing ${excelData.rows.length} files.`,

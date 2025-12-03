@@ -4,8 +4,7 @@ import { CanvasElement } from "./CanvasElement";
 import { SelectionBox } from "./SelectionBox";
 import { AlignmentGuides } from "./AlignmentGuides";
 import { createTextElement, createShapeElement, snapToGrid } from "@/lib/canvas-utils";
-import { detectAlignmentGuides } from "@/lib/alignment-guides";
-import type { ActiveGuides } from "@/lib/alignment-guides";
+import { detectAlignmentGuides, type ActiveGuides } from "@/lib/alignment-guides";
 import {
   DndContext,
   DragEndEvent,
@@ -16,9 +15,10 @@ import {
   PointerSensor,
   DragMoveEvent,
 } from "@dnd-kit/core";
+import { Button } from "@/components/ui/button";
+import { Plus, Trash2 } from "lucide-react";
 
 export function DesignCanvas() {
-  const canvasRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const startPosRef = useRef({ x: 0, y: 0 });
@@ -39,11 +39,17 @@ export function DesignCanvas() {
     elements,
     selectedElementIds,
     activeTool,
+    pageCount,
+    activePageIndex,
     selectElement,
     clearSelection,
     addElement,
     moveElement,
+    updateElement,
     setActiveTool,
+    addPage,
+    removePage,
+    setActivePage,
   } = useCanvasStore();
 
   const sensors = useSensors(
@@ -55,37 +61,47 @@ export function DesignCanvas() {
   );
 
   const handleCanvasClick = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.target !== canvasRef.current) return;
+    (e: React.MouseEvent, pageIndex: number) => {
+      // Set active page when clicked
+      if (activePageIndex !== pageIndex) {
+        setActivePage(pageIndex);
+      }
 
-      const rect = canvasRef.current.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / zoom;
-      const y = (e.clientY - rect.top) / zoom;
+      // If clicking directly on the canvas background (not an element)
+      if (e.target === e.currentTarget) {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / zoom;
+        const y = (e.clientY - rect.top) / zoom;
 
-      if (activeTool === "text") {
-        addElement(createTextElement(x, y));
-        setActiveTool("select");
-      } else if (activeTool === "shape") {
-        addElement(createShapeElement(x, y, "rectangle"));
-        setActiveTool("select");
-      } else {
-        clearSelection();
+        if (activeTool === "text") {
+          const el = createTextElement(x, y);
+          // Explicitly set page index for new elements
+          addElement({ ...el, pageIndex });
+          setActiveTool("select");
+        } else if (activeTool === "shape") {
+          const el = createShapeElement(x, y, "rectangle");
+          addElement({ ...el, pageIndex });
+          setActiveTool("select");
+        } else {
+          clearSelection();
+        }
       }
     },
-    [activeTool, zoom, addElement, clearSelection, setActiveTool]
+    [activeTool, zoom, addElement, clearSelection, setActiveTool, activePageIndex, setActivePage]
   );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const { active } = event;
     setActiveId(active.id as string);
     selectElement(active.id as string);
-    
-    // Get the element from store to capture its current position
+
     const element = useCanvasStore.getState().elements.find((el) => el.id === active.id);
     if (element) {
       startPosRef.current = { x: element.position.x, y: element.position.y };
+      // Ensure we are on the right page if we start dragging an unselected element
+      setActivePage(element.pageIndex || 0);
     }
-  }, [selectElement]);
+  }, [selectElement, setActivePage]);
 
   const handleDragMove = useCallback(
     (event: DragMoveEvent) => {
@@ -96,24 +112,23 @@ export function DesignCanvas() {
       const element = allElements.find((el) => el.id === activeId);
       if (!element) return;
 
-      // Calculate position from start position + delta
+      // Calculate position
       let newX = startPosRef.current.x + delta.x / zoom;
       let newY = startPosRef.current.y + delta.y / zoom;
 
-      // Apply snapping if magnet is enabled
       if (shouldSnap) {
         newX = snapToGrid(newX);
         newY = snapToGrid(newY);
       }
 
-      // Clamp to canvas bounds
+      // Simple clamping
       newX = Math.max(0, Math.min(newX, canvasWidth - element.dimension.width));
       newY = Math.max(0, Math.min(newY, canvasHeight - element.dimension.height));
 
-      // Create a temporary element with new position to check alignments
+      // Calculate guides (only against elements on the SAME page)
+      const pageElements = allElements.filter((el) => el.id !== activeId && el.pageIndex === element.pageIndex);
       const tempElement = { ...element, position: { x: newX, y: newY } };
-      const otherElements = allElements.filter((el) => el.id !== activeId);
-      const guides = detectAlignmentGuides(tempElement, otherElements, zoom);
+      const guides = detectAlignmentGuides(tempElement, pageElements, zoom);
       setActiveGuides(guides);
 
       moveElement(activeId, newX, newY);
@@ -122,36 +137,23 @@ export function DesignCanvas() {
   );
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active } = event;
+    const { active, over } = event;
     const id = active.id as string;
-    
-    const element = useCanvasStore.getState().elements.find((el) => el.id === id);
-    if (!element) {
-      setActiveId(null);
-      setActiveGuides({ vertical: null, horizontal: null, alignments: [] });
-      return;
+
+    // Check if we dropped onto a specific page
+    if (over && over.id.toString().startsWith("page-")) {
+      const targetPageIndex = parseInt(over.id.toString().split("-")[1], 10);
+
+      // Update element's page index if changed
+      const element = useCanvasStore.getState().elements.find(el => el.id === id);
+      if (element && element.pageIndex !== targetPageIndex) {
+        updateElement(id, { pageIndex: targetPageIndex });
+      }
     }
 
-    const { delta } = event;
-
-    // Calculate final position from start position + delta
-    let newX = startPosRef.current.x + delta.x / zoom;
-    let newY = startPosRef.current.y + delta.y / zoom;
-
-    // Apply snapping if magnet is enabled
-    if (shouldSnap) {
-      newX = snapToGrid(newX);
-      newY = snapToGrid(newY);
-    }
-
-    // Clamp to canvas bounds
-    newX = Math.max(0, Math.min(newX, canvasWidth - element.dimension.width));
-    newY = Math.max(0, Math.min(newY, canvasHeight - element.dimension.height));
-
-    moveElement(id, newX, newY);
     setActiveId(null);
     setActiveGuides({ vertical: null, horizontal: null, alignments: [] });
-  }, [zoom, shouldSnap, canvasWidth, canvasHeight, moveElement]);
+  }, [updateElement]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -197,7 +199,7 @@ export function DesignCanvas() {
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-auto bg-muted/30 flex items-center justify-center p-8"
+      className="flex-1 overflow-auto bg-muted/30 flex flex-col items-center p-8 gap-8"
       style={{ minHeight: 0 }}
     >
       <DndContext
@@ -206,42 +208,78 @@ export function DesignCanvas() {
         onDragMove={handleDragMove}
         onDragEnd={handleDragEnd}
       >
-        <div
-          ref={canvasRef}
-          data-testid="design-canvas"
-          className="relative shadow-lg transition-shadow duration-200"
-          style={{
-            width: canvasWidth * zoom,
-            height: canvasHeight * zoom,
-            backgroundColor,
-            backgroundImage: showGrid
-              ? `linear-gradient(to right, hsl(var(--border) / 0.15) 1px, transparent 1px),
-                 linear-gradient(to bottom, hsl(var(--border) / 0.15) 1px, transparent 1px)`
-              : undefined,
-            backgroundSize: showGrid ? `${gridSize * zoom}px ${gridSize * zoom}px` : undefined,
-            cursor: activeTool === "text" ? "text" : activeTool === "shape" ? "crosshair" : "default",
-          }}
-          onClick={handleCanvasClick}
+        {Array.from({ length: pageCount }).map((_, pageIndex) => (
+          <div key={pageIndex} className="relative group">
+            {/* Page Label */}
+            <div className="absolute -top-6 left-0 text-xs text-muted-foreground font-medium flex justify-between w-full">
+              <span>Page {pageIndex + 1}</span>
+              {pageCount > 1 && (
+                <button 
+                  onClick={() => removePage(pageIndex)}
+                  className="hover:text-destructive transition-colors"
+                  title="Remove Page"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+
+            {/* The Canvas Page */}
+            <div
+              id={`page-${pageIndex}`} // ID for droppable target
+              data-testid={`design-canvas-page-${pageIndex}`}
+              className={`relative shadow-lg transition-shadow duration-200 ${activePageIndex === pageIndex ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+              style={{
+                width: canvasWidth * zoom,
+                height: canvasHeight * zoom,
+                backgroundColor,
+                backgroundImage: showGrid
+                  ? `linear-gradient(to right, hsl(var(--border) / 0.15) 1px, transparent 1px),
+                     linear-gradient(to bottom, hsl(var(--border) / 0.15) 1px, transparent 1px)`
+                  : undefined,
+                backgroundSize: showGrid ? `${gridSize * zoom}px ${gridSize * zoom}px` : undefined,
+                cursor: activeTool === "text" ? "text" : activeTool === "shape" ? "crosshair" : "default",
+              }}
+              onClick={(e) => handleCanvasClick(e, pageIndex)}
+            >
+              {/* Only render elements belonging to this page */}
+              {sortedElements
+                .filter(el => (el.pageIndex ?? 0) === pageIndex)
+                .map((element) => (
+                  <CanvasElement
+                    key={element.id}
+                    element={element}
+                    isSelected={selectedElementIds.includes(element.id)}
+                    zoom={zoom}
+                    onSelect={selectElement}
+                  />
+              ))}
+
+              {/* Show alignment guides only on active page */}
+              {activeId && activePageIndex === pageIndex && (
+                <AlignmentGuides activeId={activeId} activeGuides={activeGuides} zoom={zoom} />
+              )}
+
+              {/* Selection box logic */}
+              {selectedElementIds.length === 1 && 
+               elements.find(el => el.id === selectedElementIds[0])?.pageIndex === pageIndex && (
+                <SelectionBox
+                  elementId={selectedElementIds[0]}
+                  zoom={zoom}
+                />
+              )}
+            </div>
+          </div>
+        ))}
+
+        {/* Add Page Button at bottom */}
+        <Button 
+          variant="outline" 
+          className="w-[200px] border-dashed gap-2"
+          onClick={addPage}
         >
-          <AlignmentGuides activeId={activeId} activeGuides={activeGuides} zoom={zoom} />
-
-          {sortedElements.map((element) => (
-            <CanvasElement
-              key={element.id}
-              element={element}
-              isSelected={selectedElementIds.includes(element.id)}
-              zoom={zoom}
-              onSelect={selectElement}
-            />
-          ))}
-
-          {selectedElementIds.length === 1 && (
-            <SelectionBox
-              elementId={selectedElementIds[0]}
-              zoom={zoom}
-            />
-          )}
-        </div>
+          <Plus className="h-4 w-4" /> Add Page
+        </Button>
 
         <DragOverlay dropAnimation={null} />
       </DndContext>
