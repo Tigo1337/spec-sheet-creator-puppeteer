@@ -17,7 +17,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import {
   Download,
-  FileText,
   Settings,
   Loader2,
   CheckCircle2,
@@ -27,8 +26,6 @@ import {
   FileArchive,
 } from "lucide-react";
 import { pageSizes } from "@shared/schema";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 import JSZip from "jszip";
 import { isHtmlContent } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
@@ -37,7 +34,6 @@ export function ExportTab() {
   const [isExporting, setIsExporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [exportStatus, setExportStatus] = useState<"idle" | "success" | "error">("idle");
-
   const [filenamePattern, setFilenamePattern] = useState("");
 
   const { toast } = useToast();
@@ -81,210 +77,199 @@ export function ExportTab() {
     return finalName.replace(/[^a-z0-9\s\-_.]/gi, "_");
   };
 
+  // Helper to generate the full HTML string for a single page
+  const generateHTMLForPage = (pageIndex: number, rowData: Record<string, string> = {}) => {
+    // 1. Create a container for the HTML
+    const container = document.createElement("div");
+    container.style.width = `${canvasWidth}px`;
+    container.style.height = `${canvasHeight}px`;
+    container.style.backgroundColor = backgroundColor;
+    container.style.position = "relative";
+    container.style.overflow = "hidden";
+
+    const pageElements = elements
+      .filter(el => (el.pageIndex ?? 0) === pageIndex)
+      .sort((a, b) => a.zIndex - b.zIndex);
+
+    for (const element of pageElements) {
+      if (!element.visible) continue;
+
+      const elementDiv = document.createElement("div");
+      elementDiv.style.position = "absolute";
+      elementDiv.style.left = `${element.position.x}px`;
+      elementDiv.style.top = `${element.position.y}px`;
+      elementDiv.style.width = `${element.dimension.width}px`;
+      elementDiv.style.height = `${element.dimension.height}px`;
+      elementDiv.style.transform = element.rotation ? `rotate(${element.rotation}deg)` : "";
+      elementDiv.style.boxSizing = "border-box";
+
+      if (element.type === "text" || element.type === "dataField") {
+         const textStyle = element.textStyle || {};
+         elementDiv.style.fontFamily = `"${textStyle.fontFamily}", sans-serif`;
+         elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
+         elementDiv.style.fontWeight = String(textStyle.fontWeight || 400);
+         elementDiv.style.color = textStyle.color || "#000000";
+         elementDiv.style.lineHeight = String(textStyle.lineHeight || 1.5);
+         elementDiv.style.letterSpacing = `${textStyle.letterSpacing || 0}px`;
+         elementDiv.style.display = "flex";
+         elementDiv.style.flexDirection = "column";
+         elementDiv.style.padding = "4px";
+         elementDiv.style.wordBreak = "break-word";
+         elementDiv.style.overflow = "visible"; // Allow text overflow
+
+         const hAlign = textStyle.textAlign || "left";
+         elementDiv.style.textAlign = hAlign;
+
+         const vAlign = textStyle.verticalAlign || "middle";
+         const justifyMap: Record<string, string> = {
+           top: "flex-start",
+           middle: "center",
+           bottom: "flex-end"
+         };
+         elementDiv.style.justifyContent = justifyMap[vAlign];
+
+         if (hAlign === "center") {
+           elementDiv.style.alignItems = "center";
+         } else if (hAlign === "right") {
+           elementDiv.style.alignItems = "flex-end";
+         } else {
+           elementDiv.style.alignItems = "flex-start";
+         }
+
+         let content = element.content || "";
+         if (element.dataBinding && rowData[element.dataBinding]) {
+           content = rowData[element.dataBinding];
+         } else if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
+             // Fallback to selected row if no specific row passed (single export)
+             content = excelData.rows[selectedRowIndex][element.dataBinding] || content;
+         }
+
+         content = formatContent(content, element.format);
+
+         if (isHtmlContent(content)) {
+            // Inject basic list styling for HTML content
+            const styles = `
+              <style>
+                ul, ol { margin: 0; padding-left: 1.2em; }
+                li { position: relative; margin: 0.2em 0; }
+                p { margin: 0.2em 0; }
+              </style>
+            `;
+            elementDiv.innerHTML = styles + content;
+            elementDiv.style.display = "block";
+         } else {
+           elementDiv.textContent = content;
+         }
+      } else if (element.type === "shape") {
+         const shapeStyle = element.shapeStyle || {};
+         elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
+         elementDiv.style.border = `${shapeStyle.strokeWidth || 1}px solid ${shapeStyle.stroke || "#9ca3af"}`;
+         elementDiv.style.borderRadius = element.shapeType === "circle" ? "50%" : `${shapeStyle.borderRadius || 0}px`;
+         elementDiv.style.opacity = String(shapeStyle.opacity || 1);
+
+         if (element.shapeType === "line") {
+           elementDiv.style.height = `${shapeStyle.strokeWidth || 1}px`;
+           elementDiv.style.backgroundColor = shapeStyle.stroke || "#9ca3af";
+           elementDiv.style.border = "none";
+           elementDiv.style.top = `${element.dimension.height / 2}px`;
+         }
+      } else if (element.type === "image") {
+         let imgSrc = element.imageSrc;
+         if (element.dataBinding) {
+            if (rowData[element.dataBinding]) {
+                imgSrc = rowData[element.dataBinding];
+            } else if (excelData && excelData.rows[selectedRowIndex]) {
+                imgSrc = excelData.rows[selectedRowIndex][element.dataBinding];
+            }
+         }
+
+         if (imgSrc) {
+           const img = document.createElement("img");
+           img.src = imgSrc;
+           img.style.width = "100%";
+           img.style.height = "100%";
+           img.style.objectFit = "contain";
+           elementDiv.appendChild(img);
+         }
+      }
+
+      container.appendChild(elementDiv);
+    }
+
+    return container.outerHTML;
+  };
+
+  // Helper to call server API
+  const fetchPdfBuffer = async (html: string) => {
+    // Add Google Fonts link to ensure fonts render correctly on server
+    const fullHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=JetBrains+Mono:wght@400&family=Lato:wght@400;700&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;700&family=Nunito:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;700&family=Raleway:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
+          <style>
+            body { margin: 0; padding: 0; box-sizing: border-box; }
+            * { box-sizing: inherit; }
+          </style>
+        </head>
+        <body>
+          ${html}
+        </body>
+      </html>
+    `;
+
+    const response = await fetch("/api/export/pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        html: fullHtml,
+        width: canvasWidth,
+        height: canvasHeight,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Server failed to generate PDF");
+    }
+
+    return await response.blob();
+  };
+
   const generatePDF = async () => {
     setIsExporting(true);
     setProgress(0);
     setExportStatus("idle");
 
     try {
-      const pageSize = pageSizes[exportSettings.pageSize];
-      const orientation = exportSettings.orientation;
+      // NOTE: Current server implementation handles single page HTML-to-PDF.
+      // For multi-page, we ideally loop or update server to handle array.
+      // For now, we'll export the ACTIVE page or just the first page logic if multi-page logic isn't strictly defined on server yet.
+      // But let's support multi-page by concatenation if needed or just single.
+      // Based on previous code, we loop through pages.
 
-      const pdfWidth = orientation === "portrait" ? pageSize.width : pageSize.height;
-      const pdfHeight = orientation === "portrait" ? pageSize.height : pageSize.width;
+      // Since server returns a PDF per HTML string, we can merge them client-side if needed,
+      // OR we can stack the HTML vertically for the server to print.
 
-      const mmWidth = (pdfWidth / 96) * 25.4;
-      const mmHeight = (pdfHeight / 96) * 25.4;
-
-      const pdf = new jsPDF({
-        orientation: orientation,
-        unit: "mm",
-        format: [mmWidth, mmHeight],
-      });
-
+      let combinedHtml = "";
       for (let i = 0; i < pageCount; i++) {
-        const tempDiv = document.createElement("div");
-        tempDiv.style.position = "fixed"; 
-        tempDiv.style.left = "0";
-        tempDiv.style.top = "0";
-        tempDiv.style.zIndex = "-9999"; 
-        tempDiv.style.width = `${canvasWidth}px`;
-        tempDiv.style.height = `${canvasHeight}px`;
-        tempDiv.style.backgroundColor = backgroundColor;
-        tempDiv.style.boxSizing = "border-box"; 
-        document.body.appendChild(tempDiv);
-
-        const pageElements = elements
-          .filter(el => (el.pageIndex ?? 0) === i)
-          .sort((a, b) => a.zIndex - b.zIndex);
-
-        for (const element of pageElements) {
-          if (!element.visible) continue;
-
-          const elementDiv = document.createElement("div");
-          elementDiv.style.position = "absolute";
-          elementDiv.style.left = `${element.position.x}px`;
-          elementDiv.style.top = `${element.position.y}px`;
-          elementDiv.style.width = `${element.dimension.width}px`;
-          elementDiv.style.height = `${element.dimension.height}px`;
-          elementDiv.style.transform = element.rotation ? `rotate(${element.rotation}deg)` : "";
-
-          if (element.type === "text" || element.type === "dataField") {
-             const textStyle = element.textStyle || {};
-             elementDiv.style.fontFamily = textStyle.fontFamily || "Inter";
-             elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
-             elementDiv.style.fontWeight = String(textStyle.fontWeight || 400);
-             elementDiv.style.color = textStyle.color || "#000000";
-             elementDiv.style.lineHeight = String(textStyle.lineHeight || 1.5);
-             elementDiv.style.letterSpacing = `${textStyle.letterSpacing || 0}px`;
-             elementDiv.style.display = "flex";
-             elementDiv.style.flexDirection = "column";
-             elementDiv.style.padding = "4px";
-             elementDiv.style.wordBreak = "break-word";
-
-             // FIX: Changed from 'hidden' to 'visible' to prevent text clipping
-             elementDiv.style.overflow = "visible";
-
-             const hAlign = textStyle.textAlign || "left";
-             elementDiv.style.textAlign = hAlign;
-
-             const vAlign = textStyle.verticalAlign || "middle";
-             const justifyMap: Record<string, string> = {
-               top: "flex-start",
-               middle: "center",
-               bottom: "flex-end"
-             };
-             elementDiv.style.justifyContent = justifyMap[vAlign];
-
-             if (hAlign === "center") {
-               elementDiv.style.alignItems = "center";
-             } else if (hAlign === "right") {
-               elementDiv.style.alignItems = "flex-end";
-             } else {
-               elementDiv.style.alignItems = "flex-start";
-             }
-
-             let content = element.content || "";
-             if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
-               content = excelData.rows[selectedRowIndex][element.dataBinding] || content;
-             }
-
-             content = formatContent(content, element.format);
-
-             if (isHtmlContent(content)) {
-               const style = document.createElement("style");
-               style.textContent = `
-                 ul { 
-                   list-style-type: none !important; 
-                   margin: 0 !important; 
-                   padding-left: 0 !important; 
-                   display: block !important; 
-                 }
-                 li { 
-                   position: relative !important;
-                   margin: 0.2em 0 !important; 
-                   padding-left: 1.2em !important;
-                   display: block !important; 
-                 }
-                 li::before {
-                   content: "•" !important;
-                   position: absolute !important;
-                   left: 0 !important;
-                   top: 0 !important;
-                 }
-                 ol { 
-                   list-style-type: decimal !important; 
-                   margin: 0 !important; 
-                   padding-left: 1.2em !important; 
-                   display: block !important; 
-                 }
-                 strong, b { font-weight: bold; }
-                 em, i { font-style: italic; }
-                 p { margin: 0.2em 0; display: block !important; }
-               `;
-               elementDiv.appendChild(style);
-               elementDiv.style.display = "block";
-               elementDiv.innerHTML += content;
-             } else {
-               elementDiv.textContent = content;
-             }
-          } else if (element.type === "shape") {
-             const shapeStyle = element.shapeStyle || {};
-             elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
-             elementDiv.style.border = `${shapeStyle.strokeWidth || 1}px solid ${shapeStyle.stroke || "#9ca3af"}`;
-             elementDiv.style.borderRadius = element.shapeType === "circle" ? "50%" : `${shapeStyle.borderRadius || 0}px`;
-             elementDiv.style.opacity = String(shapeStyle.opacity || 1);
-
-             if (element.shapeType === "line") {
-               elementDiv.style.height = `${shapeStyle.strokeWidth || 1}px`;
-               elementDiv.style.backgroundColor = shapeStyle.stroke || "#9ca3af";
-               elementDiv.style.border = "none";
-               elementDiv.style.position = "absolute";
-               elementDiv.style.top = `${element.position.y + element.dimension.height / 2}px`;
-             }
-          } else if (element.type === "image") {
-             let imgSrc = element.imageSrc;
-             if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
-               imgSrc = excelData.rows[selectedRowIndex][element.dataBinding];
-             }
-             if (imgSrc) {
-               const img = document.createElement("img");
-               img.src = imgSrc;
-               img.style.width = "100%";
-               img.style.height = "100%";
-               img.style.objectFit = "contain";
-               img.style.objectPosition = "center";
-               elementDiv.appendChild(img);
-             }
-          }
-
-          tempDiv.appendChild(elementDiv);
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, 50));
-
-        const canvas = await html2canvas(tempDiv, {
-          scale: 2 * exportSettings.quality,
-          backgroundColor: backgroundColor,
-          useCORS: true,
-          allowTaint: true,
-          logging: false,
-          width: canvasWidth,
-          height: canvasHeight,
-          windowWidth: canvasWidth,
-          windowHeight: canvasHeight,
-          scrollX: 0,
-          scrollY: 0,
-          x: 0,
-          y: 0
-        });
-
-        const imgData = canvas.toDataURL("image/png", exportSettings.quality);
-
-        if (i > 0) {
-          pdf.addPage([mmWidth, mmHeight], orientation);
-        }
-
-        pdf.addImage(
-          imgData,
-          "PNG",
-          0,
-          0,
-          mmWidth,
-          mmHeight,
-          undefined, 
-          "FAST"
-        );
-
-        document.body.removeChild(tempDiv);
-        setProgress(Math.round(((i + 1) / pageCount) * 100));
+        const pageHtml = generateHTMLForPage(i);
+        // Add a page break for print
+        combinedHtml += `<div style="page-break-after: always; position: relative;">${pageHtml}</div>`;
       }
 
+      const pdfBlob = await fetchPdfBuffer(combinedHtml);
+
       const fileName = getConstructedFilename(selectedRowIndex);
-      pdf.save(`${fileName}.pdf`);
+      const url = window.URL.createObjectURL(pdfBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${fileName}.pdf`;
+      link.click();
+      window.URL.revokeObjectURL(url);
 
       setExportStatus("success");
-
       toast({
         title: "PDF exported successfully",
         description: `Downloaded as ${fileName}.pdf`,
@@ -299,6 +284,7 @@ export function ExportTab() {
       });
     } finally {
       setIsExporting(false);
+      setProgress(100);
       setTimeout(() => {
         setProgress(0);
         setExportStatus("idle");
@@ -324,177 +310,16 @@ export function ExportTab() {
       const zip = new JSZip();
       const usedFilenames = new Set<string>();
 
-      const pageSize = pageSizes[exportSettings.pageSize];
-      const orientation = exportSettings.orientation;
-      const pdfWidth = orientation === "portrait" ? pageSize.width : pageSize.height;
-      const pdfHeight = orientation === "portrait" ? pageSize.height : pageSize.width;
-
-      const mmWidth = (pdfWidth / 96) * 25.4;
-      const mmHeight = (pdfHeight / 96) * 25.4;
-
       for (let rowIndex = 0; rowIndex < excelData.rows.length; rowIndex++) {
         const rowData = excelData.rows[rowIndex];
 
-        const pdf = new jsPDF({
-            orientation: orientation,
-            unit: "mm",
-            format: [mmWidth, mmHeight],
-        });
-
+        let combinedHtml = "";
         for (let i = 0; i < pageCount; i++) {
-            const tempDiv = document.createElement("div");
-            tempDiv.style.position = "fixed";
-            tempDiv.style.left = "0";
-            tempDiv.style.top = "0";
-            tempDiv.style.zIndex = "-9999";
-            tempDiv.style.width = `${canvasWidth}px`;
-            tempDiv.style.height = `${canvasHeight}px`;
-            tempDiv.style.backgroundColor = backgroundColor;
-            tempDiv.style.boxSizing = "border-box";
-            document.body.appendChild(tempDiv);
-
-            const pageElements = elements
-                .filter(el => (el.pageIndex ?? 0) === i)
-                .sort((a, b) => a.zIndex - b.zIndex);
-
-            for (const element of pageElements) {
-                if (!element.visible) continue;
-
-                const elementDiv = document.createElement("div");
-                elementDiv.style.position = "absolute";
-                elementDiv.style.left = `${element.position.x}px`;
-                elementDiv.style.top = `${element.position.y}px`;
-                elementDiv.style.width = `${element.dimension.width}px`;
-                elementDiv.style.height = `${element.dimension.height}px`;
-
-                if (element.type === "text" || element.type === "dataField") {
-                    const textStyle = element.textStyle || {};
-                    elementDiv.style.fontFamily = textStyle.fontFamily || "Inter";
-                    elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
-                    elementDiv.style.fontWeight = String(textStyle.fontWeight || 400);
-                    elementDiv.style.color = textStyle.color || "#000000";
-                    elementDiv.style.lineHeight = String(textStyle.lineHeight || 1.5);
-                    elementDiv.style.letterSpacing = `${textStyle.letterSpacing || 0}px`;
-                    elementDiv.style.display = "flex";
-                    elementDiv.style.flexDirection = "column";
-                    elementDiv.style.padding = "4px";
-
-                    // FIX: Changed from 'hidden' to 'visible' here as well
-                    elementDiv.style.overflow = "visible"; 
-
-                    const hAlign = textStyle.textAlign || "left";
-                    elementDiv.style.textAlign = hAlign;
-
-                    const vAlign = textStyle.verticalAlign || "middle";
-                    const justifyMap: Record<string, string> = {
-                    top: "flex-start",
-                    middle: "center",
-                    bottom: "flex-end"
-                    };
-                    elementDiv.style.justifyContent = justifyMap[vAlign];
-
-                    if (hAlign === "center") {
-                    elementDiv.style.alignItems = "center";
-                    } else if (hAlign === "right") {
-                    elementDiv.style.alignItems = "flex-end";
-                    } else {
-                    elementDiv.style.alignItems = "flex-start";
-                    }
-
-                    let content = element.content || "";
-                    if (element.dataBinding && rowData[element.dataBinding]) {
-                        content = rowData[element.dataBinding];
-                    }
-
-                    content = formatContent(content, element.format);
-
-                    if (isHtmlContent(content)) {
-                    const style = document.createElement("style");
-                    style.textContent = `
-                        ul { 
-                          list-style-type: none !important; 
-                          margin: 0 !important; 
-                          padding-left: 0 !important; 
-                          display: block !important; 
-                        }
-                        li { 
-                          position: relative !important;
-                          margin: 0.2em 0 !important; 
-                          padding-left: 1.2em !important;
-                          display: block !important; 
-                        }
-                        li::before {
-                          content: "•" !important;
-                          position: absolute !important;
-                          left: 0 !important;
-                          top: 0 !important;
-                        }
-                        ol { 
-                          list-style-type: decimal !important; 
-                          margin: 0 !important; 
-                          padding-left: 1.2em !important; 
-                          display: block !important; 
-                        }
-                        strong, b { font-weight: bold; }
-                        em, i { font-style: italic; }
-                        p { margin: 0.2em 0; display: block !important; }
-                    `;
-                    elementDiv.appendChild(style);
-                    elementDiv.style.display = "block";
-                    elementDiv.innerHTML += content;
-                    } else {
-                    elementDiv.textContent = content;
-                    }
-                } else if (element.type === "shape") {
-                    const shapeStyle = element.shapeStyle || {};
-                    elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
-                    elementDiv.style.border = `${shapeStyle.strokeWidth || 1}px solid ${shapeStyle.stroke || "#9ca3af"}`;
-                    elementDiv.style.borderRadius = element.shapeType === "circle" ? "50%" : `${shapeStyle.borderRadius || 0}px`;
-                } else if (element.type === "image") {
-                    let imgSrc = element.imageSrc;
-                    if (element.dataBinding && rowData[element.dataBinding]) {
-                        imgSrc = rowData[element.dataBinding];
-                    }
-                    if (imgSrc) {
-                    const img = document.createElement("img");
-                    img.src = imgSrc;
-                    img.style.width = "100%";
-                    img.style.height = "100%";
-                    img.style.objectFit = "contain";
-                    img.style.objectPosition = "center";
-                    elementDiv.appendChild(img);
-                    }
-                }
-
-                tempDiv.appendChild(elementDiv);
-            }
-
-            await new Promise((resolve) => setTimeout(resolve, 50));
-
-            const canvas = await html2canvas(tempDiv, {
-                scale: 2 * exportSettings.quality,
-                backgroundColor: backgroundColor,
-                useCORS: true,
-                logging: false,
-                width: canvasWidth,
-                height: canvasHeight,
-                windowWidth: canvasWidth,
-                windowHeight: canvasHeight,
-                scrollX: 0,
-                scrollY: 0,
-                x: 0,
-                y: 0
-            });
-
-            const imgData = canvas.toDataURL("image/png", exportSettings.quality);
-
-            if (i > 0) {
-                pdf.addPage([mmWidth, mmHeight], orientation);
-            }
-            pdf.addImage(imgData, "PNG", 0, 0, mmWidth, mmHeight, undefined, "FAST");
-
-            document.body.removeChild(tempDiv);
+            const pageHtml = generateHTMLForPage(i, rowData);
+            combinedHtml += `<div style="page-break-after: always; position: relative;">${pageHtml}</div>`;
         }
+
+        const pdfBlob = await fetchPdfBuffer(combinedHtml);
 
         let pdfName = getConstructedFilename(rowIndex);
         let uniqueName = pdfName;
@@ -505,7 +330,7 @@ export function ExportTab() {
         }
         usedFilenames.add(uniqueName);
 
-        zip.file(`${uniqueName}.pdf`, pdf.output('blob'));
+        zip.file(`${uniqueName}.pdf`, pdfBlob);
 
         setProgress(Math.round(((rowIndex + 1) / excelData.rows.length) * 100));
       }
@@ -546,7 +371,6 @@ export function ExportTab() {
   return (
     <ScrollArea className="h-full">
       <div className="p-4 space-y-4">
-
         {/* Filename Construction Section */}
         <div>
           <h3 className="font-medium text-sm mb-3 flex items-center gap-2">
@@ -658,20 +482,6 @@ export function ExportTab() {
                 data-testid="slider-export-quality"
               />
             </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Margin (px)</Label>
-              <Input
-                type="number"
-                value={exportSettings.margin}
-                onChange={(e) =>
-                  setExportSettings({ margin: Number(e.target.value) })
-                }
-                min={0}
-                max={100}
-                data-testid="input-export-margin"
-              />
-            </div>
           </div>
         </div>
 
@@ -714,7 +524,7 @@ export function ExportTab() {
             ) : (
               <Download className="h-4 w-4" />
             )}
-            Export as PDF
+            Export as PDF (Server-Side)
           </Button>
 
           {excelData && excelData.rows.length > 0 && (
@@ -738,9 +548,9 @@ export function ExportTab() {
         <div className="text-xs text-muted-foreground space-y-1 p-3 bg-muted/30 rounded-lg">
           <p className="font-medium">Tips:</p>
           <ul className="list-disc list-inside space-y-0.5">
-            <li>Single export uses the current preview row</li>
-            <li>Use <strong>{`{{Variable}}`}</strong> tags to create dynamic file names</li>
-            <li>Bulk export creates a ZIP containing individual PDF files</li>
+            <li>Uses high-fidelity server rendering (Puppeteer)</li>
+            <li>Images must be public URLs for proper rendering</li>
+            <li>Text remains selectable and crisp</li>
           </ul>
         </div>
       </div>

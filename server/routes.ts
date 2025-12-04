@@ -9,12 +9,86 @@ import {
 import { insertTemplateSchema, insertSavedDesignSchema } from "@shared/schema";
 import { stripeService } from "./stripeService";
 import { getStripePublishableKey } from "./stripeClient";
+import puppeteer from "puppeteer"; // Ensure this is installed
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   const objectStorageService = new ObjectStorageService();
+
+  // ============================================
+  // PDF Export Route (Puppeteer)
+  // ============================================
+  app.post("/api/export/pdf", async (req, res) => {
+    console.log("-> PDF Generation Request Received"); // Check your console for this log!
+
+    const { html, width, height } = req.body;
+
+    if (!html || !width || !height) {
+      console.error("-> PDF Error: Missing parameters");
+      return res.status(400).json({ error: "Missing required parameters" });
+    }
+
+    try {
+      console.log(`-> Launching Puppeteer (Width: ${width}, Height: ${height})...`);
+
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--font-render-hinting=none'
+        ],
+      });
+
+      const page = await browser.newPage();
+
+      await page.setViewport({
+        width: Math.ceil(width),
+        height: Math.ceil(height),
+        deviceScaleFactor: 2,
+      });
+
+      // Increase timeout to 60s for heavy pages
+      await page.setContent(html, {
+        waitUntil: ["load", "networkidle0"],
+        timeout: 60000, 
+      });
+
+      console.log("-> Content loaded, printing PDF...");
+
+      const pdfData = await page.pdf({
+        printBackground: true,
+        width: `${width}px`,
+        height: `${height}px`,
+        pageRanges: '1',
+      });
+
+      await browser.close();
+
+      // --- CRITICAL FIX: Convert to Buffer ---
+      const pdfBuffer = Buffer.from(pdfData);
+
+      console.log(`-> PDF Generated Successfully. Size: ${pdfBuffer.length} bytes`);
+
+      res.set({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": "attachment; filename=export.pdf",
+        "Content-Length": String(pdfBuffer.length),
+      });
+
+      res.send(pdfBuffer);
+
+    } catch (error) {
+      console.error("-> PDF Generation Error:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to generate PDF" });
+      }
+    }
+  });
+
+  // ... (Keep the rest of your existing routes below) ...
 
   // Template CRUD routes
   app.get("/api/templates", async (req, res) => {
@@ -80,7 +154,7 @@ export async function registerRoutes(
     }
   });
 
-  // Saved Designs CRUD routes (user-specific with Clerk authentication)
+  // Saved Designs CRUD routes
   app.get("/api/designs", async (req, res) => {
     try {
       const auth = getAuth(req);
@@ -118,7 +192,7 @@ export async function registerRoutes(
       if (!auth.userId) {
         return res.status(401).json({ error: "Authentication required" });
       }
-      
+
       const parseResult = insertSavedDesignSchema.safeParse({
         ...req.body,
         userId: auth.userId,
@@ -168,7 +242,7 @@ export async function registerRoutes(
     }
   });
 
-  // Object Storage routes - Public file serving
+  // Object Storage routes
   app.get("/public-objects/:filePath(*)", async (req, res) => {
     const filePath = req.params.filePath;
     try {
@@ -183,12 +257,9 @@ export async function registerRoutes(
     }
   });
 
-  // Object Storage routes - Private object serving (public access for this MVP)
   app.get("/objects/:objectPath(*)", async (req, res) => {
     try {
-      const objectFile = await objectStorageService.getObjectEntityFile(
-        req.path
-      );
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
       objectStorageService.downloadObject(objectFile, res);
     } catch (error) {
       console.error("Error checking object access:", error);
@@ -199,7 +270,6 @@ export async function registerRoutes(
     }
   });
 
-  // Object Storage routes - Upload URL generation
   app.post("/api/objects/upload", async (req, res) => {
     try {
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
@@ -210,31 +280,20 @@ export async function registerRoutes(
     }
   });
 
-  // Object Storage routes - Update object after upload
   app.put("/api/objects/uploaded", async (req, res) => {
     if (!req.body.objectURL) {
       return res.status(400).json({ error: "objectURL is required" });
     }
-
     try {
-      const objectPath = objectStorageService.normalizeObjectEntityPath(
-        req.body.objectURL
-      );
-
-      res.status(200).json({
-        objectPath: objectPath,
-      });
+      const objectPath = objectStorageService.normalizeObjectEntityPath(req.body.objectURL);
+      res.status(200).json({ objectPath: objectPath });
     } catch (error) {
       console.error("Error processing uploaded object:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
 
-  // ============================================
-  // Stripe Checkout Routes
-  // ============================================
-
-  // Get Stripe publishable key for frontend
+  // Stripe
   app.get("/api/stripe/config", async (req, res) => {
     try {
       const publishableKey = await getStripePublishableKey();
@@ -245,27 +304,15 @@ export async function registerRoutes(
     }
   });
 
-  // Get or create user in database (called after Clerk authentication)
   app.post("/api/users/sync", async (req, res) => {
     try {
       const auth = getAuth(req);
-      if (!auth.userId) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-
-      // Get user from Clerk to get email
+      if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
       const clerkUser = await clerkClient.users.getUser(auth.userId);
       const email = clerkUser.emailAddresses[0]?.emailAddress;
-
-      if (!email) {
-        return res.status(400).json({ error: "User email not found" });
-      }
-
-      // Check if user exists in our database
+      if (!email) return res.status(400).json({ error: "User email not found" });
       let user = await storage.getUser(auth.userId);
-
       if (!user) {
-        // Create new user
         user = await storage.createUser({
           id: auth.userId,
           email,
@@ -273,7 +320,6 @@ export async function registerRoutes(
           planStatus: "active",
         });
       }
-
       res.json(user);
     } catch (error) {
       console.error("Error syncing user:", error);
@@ -281,19 +327,12 @@ export async function registerRoutes(
     }
   });
 
-  // Get current user's subscription status
   app.get("/api/subscription", async (req, res) => {
     try {
       const auth = getAuth(req);
-      if (!auth.userId) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-
+      if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
       const user = await storage.getUser(auth.userId);
-      if (!user) {
-        return res.json({ subscription: null, plan: "free" });
-      }
-
+      if (!user) return res.json({ subscription: null, plan: "free" });
       res.json({
         plan: user.plan,
         planStatus: user.planStatus,
@@ -306,53 +345,28 @@ export async function registerRoutes(
     }
   });
 
-  // Create Stripe checkout session
   app.post("/api/checkout", async (req, res) => {
     try {
       const auth = getAuth(req);
-      if (!auth.userId) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-
+      if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
       const { priceId } = req.body;
-      if (!priceId) {
-        return res.status(400).json({ error: "Price ID is required" });
-      }
-
-      // Get or create user
+      if (!priceId) return res.status(400).json({ error: "Price ID is required" });
       let user = await storage.getUser(auth.userId);
-      
       if (!user) {
-        // Get email from Clerk
         const clerkUser = await clerkClient.users.getUser(auth.userId);
         const email = clerkUser.emailAddresses[0]?.emailAddress;
-        
-        if (!email) {
-          return res.status(400).json({ error: "User email not found" });
-        }
-
-        user = await storage.createUser({
-          id: auth.userId,
-          email,
-          plan: "free",
-          planStatus: "active",
-        });
+        if (!email) return res.status(400).json({ error: "User email not found" });
+        user = await storage.createUser({ id: auth.userId, email, plan: "free", planStatus: "active" });
       }
-
-      // Create or get Stripe customer
       let customerId = user.stripeCustomerId;
       if (!customerId) {
         const customer = await stripeService.createCustomer(user.email, user.id);
         await storage.updateUserStripeInfo(user.id, { stripeCustomerId: customer.id });
         customerId = customer.id;
       }
-
-      // Get base URL for redirects
       const protocol = req.headers['x-forwarded-proto'] || req.protocol;
       const host = req.headers['x-forwarded-host'] || req.get('host');
       const baseUrl = `${protocol}://${host}`;
-
-      // Create checkout session
       const session = await stripeService.createCheckoutSession(
         customerId,
         priceId,
@@ -360,7 +374,6 @@ export async function registerRoutes(
         `${baseUrl}/pricing`,
         auth.userId
       );
-
       res.json({ url: session.url });
     } catch (error) {
       console.error("Error creating checkout session:", error);
@@ -368,28 +381,19 @@ export async function registerRoutes(
     }
   });
 
-  // Create customer portal session for managing subscription
   app.post("/api/customer-portal", async (req, res) => {
     try {
       const auth = getAuth(req);
-      if (!auth.userId) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-
+      if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
       const user = await storage.getUser(auth.userId);
-      if (!user?.stripeCustomerId) {
-        return res.status(400).json({ error: "No subscription found" });
-      }
-
+      if (!user?.stripeCustomerId) return res.status(400).json({ error: "No subscription found" });
       const protocol = req.headers['x-forwarded-proto'] || req.protocol;
       const host = req.headers['x-forwarded-host'] || req.get('host');
       const baseUrl = `${protocol}://${host}`;
-
       const session = await stripeService.createCustomerPortalSession(
         user.stripeCustomerId,
         `${baseUrl}/editor`
       );
-
       res.json({ url: session.url });
     } catch (error) {
       console.error("Error creating portal session:", error);
