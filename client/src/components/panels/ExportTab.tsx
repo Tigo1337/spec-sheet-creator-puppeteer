@@ -29,6 +29,7 @@ import { pageSizes } from "@shared/schema";
 import JSZip from "jszip";
 import { isHtmlContent } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
+import html2canvas from "html2canvas";
 
 export function ExportTab() {
   const [isExporting, setIsExporting] = useState(false);
@@ -91,23 +92,23 @@ export function ExportTab() {
         const canvas = document.createElement("canvas");
         let width = img.naturalWidth;
         let height = img.naturalHeight;
-        
+
         // Scale down if larger than target dimensions
         const scale = Math.min(1, maxWidth / width, maxHeight / height);
         width = Math.round(width * scale);
         height = Math.round(height * scale);
-        
+
         canvas.width = width;
         canvas.height = height;
-        
+
         const ctx = canvas.getContext("2d");
         if (!ctx) {
           resolve(imgSrc);
           return;
         }
-        
+
         ctx.drawImage(img, 0, 0, width, height);
-        
+
         // Try JPEG for photos (smaller), PNG for graphics with transparency
         const dataUrl = canvas.toDataURL("image/jpeg", quality);
         resolve(dataUrl);
@@ -202,16 +203,25 @@ export function ExportTab() {
          }
       } else if (element.type === "shape") {
          const shapeStyle = element.shapeStyle || {};
-         elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
-         elementDiv.style.border = `${shapeStyle.strokeWidth || 1}px solid ${shapeStyle.stroke || "#9ca3af"}`;
-         elementDiv.style.borderRadius = element.shapeType === "circle" ? "50%" : `${shapeStyle.borderRadius || 0}px`;
          elementDiv.style.opacity = String(shapeStyle.opacity || 1);
 
          if (element.shapeType === "line") {
-           elementDiv.style.height = `${shapeStyle.strokeWidth || 1}px`;
-           elementDiv.style.backgroundColor = shapeStyle.stroke || "#9ca3af";
-           elementDiv.style.border = "none";
-           elementDiv.style.top = `${element.dimension.height / 2}px`;
+            // FIX: Don't change top/left of container. Use flex to center child.
+            elementDiv.style.display = "flex";
+            elementDiv.style.alignItems = "center";
+            elementDiv.style.justifyContent = "center";
+
+            const lineStroke = document.createElement("div");
+            lineStroke.style.width = "100%";
+            lineStroke.style.height = `${shapeStyle.strokeWidth || 1}px`;
+            lineStroke.style.backgroundColor = shapeStyle.stroke || "#9ca3af";
+
+            elementDiv.appendChild(lineStroke);
+         } else {
+            // Rectangle or Circle
+            elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
+            elementDiv.style.border = `${shapeStyle.strokeWidth || 1}px solid ${shapeStyle.stroke || "#9ca3af"}`;
+            elementDiv.style.borderRadius = element.shapeType === "circle" ? "50%" : `${shapeStyle.borderRadius || 0}px`;
          }
       } else if (element.type === "image") {
          let imgSrc = element.imageSrc;
