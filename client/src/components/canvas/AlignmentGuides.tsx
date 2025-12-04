@@ -9,7 +9,7 @@ interface AlignmentGuidesProps {
 }
 
 export function AlignmentGuides({ activeId, activeGuides, zoom }: AlignmentGuidesProps) {
-  const { elements, canvasHeight, canvasWidth, gridSize } = useCanvasStore();
+  const { elements, canvasHeight, canvasWidth } = useCanvasStore();
 
   const guides = useMemo(() => {
     const guideElements = [];
@@ -132,8 +132,10 @@ export function AlignmentGuides({ activeId, activeGuides, zoom }: AlignmentGuide
     return guideElements;
   }, [activeId, activeGuides, elements, zoom, canvasHeight, canvasWidth]);
 
+  // UPDATE: Added data-html2canvas-ignore to main SVG
   return (
     <svg
+      data-html2canvas-ignore="true"
       style={{
         position: "absolute",
         top: 0,

@@ -113,6 +113,7 @@ interface CanvasState {
   toggleImageField: (fieldName: string) => void;
 
   setCurrentTemplate: (template: Template | null) => void;
+  // UPDATED: Add previewImages parameter
   saveAsTemplate: (name: string, description?: string, previewImages?: string[]) => Template;
   loadTemplate: (template: Template) => void;
 
@@ -490,6 +491,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setCurrentTemplate: (template) => set({ currentTemplate: template }),
 
+  // UPDATED: Save previews
   saveAsTemplate: (name, description, previewImages = []) => {
     const { elements, canvasWidth, canvasHeight, backgroundColor, pageCount } = get();
     const template: Template = {
@@ -499,7 +501,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canvasWidth,
       canvasHeight,
       pageCount,
-      previewImages,
+      previewImages, // Saved to state/DB
       backgroundColor,
       elements: JSON.parse(JSON.stringify(elements)),
       createdAt: new Date().toISOString(),
@@ -513,8 +515,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     history = [];
     historyIndex = -1;
 
-    // Determine page count from loaded elements
-    // Find the max pageIndex in elements, or default to 0. Add 1 to get count.
     const maxPageIndex = template.elements.reduce((max, el) => {
       return Math.max(max, el.pageIndex ?? 0);
     }, 0);
@@ -528,8 +528,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       currentTemplate: template,
       selectedElementIds: [],
       hasUnsavedChanges: false,
-      pageCount: maxPageIndex + 1, // Set correct page count
-      activePageIndex: 0, // Reset to first page
+      pageCount: maxPageIndex + 1, 
+      activePageIndex: 0, 
     });
     saveToHistory(template.elements);
   },
@@ -540,7 +540,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       exportSettings: { ...state.exportSettings, ...settings },
     };
 
-    // If page size changed, update canvas dimensions
     if (settings.pageSize) {
       const pageSizes = { letter: { width: 810, height: 1050 }, a4: { width: 790, height: 1120 }, legal: { width: 810, height: 1340 } };
       const pageSize = pageSizes[settings.pageSize];
@@ -550,7 +549,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       newState.canvasHeight = isLandscape ? pageSize.width : pageSize.height;
       newState.gridSize = calculateGridSize(newState.canvasWidth, newState.canvasHeight);
     } else if (settings.orientation && settings.pageSize === undefined) {
-      // If only orientation changed, swap dimensions
       const pageSizes = { letter: { width: 810, height: 1050 }, a4: { width: 790, height: 1120 }, legal: { width: 810, height: 1340 } };
       const pageSize = pageSizes[state.exportSettings.pageSize];
       const isLandscape = settings.orientation === "landscape";

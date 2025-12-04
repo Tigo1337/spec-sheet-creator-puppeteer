@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { pgTable, varchar, text, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 // Canvas Element Types
 export type ElementType = "text" | "shape" | "image" | "table" | "dataField";
@@ -92,10 +91,8 @@ export const templateSchema = z.object({
   canvasWidth: z.number().default(816),
   canvasHeight: z.number().default(1056),
 
-  // NEW: Added pageCount
+  // NEW: Added pageCount and previewImages
   pageCount: z.number().default(1),
-
-  // NEW: Added preview images array
   previewImages: z.array(z.string()).default([]),
 
   backgroundColor: z.string().default("#ffffff"),
@@ -215,10 +212,7 @@ export const savedDesignsTable = pgTable("saved_designs", {
   description: text("description"),
   canvasWidth: integer("canvas_width").notNull().default(816),
   canvasHeight: integer("canvas_height").notNull().default(1056),
-
-  // NEW: Store page count in DB
   pageCount: integer("page_count").notNull().default(1),
-
   backgroundColor: varchar("background_color", { length: 50 }).notNull().default("#ffffff"),
   elements: jsonb("elements").notNull().default([]),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -231,11 +225,9 @@ export const templatesTable = pgTable("templates", {
   description: text("description"),
   canvasWidth: integer("canvas_width").notNull().default(816),
   canvasHeight: integer("canvas_height").notNull().default(1056),
-
-  // NEW: Store page count in DB
   pageCount: integer("page_count").notNull().default(1),
 
-  // NEW: Store preview images
+  // NEW: Preview images column
   previewImages: jsonb("preview_images").default([]),
 
   backgroundColor: varchar("background_color", { length: 50 }).notNull().default("#ffffff"),

@@ -24,12 +24,12 @@ import {
   AlertCircle,
   FileSignature,
   Plus,
-  FileArchive, // Added icon for ZIP
+  FileArchive,
 } from "lucide-react";
 import { pageSizes } from "@shared/schema";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import JSZip from "jszip"; // NEW IMPORT
+import JSZip from "jszip";
 import { isHtmlContent } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
 
@@ -51,7 +51,7 @@ export function ExportTab() {
     canvasHeight,
     backgroundColor,
     selectedRowIndex,
-    pageCount, // Added
+    pageCount,
   } = useCanvasStore();
 
   const insertVariable = (header: string) => {
@@ -102,9 +102,7 @@ export function ExportTab() {
         format: [mmWidth, mmHeight],
       });
 
-      // Loop through each page in the design
       for (let i = 0; i < pageCount; i++) {
-        // Create temp container for THIS page
         const tempDiv = document.createElement("div");
         tempDiv.style.position = "fixed"; 
         tempDiv.style.left = "0";
@@ -116,7 +114,6 @@ export function ExportTab() {
         tempDiv.style.boxSizing = "border-box"; 
         document.body.appendChild(tempDiv);
 
-        // Filter elements that belong to current page
         const pageElements = elements
           .filter(el => (el.pageIndex ?? 0) === i)
           .sort((a, b) => a.zIndex - b.zIndex);
@@ -144,7 +141,9 @@ export function ExportTab() {
              elementDiv.style.flexDirection = "column";
              elementDiv.style.padding = "4px";
              elementDiv.style.wordBreak = "break-word";
-             elementDiv.style.overflow = "hidden";
+
+             // FIX: Changed from 'hidden' to 'visible' to prevent text clipping
+             elementDiv.style.overflow = "visible";
 
              const hAlign = textStyle.textAlign || "left";
              elementDiv.style.textAlign = hAlign;
@@ -170,12 +169,10 @@ export function ExportTab() {
                content = excelData.rows[selectedRowIndex][element.dataBinding] || content;
              }
 
-             // Apply formatting
              content = formatContent(content, element.format);
 
              if (isHtmlContent(content)) {
                const style = document.createElement("style");
-               // FIX: Replaced standard list-style with pseudo-elements for better PDF rendering
                style.textContent = `
                  ul { 
                    list-style-type: none !important; 
@@ -244,7 +241,6 @@ export function ExportTab() {
           tempDiv.appendChild(elementDiv);
         }
 
-        // Slight delay to ensure render
         await new Promise((resolve) => setTimeout(resolve, 50));
 
         const canvas = await html2canvas(tempDiv, {
@@ -336,18 +332,15 @@ export function ExportTab() {
       const mmWidth = (pdfWidth / 96) * 25.4;
       const mmHeight = (pdfHeight / 96) * 25.4;
 
-      // Loop through every row
       for (let rowIndex = 0; rowIndex < excelData.rows.length; rowIndex++) {
         const rowData = excelData.rows[rowIndex];
 
-        // Create PDF instance for this row
         const pdf = new jsPDF({
             orientation: orientation,
             unit: "mm",
             format: [mmWidth, mmHeight],
         });
 
-        // Loop through every PAGE in the design
         for (let i = 0; i < pageCount; i++) {
             const tempDiv = document.createElement("div");
             tempDiv.style.position = "fixed";
@@ -385,7 +378,9 @@ export function ExportTab() {
                     elementDiv.style.display = "flex";
                     elementDiv.style.flexDirection = "column";
                     elementDiv.style.padding = "4px";
-                    elementDiv.style.overflow = "hidden";
+
+                    // FIX: Changed from 'hidden' to 'visible' here as well
+                    elementDiv.style.overflow = "visible"; 
 
                     const hAlign = textStyle.textAlign || "left";
                     elementDiv.style.textAlign = hAlign;
@@ -415,7 +410,6 @@ export function ExportTab() {
 
                     if (isHtmlContent(content)) {
                     const style = document.createElement("style");
-                    // FIX: Replaced standard list-style with pseudo-elements for better PDF rendering
                     style.textContent = `
                         ul { 
                           list-style-type: none !important; 

@@ -11,7 +11,7 @@ type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
   const { elements, resizeElement, moveElement, snapToGrid: shouldSnap } = useCanvasStore();
   const element = elements.find((el) => el.id === elementId);
-  
+
   const [isResizing, setIsResizing] = useState(false);
   const [activeHandle, setActiveHandle] = useState<ResizeHandle | null>(null);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
@@ -64,11 +64,10 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
       let newX = startPosition.x;
       let newY = startPosition.y;
 
-      // For image elements, only allow corner resizing with aspect ratio
       if (isImageElement) {
         if (isCornerHandle) {
           const ratio = startDimension.width / startDimension.height;
-          
+
           if (activeHandle === "se") {
             newWidth = Math.max(20, startDimension.width + deltaX);
             newHeight = newWidth / ratio;
@@ -92,7 +91,6 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
           }
         }
       } else {
-        // For non-image elements, keep original resize behavior
         if (activeHandle.includes("e")) {
           newWidth = Math.max(20, startDimension.width + deltaX);
         }
@@ -110,7 +108,6 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
           newY = startPosition.y + heightChange;
         }
 
-        // Keep aspect ratio for corner handles when shift is pressed
         if (e.shiftKey && isCornerHandle) {
           const ratio = startDimension.width / startDimension.height;
           if (Math.abs(deltaX) > Math.abs(deltaY)) {
@@ -121,7 +118,6 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
         }
       }
 
-      // Apply grid snapping if enabled
       if (shouldSnap) {
         newWidth = Math.round(newWidth / 10) * 10;
         newHeight = Math.round(newHeight / 10) * 10;
@@ -155,8 +151,9 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
 
   const isImageElement = element.type === "image";
 
+  // UPDATE: Added data-html2canvas-ignore to hide this from screenshots
   return (
-    <>
+    <div data-html2canvas-ignore="true">
       {/* Corner handles - always shown */}
       <div
         style={{ ...handleStyle, left: left - 4, top: top - 4, cursor: "nw-resize" }}
@@ -196,6 +193,6 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
           />
         </>
       )}
-    </>
+    </div>
   );
 }

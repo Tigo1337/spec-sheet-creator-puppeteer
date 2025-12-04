@@ -11,7 +11,6 @@ const app = express();
 const httpServer = createServer(app);
 
 // Add Clerk authentication middleware
-// The publishable key from the frontend env needs to also be available on the server
 const clerkPublishableKey = process.env.VITE_CLERK_PUBLISHABLE_KEY;
 app.use(clerkMiddleware({
   publishableKey: clerkPublishableKey,
@@ -45,16 +44,18 @@ async function initStripe() {
     const stripeSync = await getStripeSync();
 
     // Set up managed webhook
-    console.log('Setting up managed webhook...');
-    const webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
-    const { webhook, uuid } = await stripeSync.findOrCreateManagedWebhook(
-      `${webhookBaseUrl}/api/stripe/webhook`,
-      {
-        enabled_events: ['*'],
-        description: 'Managed webhook for Stripe sync',
-      }
-    );
-    console.log(`Webhook configured: ${webhook.url} (UUID: ${uuid})`);
+    if (process.env.REPLIT_DOMAINS) {
+      console.log('Setting up managed webhook...');
+      const webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`;
+      const { webhook, uuid } = await stripeSync.findOrCreateManagedWebhook(
+        `${webhookBaseUrl}/api/stripe/webhook`,
+        {
+          enabled_events: ['*'],
+          description: 'Managed webhook for Stripe sync',
+        }
+      );
+      console.log(`Webhook configured: ${webhook.url} (UUID: ${uuid})`);
+    }
 
     // Sync all existing Stripe data in background
     console.log('Syncing Stripe data...');
@@ -74,7 +75,6 @@ async function initStripe() {
 await initStripe();
 
 // Register Stripe webhook route BEFORE express.json()
-// This is critical - webhook needs raw Buffer, not parsed JSON
 app.post(
   '/api/stripe/webhook/:uuid',
   express.raw({ type: 'application/json' }),
@@ -104,16 +104,18 @@ app.post(
   }
 );
 
-// Now apply JSON middleware for all other routes
+// === CRITICAL CHANGE: Increase limit to 50mb ===
 app.use(
   express.json({
+    limit: "50mb", 
     verify: (req, _res, buf) => {
       req.rawBody = buf;
     },
   }),
 );
 
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: false, limit: "50mb" }));
+// ==============================================
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -163,9 +165,6 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
   if (process.env.NODE_ENV === "production") {
     serveStatic(app);
   } else {
@@ -173,10 +172,6 @@ app.use((req, res, next) => {
     await setupVite(httpServer, app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5000", 10);
   httpServer.listen(
     {

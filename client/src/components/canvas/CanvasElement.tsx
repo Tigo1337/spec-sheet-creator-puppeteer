@@ -3,7 +3,6 @@ import type { CanvasElement as CanvasElementType } from "@shared/schema";
 import { useCanvasStore } from "@/stores/canvas-store";
 import { useEffect, useState } from "react";
 import { isHtmlContent } from "@/lib/canvas-utils";
-// NEW: Import the formatter engine
 import { formatContent } from "@/lib/formatter";
 
 interface CanvasElementProps {
@@ -35,7 +34,6 @@ export function CanvasElement({
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // For text elements, enable inline editing
     if (element.type === "text" || element.type === "dataField") {
       const { updateElement } = useCanvasStore.getState();
       const newContent = prompt("Edit text:", element.content || "");
@@ -45,7 +43,6 @@ export function CanvasElement({
     }
   };
 
-  // Get display content (resolve data bindings)
   const getDisplayContent = () => {
     if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
       const value = excelData.rows[selectedRowIndex][element.dataBinding];
@@ -54,7 +51,6 @@ export function CanvasElement({
     return element.content || "";
   };
 
-  // Resolve image URL from data binding
   const getImageUrl = () => {
     if (element.type === "image") {
       if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
@@ -65,7 +61,6 @@ export function CanvasElement({
     return null;
   };
 
-  // Load image dimensions and update element with aspect ratio
   useEffect(() => {
     const url = getImageUrl();
     if (url && url !== imageUrl) {
@@ -76,7 +71,6 @@ export function CanvasElement({
         const naturalHeight = img.naturalHeight;
         setImageDimensions({ width: naturalWidth, height: naturalHeight });
 
-        // Auto-adjust height to maintain aspect ratio
         const aspectRatio = naturalWidth / naturalHeight;
         const newHeight = Math.round(element.dimension.width / aspectRatio);
         updateElement(element.id, {
@@ -114,7 +108,7 @@ export function CanvasElement({
         };
         return (
           <div
-            className="w-full h-full overflow-hidden"
+            className="w-full h-full overflow-hidden canvas-element-content"
             style={{
               display: "flex",
               flexDirection: "column",
@@ -129,7 +123,6 @@ export function CanvasElement({
               padding: 4 * zoom,
             }}
           >
-            {/* UPDATED: Apply Formatting to static text */}
             {formatContent(element.content || "Text", element.format)}
           </div>
         );
@@ -141,18 +134,13 @@ export function CanvasElement({
           bottom: "flex-end",
         };
 
-        // 1. Get the Raw Data (from Excel or Placeholder)
         const rawContent = getDisplayContent();
-
-        // 2. UPDATED: Apply the Formatting Logic (e.g. 10.5 -> 10 1/2)
         const displayContent = formatContent(rawContent, element.format);
-
-        // 3. Check if result is HTML (only relevant if not formatted as number/date)
         const hasHtml = isHtmlContent(displayContent);
 
         return (
           <div
-            className="w-full h-full rounded border-2 border-dashed overflow-hidden"
+            className="w-full h-full rounded border-2 border-dashed overflow-hidden canvas-data-field canvas-element-content"
             style={{
               display: "flex",
               alignItems: dataFieldVerticalAlignMap[element.textStyle?.verticalAlign || "middle"] as any,
@@ -178,10 +166,33 @@ export function CanvasElement({
                   display: "block",
                 }}
               >
+                {/* UPDATED: CSS to match PDF export logic for consistent bullet rendering */}
                 <style>{`
-                  ul { list-style-type: disc !important; margin: 0 !important; padding-left: 1.2em !important; display: block !important; }
-                  li { margin: 0.2em 0 !important; display: list-item !important; }
-                  ol { list-style-type: decimal !important; margin: 0 !important; padding-left: 1.2em !important; display: block !important; }
+                  ul { 
+                    list-style-type: none !important; 
+                    margin: 0 !important; 
+                    padding-left: 0 !important; 
+                    display: block !important; 
+                  }
+                  li { 
+                    position: relative !important;
+                    margin: 0.2em 0 !important; 
+                    padding-left: 1.2em !important;
+                    display: block !important; 
+                    text-align: left !important;
+                  }
+                  li::before {
+                    content: "•" !important;
+                    position: absolute !important;
+                    left: 0 !important;
+                    top: 0 !important;
+                  }
+                  ol { 
+                    list-style-type: decimal !important; 
+                    margin: 0 !important; 
+                    padding-left: 1.2em !important; 
+                    display: block !important; 
+                  }
                   strong, b { font-weight: bold; }
                   em, i { font-style: italic; }
                   p { margin: 0.2em 0; display: block !important; }
@@ -230,6 +241,7 @@ export function CanvasElement({
             <img
               src={displayImageUrl}
               alt=""
+              crossOrigin="anonymous"
               className="w-full h-full object-contain"
               draggable={false}
               style={{ objectPosition: "center" }}
@@ -255,11 +267,11 @@ export function CanvasElement({
       {...listeners}
       {...attributes}
       data-testid={`canvas-element-${element.id}`}
-      className={`absolute transition-shadow duration-100`}
+      // UPDATED: Added canvas-element-wrapper class
+      className={`absolute transition-shadow duration-100 canvas-element-wrapper`}
       style={{
         ...style,
         ...(isSelected && {
-          // Blue (#3b82f6) signifies "active state"
           outline: "2px solid #3b82f6", 
           outlineOffset: "2px", 
           backgroundColor: "transparent",

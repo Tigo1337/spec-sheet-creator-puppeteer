@@ -6,21 +6,16 @@ import { neon } from "@neondatabase/serverless";
 import { eq, and, desc, sql } from "drizzle-orm";
 
 export interface IStorage {
-  // Templates (legacy)
   getTemplates(): Promise<Template[]>;
   getTemplate(id: string): Promise<Template | undefined>;
   createTemplate(template: InsertTemplate): Promise<Template>;
   updateTemplate(id: string, template: Partial<InsertTemplate>): Promise<Template | undefined>;
   deleteTemplate(id: string): Promise<boolean>;
-
-  // Saved Designs (user-specific)
   getDesignsByUser(userId: string): Promise<SavedDesign[]>;
   getDesign(id: string, userId: string): Promise<SavedDesign | undefined>;
   createDesign(design: InsertSavedDesign): Promise<SavedDesign>;
   updateDesign(id: string, userId: string, design: Partial<InsertSavedDesign>): Promise<SavedDesign | undefined>;
   deleteDesign(id: string, userId: string): Promise<boolean>;
-
-  // Users (with Stripe info)
   getUser(id: string): Promise<DbUser | undefined>;
   getUserByEmail(email: string): Promise<DbUser | undefined>;
   getUserByStripeCustomerId(stripeCustomerId: string): Promise<DbUser | undefined>;
@@ -34,7 +29,6 @@ export interface IStorage {
   }): Promise<DbUser | undefined>;
 }
 
-// Database Storage implementation using Drizzle ORM with Neon PostgreSQL
 export class DatabaseStorage implements IStorage {
   private db: ReturnType<typeof drizzle>;
 
@@ -46,7 +40,6 @@ export class DatabaseStorage implements IStorage {
     this.db = drizzle(sql);
   }
 
-  // Helper to convert database row to SavedDesign type
   private toSavedDesign(row: typeof savedDesignsTable.$inferSelect): SavedDesign {
     return {
       id: row.id,
@@ -55,7 +48,6 @@ export class DatabaseStorage implements IStorage {
       description: row.description ?? undefined,
       canvasWidth: row.canvasWidth,
       canvasHeight: row.canvasHeight,
-      // NEW: Map pageCount from DB
       pageCount: row.pageCount,
       backgroundColor: row.backgroundColor,
       elements: row.elements as CanvasElement[],
@@ -64,7 +56,6 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  // Helper to convert database row to Template type
   private toTemplate(row: typeof templatesTable.$inferSelect): Template {
     return {
       id: row.id,
@@ -73,7 +64,7 @@ export class DatabaseStorage implements IStorage {
       canvasWidth: row.canvasWidth,
       canvasHeight: row.canvasHeight,
       pageCount: row.pageCount,
-      // NEW: Map previewImages from DB
+      // NEW: Map previewImages
       previewImages: (row.previewImages as string[]) ?? [], 
       backgroundColor: row.backgroundColor,
       elements: row.elements as CanvasElement[],
@@ -82,7 +73,6 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  // Templates methods
   async getTemplates(): Promise<Template[]> {
     const rows = await this.db
       .select()
@@ -112,7 +102,7 @@ export class DatabaseStorage implements IStorage {
         canvasWidth: insertTemplate.canvasWidth,
         canvasHeight: insertTemplate.canvasHeight,
         pageCount: insertTemplate.pageCount,
-        // NEW: Save previewImages to DB
+        // NEW: Save previewImages
         previewImages: insertTemplate.previewImages, 
         backgroundColor: insertTemplate.backgroundColor,
         elements: insertTemplate.elements,
@@ -143,7 +133,6 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  // Saved Designs methods
   async getDesignsByUser(userId: string): Promise<SavedDesign[]> {
     const rows = await this.db
       .select()
@@ -188,7 +177,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateDesign(id: string, userId: string, updates: Partial<InsertSavedDesign>): Promise<SavedDesign | undefined> {
-    // Ensure userId cannot be changed
     const { userId: _, ...safeUpdates } = updates;
 
     const rows = await this.db
@@ -216,7 +204,6 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  // Helper to convert database row to DbUser type
   private toDbUser(row: typeof usersTable.$inferSelect): DbUser {
     return {
       id: row.id,
@@ -230,7 +217,6 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  // User methods
   async getUser(id: string): Promise<DbUser | undefined> {
     const rows = await this.db
       .select()
@@ -371,7 +357,6 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-// Legacy MemStorage for fallback
 export class MemStorage implements IStorage {
   private templates: Map<string, Template>;
   private designs: Map<string, SavedDesign>;
@@ -397,7 +382,7 @@ export class MemStorage implements IStorage {
     const template: Template = {
       ...insertTemplate,
       id,
-      // NEW: Support previewImages in MemStorage fallback
+      // NEW: Fallback for MemStorage
       previewImages: insertTemplate.previewImages || [], 
       createdAt: now,
       updatedAt: now,
@@ -468,7 +453,7 @@ export class MemStorage implements IStorage {
     return this.designs.delete(id);
   }
 
-  // User methods (stub implementations)
+  // User methods
   private users: Map<string, DbUser> = new Map();
 
   async getUser(id: string): Promise<DbUser | undefined> {
@@ -517,7 +502,6 @@ export class MemStorage implements IStorage {
   }
 }
 
-// Use DatabaseStorage when DATABASE_URL is available, otherwise fallback to MemStorage
 export const storage: IStorage = process.env.DATABASE_URL 
   ? new DatabaseStorage() 
   : new MemStorage();
