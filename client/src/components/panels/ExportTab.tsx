@@ -77,9 +77,48 @@ export function ExportTab() {
     return finalName.replace(/[^a-z0-9\s\-_.]/gi, "_");
   };
 
+  // Helper to compress image to reduce file size
+  const compressImage = async (
+    imgSrc: string, 
+    maxWidth: number, 
+    maxHeight: number, 
+    quality: number
+  ): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.naturalWidth;
+        let height = img.naturalHeight;
+        
+        // Scale down if larger than target dimensions
+        const scale = Math.min(1, maxWidth / width, maxHeight / height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(imgSrc);
+          return;
+        }
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Try JPEG for photos (smaller), PNG for graphics with transparency
+        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        resolve(dataUrl);
+      };
+      img.onerror = () => resolve(imgSrc); // Fallback to original on error
+      img.src = imgSrc;
+    });
+  };
+
   // Helper to generate the full HTML string for a single page
-  const generateHTMLForPage = (pageIndex: number, rowData: Record<string, string> = {}) => {
-    // 1. Create a container for the HTML
+  const generateHTMLForPage = async (pageIndex: number, rowData: Record<string, string> = {}) => {
     const container = document.createElement("div");
     container.style.width = `${canvasWidth}px`;
     container.style.height = `${canvasHeight}px`;
@@ -102,6 +141,7 @@ export function ExportTab() {
       elementDiv.style.height = `${element.dimension.height}px`;
       elementDiv.style.transform = element.rotation ? `rotate(${element.rotation}deg)` : "";
       elementDiv.style.boxSizing = "border-box";
+      elementDiv.style.zIndex = String(element.zIndex ?? 0);
 
       if (element.type === "text" || element.type === "dataField") {
          const textStyle = element.textStyle || {};
@@ -185,7 +225,18 @@ export function ExportTab() {
 
          if (imgSrc) {
            const img = document.createElement("img");
-           img.src = imgSrc;
+           // Compress image based on element dimensions and quality setting
+           try {
+             const compressedSrc = await compressImage(
+               imgSrc, 
+               element.dimension.width * 2, // 2x for retina
+               element.dimension.height * 2,
+               exportSettings.quality
+             );
+             img.src = compressedSrc;
+           } catch {
+             img.src = imgSrc; // Fallback to original
+           }
            img.style.width = "100%";
            img.style.height = "100%";
            img.style.objectFit = "contain";
@@ -200,7 +251,7 @@ export function ExportTab() {
   };
 
   // Helper to call server API
-  const fetchPdfBuffer = async (html: string) => {
+  const fetchPdfBuffer = async (html: string, pages: number) => {
     // Add Google Fonts link to ensure fonts render correctly on server
     const fullHtml = `
       <!DOCTYPE html>
@@ -210,8 +261,23 @@ export function ExportTab() {
           <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=JetBrains+Mono:wght@400&family=Lato:wght@400;700&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;700&family=Nunito:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;700&family=Raleway:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
           <style>
+            @page {
+              size: ${canvasWidth}px ${canvasHeight}px;
+              margin: 0;
+            }
             body { margin: 0; padding: 0; box-sizing: border-box; }
             * { box-sizing: inherit; }
+            .page-container {
+              width: ${canvasWidth}px;
+              height: ${canvasHeight}px;
+              page-break-after: always;
+              page-break-inside: avoid;
+              position: relative;
+              overflow: hidden;
+            }
+            .page-container:last-child {
+              page-break-after: auto;
+            }
           </style>
         </head>
         <body>
@@ -227,6 +293,8 @@ export function ExportTab() {
         html: fullHtml,
         width: canvasWidth,
         height: canvasHeight,
+        pageCount: pages,
+        quality: exportSettings.quality,
       }),
     });
 
@@ -243,23 +311,14 @@ export function ExportTab() {
     setExportStatus("idle");
 
     try {
-      // NOTE: Current server implementation handles single page HTML-to-PDF.
-      // For multi-page, we ideally loop or update server to handle array.
-      // For now, we'll export the ACTIVE page or just the first page logic if multi-page logic isn't strictly defined on server yet.
-      // But let's support multi-page by concatenation if needed or just single.
-      // Based on previous code, we loop through pages.
-
-      // Since server returns a PDF per HTML string, we can merge them client-side if needed,
-      // OR we can stack the HTML vertically for the server to print.
-
       let combinedHtml = "";
       for (let i = 0; i < pageCount; i++) {
-        const pageHtml = generateHTMLForPage(i);
-        // Add a page break for print
-        combinedHtml += `<div style="page-break-after: always; position: relative;">${pageHtml}</div>`;
+        const pageHtml = await generateHTMLForPage(i);
+        combinedHtml += `<div class="page-container">${pageHtml}</div>`;
+        setProgress(Math.round(((i + 1) / pageCount) * 50)); // 50% for HTML generation
       }
 
-      const pdfBlob = await fetchPdfBuffer(combinedHtml);
+      const pdfBlob = await fetchPdfBuffer(combinedHtml, pageCount);
 
       const fileName = getConstructedFilename(selectedRowIndex);
       const url = window.URL.createObjectURL(pdfBlob);
@@ -315,11 +374,11 @@ export function ExportTab() {
 
         let combinedHtml = "";
         for (let i = 0; i < pageCount; i++) {
-            const pageHtml = generateHTMLForPage(i, rowData);
-            combinedHtml += `<div style="page-break-after: always; position: relative;">${pageHtml}</div>`;
+            const pageHtml = await generateHTMLForPage(i, rowData);
+            combinedHtml += `<div class="page-container">${pageHtml}</div>`;
         }
 
-        const pdfBlob = await fetchPdfBuffer(combinedHtml);
+        const pdfBlob = await fetchPdfBuffer(combinedHtml, pageCount);
 
         let pdfName = getConstructedFilename(rowIndex);
         let uniqueName = pdfName;

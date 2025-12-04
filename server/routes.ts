@@ -21,9 +21,9 @@ export async function registerRoutes(
   // PDF Export Route (Puppeteer)
   // ============================================
   app.post("/api/export/pdf", async (req, res) => {
-    console.log("-> PDF Generation Request Received"); // Check your console for this log!
+    console.log("-> PDF Generation Request Received");
 
-    const { html, width, height } = req.body;
+    const { html, width, height, pageCount = 1, quality = 0.8 } = req.body;
 
     if (!html || !width || !height) {
       console.error("-> PDF Error: Missing parameters");
@@ -31,7 +31,7 @@ export async function registerRoutes(
     }
 
     try {
-      console.log(`-> Launching Puppeteer (Width: ${width}, Height: ${height})...`);
+      console.log(`-> Launching Puppeteer (Width: ${width}, Height: ${height}, Pages: ${pageCount})...`);
 
       const browser = await puppeteer.launch({
         headless: true,
@@ -50,10 +50,9 @@ export async function registerRoutes(
       await page.setViewport({
         width: Math.ceil(width),
         height: Math.ceil(height),
-        deviceScaleFactor: 2,
+        deviceScaleFactor: quality >= 0.9 ? 2 : 1.5,
       });
 
-      // Increase timeout to 60s for heavy pages
       await page.setContent(html, {
         waitUntil: ["load", "networkidle0"],
         timeout: 60000, 
@@ -63,9 +62,7 @@ export async function registerRoutes(
 
       const pdfData = await page.pdf({
         printBackground: true,
-        width: `${width}px`,
-        height: `${height}px`,
-        pageRanges: '1',
+        preferCSSPageSize: true,
       });
 
       await browser.close();
