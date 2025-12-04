@@ -23,7 +23,8 @@ export async function registerRoutes(
   app.post("/api/export/pdf", async (req, res) => {
     console.log("-> PDF Generation Request Received");
 
-    const { html, width, height, pageCount = 1, quality = 0.8 } = req.body;
+    // UPDATED: Destructure 'scale' from request body (default to 2)
+    const { html, width, height, pageCount = 1, scale = 2 } = req.body;
 
     if (!html || !width || !height) {
       console.error("-> PDF Error: Missing parameters");
@@ -31,7 +32,7 @@ export async function registerRoutes(
     }
 
     try {
-      console.log(`-> Launching Puppeteer (Width: ${width}, Height: ${height}, Pages: ${pageCount})...`);
+      console.log(`-> Launching Puppeteer (Width: ${width}, Height: ${height}, Pages: ${pageCount}, Scale: ${scale}x)...`);
 
       const browser = await puppeteer.launch({
         headless: true,
@@ -47,10 +48,11 @@ export async function registerRoutes(
 
       const page = await browser.newPage();
 
+      // UPDATED: Use the scale parameter for deviceScaleFactor
       await page.setViewport({
         width: Math.ceil(width),
         height: Math.ceil(height),
-        deviceScaleFactor: quality >= 0.9 ? 2 : 1.5,
+        deviceScaleFactor: Number(scale),
       });
 
       await page.setContent(html, {

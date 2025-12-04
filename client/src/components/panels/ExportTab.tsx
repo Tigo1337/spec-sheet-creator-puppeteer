@@ -4,7 +4,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -24,18 +23,20 @@ import {
   FileSignature,
   Plus,
   FileArchive,
+  Monitor,
+  Printer,
 } from "lucide-react";
 import { pageSizes } from "@shared/schema";
 import JSZip from "jszip";
 import { isHtmlContent } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
-import html2canvas from "html2canvas";
 
 export function ExportTab() {
   const [isExporting, setIsExporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [exportStatus, setExportStatus] = useState<"idle" | "success" | "error">("idle");
   const [filenamePattern, setFilenamePattern] = useState("");
+  const [exportMode, setExportMode] = useState<"digital" | "print">("digital");
 
   const { toast } = useToast();
 
@@ -107,11 +108,22 @@ export function ExportTab() {
           return;
         }
 
+        // Clear canvas to ensure transparency isn't lost
+        ctx.clearRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Try JPEG for photos (smaller), PNG for graphics with transparency
-        const dataUrl = canvas.toDataURL("image/jpeg", quality);
-        resolve(dataUrl);
+        // DETECT PNG: Check if URL contains .png or is a png data URI
+        const isPNG = imgSrc.toLowerCase().includes(".png") || imgSrc.startsWith("data:image/png");
+
+        if (isPNG) {
+           // PNG: Preserves transparency (ignores quality param, always lossless)
+           const dataUrl = canvas.toDataURL("image/png");
+           resolve(dataUrl);
+        } else {
+           // JPEG: High compression for photos (loses transparency)
+           const dataUrl = canvas.toDataURL("image/jpeg", quality);
+           resolve(dataUrl);
+        }
       };
       img.onerror = () => resolve(imgSrc); // Fallback to original on error
       img.src = imgSrc;
@@ -181,14 +193,12 @@ export function ExportTab() {
          if (element.dataBinding && rowData[element.dataBinding]) {
            content = rowData[element.dataBinding];
          } else if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
-             // Fallback to selected row if no specific row passed (single export)
              content = excelData.rows[selectedRowIndex][element.dataBinding] || content;
          }
 
          content = formatContent(content, element.format);
 
          if (isHtmlContent(content)) {
-            // Inject basic list styling for HTML content
             const styles = `
               <style>
                 ul, ol { margin: 0; padding-left: 1.2em; }
@@ -206,7 +216,6 @@ export function ExportTab() {
          elementDiv.style.opacity = String(shapeStyle.opacity || 1);
 
          if (element.shapeType === "line") {
-            // FIX: Don't change top/left of container. Use flex to center child.
             elementDiv.style.display = "flex";
             elementDiv.style.alignItems = "center";
             elementDiv.style.justifyContent = "center";
@@ -218,7 +227,6 @@ export function ExportTab() {
 
             elementDiv.appendChild(lineStroke);
          } else {
-            // Rectangle or Circle
             elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
             elementDiv.style.border = `${shapeStyle.strokeWidth || 1}px solid ${shapeStyle.stroke || "#9ca3af"}`;
             elementDiv.style.borderRadius = element.shapeType === "circle" ? "50%" : `${shapeStyle.borderRadius || 0}px`;
@@ -235,18 +243,24 @@ export function ExportTab() {
 
          if (imgSrc) {
            const img = document.createElement("img");
-           // Compress image based on element dimensions and quality setting
-           try {
-             const compressedSrc = await compressImage(
-               imgSrc, 
-               element.dimension.width * 2, // 2x for retina
-               element.dimension.height * 2,
-               exportSettings.quality
-             );
-             img.src = compressedSrc;
-           } catch {
-             img.src = imgSrc; // Fallback to original
+           // MODE LOGIC: Only compress if digital mode
+           if (exportMode === "digital") {
+               try {
+                 const compressedSrc = await compressImage(
+                   imgSrc, 
+                   element.dimension.width * 2, // 2x for retina
+                   element.dimension.height * 2,
+                   0.75 // 75% quality for digital
+                 );
+                 img.src = compressedSrc;
+               } catch {
+                 img.src = imgSrc; 
+               }
+           } else {
+               // Print mode: Use original source directly
+               img.src = imgSrc;
            }
+
            img.style.width = "100%";
            img.style.height = "100%";
            img.style.objectFit = "contain";
@@ -262,7 +276,6 @@ export function ExportTab() {
 
   // Helper to call server API
   const fetchPdfBuffer = async (html: string, pages: number) => {
-    // Add Google Fonts link to ensure fonts render correctly on server
     const fullHtml = `
       <!DOCTYPE html>
       <html>
@@ -296,6 +309,9 @@ export function ExportTab() {
       </html>
     `;
 
+    // SEND SCALE FACTOR TO SERVER
+    const scaleFactor = exportMode === 'print' ? 4 : 2;
+
     const response = await fetch("/api/export/pdf", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -303,8 +319,8 @@ export function ExportTab() {
         html: fullHtml,
         width: canvasWidth,
         height: canvasHeight,
+        scale: scaleFactor,
         pageCount: pages,
-        quality: exportSettings.quality,
       }),
     });
 
@@ -325,7 +341,7 @@ export function ExportTab() {
       for (let i = 0; i < pageCount; i++) {
         const pageHtml = await generateHTMLForPage(i);
         combinedHtml += `<div class="page-container">${pageHtml}</div>`;
-        setProgress(Math.round(((i + 1) / pageCount) * 50)); // 50% for HTML generation
+        setProgress(Math.round(((i + 1) / pageCount) * 50)); 
       }
 
       const pdfBlob = await fetchPdfBuffer(combinedHtml, pageCount);
@@ -456,31 +472,16 @@ export function ExportTab() {
                    className="font-mono text-xs"
                    data-testid="input-filename-pattern"
                 />
-                <p className="text-[10px] text-muted-foreground">
-                   Use valid characters only. Illegal characters will be replaced with _.
-                </p>
              </div>
-
              {excelData && excelData.headers.length > 0 && (
                 <div className="space-y-1.5">
                    <Label className="text-xs text-muted-foreground">Insert Variable</Label>
                    <div className="flex flex-wrap gap-1">
-                      <Button
-                         variant="outline"
-                         size="sm"
-                         className="h-6 px-2 text-[10px] bg-muted/50 hover:bg-muted border-dashed"
-                         onClick={() => setFilenamePattern((prev) => `${prev}{{Date}}`)}
-                      >
+                      <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] bg-muted/50 hover:bg-muted border-dashed" onClick={() => setFilenamePattern((prev) => `${prev}{{Date}}`)}>
                          <Plus className="h-2 w-2 mr-1" /> Date
                       </Button>
                       {excelData.headers.map((header) => (
-                         <Button
-                            key={header}
-                            variant="outline"
-                            size="sm"
-                            className="h-6 px-2 text-[10px] bg-muted/50 hover:bg-muted border-dashed"
-                            onClick={() => insertVariable(header)}
-                         >
+                         <Button key={header} variant="outline" size="sm" className="h-6 px-2 text-[10px] bg-muted/50 hover:bg-muted border-dashed" onClick={() => insertVariable(header)}>
                             <Plus className="h-2 w-2 mr-1" /> {header}
                          </Button>
                       ))}
@@ -536,21 +537,34 @@ export function ExportTab() {
               </Select>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">
-                Quality: {Math.round(exportSettings.quality * 100)}%
-              </Label>
-              <Slider
-                value={[exportSettings.quality * 100]}
-                onValueChange={([value]) =>
-                  setExportSettings({ quality: value / 100 })
-                }
-                min={50}
-                max={100}
-                step={5}
-                data-testid="slider-export-quality"
-              />
+            {/* NEW: Export Quality Selection */}
+            <div className="space-y-2 pt-2">
+               <Label className="text-xs text-muted-foreground">Output Quality</Label>
+               <div className="grid grid-cols-2 gap-2">
+                  <div 
+                    onClick={() => setExportMode("digital")}
+                    className={`cursor-pointer border rounded-lg p-3 flex flex-col items-center justify-center gap-2 transition-all hover:bg-muted/50 ${exportMode === "digital" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"}`}
+                  >
+                     <Monitor className={`h-5 w-5 ${exportMode === "digital" ? "text-primary" : "text-muted-foreground"}`} />
+                     <div className="text-center">
+                        <p className="text-xs font-medium">Digital Ready</p>
+                        <p className="text-[10px] text-muted-foreground">Compressed (Small)</p>
+                     </div>
+                  </div>
+
+                  <div 
+                    onClick={() => setExportMode("print")}
+                    className={`cursor-pointer border rounded-lg p-3 flex flex-col items-center justify-center gap-2 transition-all hover:bg-muted/50 ${exportMode === "print" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"}`}
+                  >
+                     <Printer className={`h-5 w-5 ${exportMode === "print" ? "text-primary" : "text-muted-foreground"}`} />
+                     <div className="text-center">
+                        <p className="text-xs font-medium">Print Ready</p>
+                        <p className="text-[10px] text-muted-foreground">High Quality (Big)</p>
+                     </div>
+                  </div>
+               </div>
             </div>
+
           </div>
         </div>
 
@@ -617,9 +631,9 @@ export function ExportTab() {
         <div className="text-xs text-muted-foreground space-y-1 p-3 bg-muted/30 rounded-lg">
           <p className="font-medium">Tips:</p>
           <ul className="list-disc list-inside space-y-0.5">
-            <li>Uses high-fidelity server rendering (Puppeteer)</li>
-            <li>Images must be public URLs for proper rendering</li>
-            <li>Text remains selectable and crisp</li>
+            <li>Digital mode compresses images for email</li>
+            <li>Print mode keeps original high-res images</li>
+            <li>Text remains selectable in both modes</li>
           </ul>
         </div>
       </div>
