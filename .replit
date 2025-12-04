@@ -4,6 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
+packages = ["chromium", "glib", "nss", "fontconfig", "freetype", "harfbuzz", "cacert", "pango"]
 
 [deployment]
 deploymentTarget = "autoscale"
@@ -25,6 +26,10 @@ externalPort = 3001
 [[ports]]
 localPort = 39065
 externalPort = 3002
+
+[[ports]]
+localPort = 46461
+externalPort = 3003
 
 [env]
 PORT = "5000"
@@ -59,3 +64,4 @@ defaultBucketID = "replit-objstore-0c852543-1f4d-479a-9e0a-f844ef3216a1"
 [userenv]
 
 [userenv.shared]
+PUPPETEER_EXECUTABLE_PATH = "/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium"
