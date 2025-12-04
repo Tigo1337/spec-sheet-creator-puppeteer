@@ -72,8 +72,9 @@ export class DatabaseStorage implements IStorage {
       description: row.description ?? undefined,
       canvasWidth: row.canvasWidth,
       canvasHeight: row.canvasHeight,
-      // NEW: Map pageCount from DB
       pageCount: row.pageCount,
+      // NEW: Map previewImages from DB
+      previewImages: (row.previewImages as string[]) ?? [], 
       backgroundColor: row.backgroundColor,
       elements: row.elements as CanvasElement[],
       createdAt: new Date(row.createdAt).toISOString(),
@@ -110,8 +111,9 @@ export class DatabaseStorage implements IStorage {
         description: insertTemplate.description,
         canvasWidth: insertTemplate.canvasWidth,
         canvasHeight: insertTemplate.canvasHeight,
-        // NEW: Save pageCount
         pageCount: insertTemplate.pageCount,
+        // NEW: Save previewImages to DB
+        previewImages: insertTemplate.previewImages, 
         backgroundColor: insertTemplate.backgroundColor,
         elements: insertTemplate.elements,
         createdAt: now,
@@ -175,7 +177,6 @@ export class DatabaseStorage implements IStorage {
         description: insertDesign.description,
         canvasWidth: insertDesign.canvasWidth,
         canvasHeight: insertDesign.canvasHeight,
-        // NEW: Save pageCount
         pageCount: insertDesign.pageCount,
         backgroundColor: insertDesign.backgroundColor,
         elements: insertDesign.elements,
@@ -370,7 +371,7 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-// Legacy MemStorage for fallback (kept for reference)
+// Legacy MemStorage for fallback
 export class MemStorage implements IStorage {
   private templates: Map<string, Template>;
   private designs: Map<string, SavedDesign>;
@@ -396,6 +397,8 @@ export class MemStorage implements IStorage {
     const template: Template = {
       ...insertTemplate,
       id,
+      // NEW: Support previewImages in MemStorage fallback
+      previewImages: insertTemplate.previewImages || [], 
       createdAt: now,
       updatedAt: now,
     };
@@ -465,7 +468,7 @@ export class MemStorage implements IStorage {
     return this.designs.delete(id);
   }
 
-  // User methods (stub implementations - MemStorage requires DATABASE_URL for real use)
+  // User methods (stub implementations)
   private users: Map<string, DbUser> = new Map();
 
   async getUser(id: string): Promise<DbUser | undefined> {

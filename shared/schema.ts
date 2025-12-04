@@ -95,6 +95,9 @@ export const templateSchema = z.object({
   // NEW: Added pageCount
   pageCount: z.number().default(1),
 
+  // NEW: Added preview images array
+  previewImages: z.array(z.string()).default([]),
+
   backgroundColor: z.string().default("#ffffff"),
   elements: z.array(canvasElementSchema),
   createdAt: z.string(),
@@ -231,6 +234,9 @@ export const templatesTable = pgTable("templates", {
 
   // NEW: Store page count in DB
   pageCount: integer("page_count").notNull().default(1),
+
+  // NEW: Store preview images
+  previewImages: jsonb("preview_images").default([]),
 
   backgroundColor: varchar("background_color", { length: 50 }).notNull().default("#ffffff"),
   elements: jsonb("elements").notNull().default([]),

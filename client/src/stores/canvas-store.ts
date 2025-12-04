@@ -113,7 +113,7 @@ interface CanvasState {
   toggleImageField: (fieldName: string) => void;
 
   setCurrentTemplate: (template: Template | null) => void;
-  saveAsTemplate: (name: string, description?: string) => Template;
+  saveAsTemplate: (name: string, description?: string, previewImages?: string[]) => Template;
   loadTemplate: (template: Template) => void;
 
   setExportSettings: (settings: Partial<ExportSettings>) => void;
@@ -490,14 +490,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setCurrentTemplate: (template) => set({ currentTemplate: template }),
 
-  saveAsTemplate: (name, description) => {
-    const { elements, canvasWidth, canvasHeight, backgroundColor } = get();
+  saveAsTemplate: (name, description, previewImages = []) => {
+    const { elements, canvasWidth, canvasHeight, backgroundColor, pageCount } = get();
     const template: Template = {
       id: nanoid(),
       name,
       description,
       canvasWidth,
       canvasHeight,
+      pageCount,
+      previewImages,
       backgroundColor,
       elements: JSON.parse(JSON.stringify(elements)),
       createdAt: new Date().toISOString(),
