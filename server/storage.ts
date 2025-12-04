@@ -12,14 +12,14 @@ export interface IStorage {
   createTemplate(template: InsertTemplate): Promise<Template>;
   updateTemplate(id: string, template: Partial<InsertTemplate>): Promise<Template | undefined>;
   deleteTemplate(id: string): Promise<boolean>;
-  
+
   // Saved Designs (user-specific)
   getDesignsByUser(userId: string): Promise<SavedDesign[]>;
   getDesign(id: string, userId: string): Promise<SavedDesign | undefined>;
   createDesign(design: InsertSavedDesign): Promise<SavedDesign>;
   updateDesign(id: string, userId: string, design: Partial<InsertSavedDesign>): Promise<SavedDesign | undefined>;
   deleteDesign(id: string, userId: string): Promise<boolean>;
-  
+
   // Users (with Stripe info)
   getUser(id: string): Promise<DbUser | undefined>;
   getUserByEmail(email: string): Promise<DbUser | undefined>;
@@ -47,7 +47,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Helper to convert database row to SavedDesign type
-  // Note: Neon HTTP driver may return timestamps as strings, so we normalize to ISO format
   private toSavedDesign(row: typeof savedDesignsTable.$inferSelect): SavedDesign {
     return {
       id: row.id,
@@ -56,6 +55,8 @@ export class DatabaseStorage implements IStorage {
       description: row.description ?? undefined,
       canvasWidth: row.canvasWidth,
       canvasHeight: row.canvasHeight,
+      // NEW: Map pageCount from DB
+      pageCount: row.pageCount,
       backgroundColor: row.backgroundColor,
       elements: row.elements as CanvasElement[],
       createdAt: new Date(row.createdAt).toISOString(),
@@ -64,7 +65,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Helper to convert database row to Template type
-  // Note: Neon HTTP driver may return timestamps as strings, so we normalize to ISO format
   private toTemplate(row: typeof templatesTable.$inferSelect): Template {
     return {
       id: row.id,
@@ -72,6 +72,8 @@ export class DatabaseStorage implements IStorage {
       description: row.description ?? undefined,
       canvasWidth: row.canvasWidth,
       canvasHeight: row.canvasHeight,
+      // NEW: Map pageCount from DB
+      pageCount: row.pageCount,
       backgroundColor: row.backgroundColor,
       elements: row.elements as CanvasElement[],
       createdAt: new Date(row.createdAt).toISOString(),
@@ -108,6 +110,8 @@ export class DatabaseStorage implements IStorage {
         description: insertTemplate.description,
         canvasWidth: insertTemplate.canvasWidth,
         canvasHeight: insertTemplate.canvasHeight,
+        // NEW: Save pageCount
+        pageCount: insertTemplate.pageCount,
         backgroundColor: insertTemplate.backgroundColor,
         elements: insertTemplate.elements,
         createdAt: now,
@@ -171,6 +175,8 @@ export class DatabaseStorage implements IStorage {
         description: insertDesign.description,
         canvasWidth: insertDesign.canvasWidth,
         canvasHeight: insertDesign.canvasHeight,
+        // NEW: Save pageCount
+        pageCount: insertDesign.pageCount,
         backgroundColor: insertDesign.backgroundColor,
         elements: insertDesign.elements,
         createdAt: now,
@@ -183,7 +189,7 @@ export class DatabaseStorage implements IStorage {
   async updateDesign(id: string, userId: string, updates: Partial<InsertSavedDesign>): Promise<SavedDesign | undefined> {
     // Ensure userId cannot be changed
     const { userId: _, ...safeUpdates } = updates;
-    
+
     const rows = await this.db
       .update(savedDesignsTable)
       .set({
@@ -287,15 +293,7 @@ export class DatabaseStorage implements IStorage {
     plan?: string;
     planStatus?: string;
   }): Promise<DbUser | undefined> {
-    const rows = await this.db
-      .update(usersTable)
-      .set({
-        ...stripeInfo,
-        updatedAt: new Date(),
-      })
-      .where(eq(usersTable.id, userId))
-      .returning();
-    return rows[0] ? this.toDbUser(rows[0]) : undefined;
+    return this.updateUser(userId, stripeInfo);
   }
 
   // Stripe data queries (from stripe schema managed by stripe-replit-sync)

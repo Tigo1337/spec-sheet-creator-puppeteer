@@ -44,24 +44,15 @@ export type ShapeStyle = z.infer<typeof shapeStyleSchema>;
 
 // Data Formatting Schema
 export const formatSchema = z.object({
-  // The type of data this element expects
   dataType: z.enum(["text", "number", "date", "boolean"]).default("text"),
-
-  // Text Options
   casing: z.enum(["none", "title", "upper", "lower"]).default("none"),
-
-  // Number Options
   decimalPlaces: z.number().default(2),
   useFractions: z.boolean().default(false),
-  fractionPrecision: z.number().default(16), // 2, 4, 8, 16, 32, 64
-  unit: z.string().optional(), // e.g. "mm", "kg", "$"
-
-  // Date Options
+  fractionPrecision: z.number().default(16),
+  unit: z.string().optional(),
   dateFormat: z.string().default("MM/DD/YYYY"),
-
-  // Boolean Options
-  trueLabel: z.string().optional(), // e.g. "Included"
-  falseLabel: z.string().optional(), // e.g. "Not Included"
+  trueLabel: z.string().optional(),
+  falseLabel: z.string().optional(),
 });
 
 export type ElementFormat = z.infer<typeof formatSchema>;
@@ -77,20 +68,18 @@ export const canvasElementSchema = z.object({
   visible: z.boolean().default(true),
   zIndex: z.number().default(0),
   content: z.string().optional(),
-  dataBinding: z.string().optional(), // Column name from Excel
+  dataBinding: z.string().optional(), 
 
-  // NEW: Track which page this element belongs to (0-indexed)
+  // ✅ Correctly includes pageIndex
   pageIndex: z.number().default(0),
 
   textStyle: textStyleSchema.optional(),
   shapeStyle: shapeStyleSchema.optional(),
-
-  // NEW: Formatting options are now part of the element
   format: formatSchema.optional(),
 
   shapeType: z.enum(["rectangle", "circle", "line"]).optional(),
   imageSrc: z.string().optional(),
-  isImageField: z.boolean().default(false), // Marks data fields that should load images
+  isImageField: z.boolean().default(false),
 });
 
 export type CanvasElement = z.infer<typeof canvasElementSchema>;
@@ -100,8 +89,12 @@ export const templateSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string().optional(),
-  canvasWidth: z.number().default(816), // 8.5in at 96dpi
-  canvasHeight: z.number().default(1056), // 11in at 96dpi
+  canvasWidth: z.number().default(816),
+  canvasHeight: z.number().default(1056),
+
+  // NEW: Added pageCount
+  pageCount: z.number().default(1),
+
   backgroundColor: z.string().default("#ffffff"),
   elements: z.array(canvasElementSchema),
   createdAt: z.string(),
@@ -134,14 +127,12 @@ export const exportSettingsSchema = z.object({
 
 export type ExportSettings = z.infer<typeof exportSettingsSchema>;
 
-// API Response types
 export const uploadResponseSchema = z.object({
   uploadURL: z.string(),
 });
 
 export type UploadResponse = z.infer<typeof uploadResponseSchema>;
 
-// User schema (from base template)
 export const userSchema = z.object({
   id: z.string(),
   username: z.string(),
@@ -152,14 +143,18 @@ export type User = z.infer<typeof userSchema>;
 export const insertUserSchema = userSchema.omit({ id: true });
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
-// Saved Design schema - for user-specific saved designs
+// Saved Design schema
 export const savedDesignSchema = z.object({
   id: z.string(),
-  userId: z.string(), // Clerk user ID for access control
+  userId: z.string(),
   name: z.string(),
   description: z.string().optional(),
   canvasWidth: z.number().default(816),
   canvasHeight: z.number().default(1056),
+
+  // NEW: Added pageCount
+  pageCount: z.number().default(1),
+
   backgroundColor: z.string().default("#ffffff"),
   elements: z.array(canvasElementSchema),
   createdAt: z.string(),
@@ -175,7 +170,6 @@ export const insertSavedDesignSchema = savedDesignSchema.omit({
 });
 export type InsertSavedDesign = z.infer<typeof insertSavedDesignSchema>;
 
-// Available fonts for the editor (Free Google Fonts + System fonts)
 export const availableFonts = [
   "Arial",
   "Comic Sans MS",
@@ -201,18 +195,16 @@ export const availableFonts = [
   "Verdana",
 ] as const;
 
-// Page sizes for export
 export const pageSizes = {
-  letter: { width: 816, height: 1056 }, // 8.5 x 11 inches at 96dpi
-  a4: { width: 794, height: 1123 }, // 210 x 297mm at 96dpi
-  legal: { width: 816, height: 1344 }, // 8.5 x 14 inches at 96dpi
+  letter: { width: 816, height: 1056 },
+  a4: { width: 794, height: 1123 },
+  legal: { width: 816, height: 1344 },
 } as const;
 
 // ============================================
-// Drizzle ORM Table Definitions (for Neon PostgreSQL)
+// Drizzle ORM Table Definitions
 // ============================================
 
-// Saved Designs table - stores user-specific designs persistently
 export const savedDesignsTable = pgTable("saved_designs", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id", { length: 255 }).notNull(),
@@ -220,42 +212,46 @@ export const savedDesignsTable = pgTable("saved_designs", {
   description: text("description"),
   canvasWidth: integer("canvas_width").notNull().default(816),
   canvasHeight: integer("canvas_height").notNull().default(1056),
+
+  // NEW: Store page count in DB
+  pageCount: integer("page_count").notNull().default(1),
+
   backgroundColor: varchar("background_color", { length: 50 }).notNull().default("#ffffff"),
   elements: jsonb("elements").notNull().default([]),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// Templates table - stores shared templates
 export const templatesTable = pgTable("templates", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   canvasWidth: integer("canvas_width").notNull().default(816),
   canvasHeight: integer("canvas_height").notNull().default(1056),
+
+  // NEW: Store page count in DB
+  pageCount: integer("page_count").notNull().default(1),
+
   backgroundColor: varchar("background_color", { length: 50 }).notNull().default("#ffffff"),
   elements: jsonb("elements").notNull().default([]),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// Users table - stores Clerk users with Stripe subscription info
 export const usersTable = pgTable("users", {
-  id: varchar("id", { length: 255 }).primaryKey(), // Clerk user ID
+  id: varchar("id", { length: 255 }).primaryKey(),
   email: varchar("email", { length: 255 }).notNull(),
   stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
   stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
-  plan: varchar("plan", { length: 50 }).notNull().default("free"), // free, pro
-  planStatus: varchar("plan_status", { length: 50 }).notNull().default("active"), // active, canceled, past_due
+  plan: varchar("plan", { length: 50 }).notNull().default("free"),
+  planStatus: varchar("plan_status", { length: 50 }).notNull().default("active"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// Drizzle types for users table
 export type DbUser = typeof usersTable.$inferSelect;
 export type InsertDbUser = typeof usersTable.$inferInsert;
 
-// Zod schema for users
 export const dbUserSchema = z.object({
   id: z.string(),
   email: z.string().email(),

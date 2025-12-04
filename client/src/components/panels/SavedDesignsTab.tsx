@@ -45,6 +45,7 @@ export function SavedDesignsTab() {
     canvasWidth,
     canvasHeight,
     backgroundColor,
+    pageCount, // NEW: Get page count from store
     loadTemplate,
   } = useCanvasStore();
 
@@ -73,6 +74,7 @@ export function SavedDesignsTab() {
           description: data.description,
           canvasWidth,
           canvasHeight,
+          pageCount, // NEW: Save page count
           backgroundColor,
           elements,
         }),
@@ -130,6 +132,7 @@ export function SavedDesignsTab() {
       description: design.description,
       canvasWidth: design.canvasWidth,
       canvasHeight: design.canvasHeight,
+      pageCount: design.pageCount, // NEW: Load page count
       backgroundColor: design.backgroundColor,
       elements: design.elements,
       createdAt: design.createdAt,
