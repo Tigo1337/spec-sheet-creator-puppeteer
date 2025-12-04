@@ -108,19 +108,18 @@ export function ExportTab() {
           return;
         }
 
-        // Clear canvas to ensure transparency isn't lost
         ctx.clearRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
 
-        // DETECT PNG: Check if URL contains .png or is a png data URI
+        // Check for PNG to preserve transparency
         const isPNG = imgSrc.toLowerCase().includes(".png") || imgSrc.startsWith("data:image/png");
 
         if (isPNG) {
-           // PNG: Preserves transparency (ignores quality param, always lossless)
+           // PNG: Always lossless, ignores quality, preserves transparency
            const dataUrl = canvas.toDataURL("image/png");
            resolve(dataUrl);
         } else {
-           // JPEG: High compression for photos (loses transparency)
+           // JPEG: Lossy compression for photos
            const dataUrl = canvas.toDataURL("image/jpeg", quality);
            resolve(dataUrl);
         }
@@ -275,11 +274,12 @@ export function ExportTab() {
   };
 
   // Helper to call server API
-  const fetchPdfBuffer = async (html: string, pages: number) => {
+  const fetchPdfBuffer = async (html: string, pages: number, title: string) => {
     const fullHtml = `
       <!DOCTYPE html>
       <html>
         <head>
+          <title>${title}</title>
           <link rel="preconnect" href="https://fonts.googleapis.com">
           <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=JetBrains+Mono:wght@400&family=Lato:wght@400;700&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;700&family=Nunito:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;700&family=Raleway:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
@@ -309,7 +309,6 @@ export function ExportTab() {
       </html>
     `;
 
-    // SEND SCALE FACTOR TO SERVER
     const scaleFactor = exportMode === 'print' ? 4 : 2;
 
     const response = await fetch("/api/export/pdf", {
@@ -344,9 +343,12 @@ export function ExportTab() {
         setProgress(Math.round(((i + 1) / pageCount) * 50)); 
       }
 
-      const pdfBlob = await fetchPdfBuffer(combinedHtml, pageCount);
-
+      // Move filename calculation UP before fetch
       const fileName = getConstructedFilename(selectedRowIndex);
+
+      // Pass fileName to fetchPdfBuffer
+      const pdfBlob = await fetchPdfBuffer(combinedHtml, pageCount, fileName);
+
       const url = window.URL.createObjectURL(pdfBlob);
       const link = document.createElement("a");
       link.href = url;
@@ -404,8 +406,7 @@ export function ExportTab() {
             combinedHtml += `<div class="page-container">${pageHtml}</div>`;
         }
 
-        const pdfBlob = await fetchPdfBuffer(combinedHtml, pageCount);
-
+        // Move filename calculation UP before fetch
         let pdfName = getConstructedFilename(rowIndex);
         let uniqueName = pdfName;
         let counter = 1;
@@ -414,6 +415,9 @@ export function ExportTab() {
             counter++;
         }
         usedFilenames.add(uniqueName);
+
+        // Pass uniqueName as title
+        const pdfBlob = await fetchPdfBuffer(combinedHtml, pageCount, uniqueName);
 
         zip.file(`${uniqueName}.pdf`, pdfBlob);
 
@@ -472,16 +476,31 @@ export function ExportTab() {
                    className="font-mono text-xs"
                    data-testid="input-filename-pattern"
                 />
+                <p className="text-[10px] text-muted-foreground">
+                   Use valid characters only. Illegal characters will be replaced with _.
+                </p>
              </div>
+
              {excelData && excelData.headers.length > 0 && (
                 <div className="space-y-1.5">
                    <Label className="text-xs text-muted-foreground">Insert Variable</Label>
                    <div className="flex flex-wrap gap-1">
-                      <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] bg-muted/50 hover:bg-muted border-dashed" onClick={() => setFilenamePattern((prev) => `${prev}{{Date}}`)}>
+                      <Button
+                         variant="outline"
+                         size="sm"
+                         className="h-6 px-2 text-[10px] bg-muted/50 hover:bg-muted border-dashed"
+                         onClick={() => setFilenamePattern((prev) => `${prev}{{Date}}`)}
+                      >
                          <Plus className="h-2 w-2 mr-1" /> Date
                       </Button>
                       {excelData.headers.map((header) => (
-                         <Button key={header} variant="outline" size="sm" className="h-6 px-2 text-[10px] bg-muted/50 hover:bg-muted border-dashed" onClick={() => insertVariable(header)}>
+                         <Button
+                            key={header}
+                            variant="outline"
+                            size="sm"
+                            className="h-6 px-2 text-[10px] bg-muted/50 hover:bg-muted border-dashed"
+                            onClick={() => insertVariable(header)}
+                         >
                             <Plus className="h-2 w-2 mr-1" /> {header}
                          </Button>
                       ))}
@@ -537,7 +556,6 @@ export function ExportTab() {
               </Select>
             </div>
 
-            {/* NEW: Export Quality Selection */}
             <div className="space-y-2 pt-2">
                <Label className="text-xs text-muted-foreground">Output Quality</Label>
                <div className="grid grid-cols-2 gap-2">
@@ -564,7 +582,6 @@ export function ExportTab() {
                   </div>
                </div>
             </div>
-
           </div>
         </div>
 
