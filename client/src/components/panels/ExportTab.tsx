@@ -280,10 +280,56 @@ export function ExportTab() {
       <html>
         <head>
           <title>${title}</title>
+
           <link rel="preconnect" href="https://fonts.googleapis.com">
           <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=JetBrains+Mono:wght@400&family=Lato:wght@400;700&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;700&family=Nunito:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;700&family=Raleway:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
+          <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=Oswald:wght@400;700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400&family=Lato:wght@400;700&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;700&family=Nunito:wght@400;700&family=Open+Sans:wght@400;700&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;700&family=Raleway:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
+
           <style>
+            /* Font Aliasing for Linux Compatibility */
+            @font-face {
+              font-family: 'Arial';
+              src: local('Arimo');
+            }
+            @font-face {
+              font-family: 'Times New Roman';
+              src: local('Tinos');
+            }
+            @font-face {
+              font-family: 'Courier New';
+              src: local('Cousine');
+            }
+            @font-face {
+              font-family: 'Georgia';
+              src: local('Gelasio');
+            }
+            @font-face {
+              font-family: 'Verdana';
+              src: local('DejaVu Sans');
+            }
+            @font-face {
+              font-family: 'Calibri';
+              src: local('Carlito');
+            }
+            @font-face {
+              font-family: 'Cambria';
+              src: local('Caladea');
+            }
+            @font-face {
+               font-family: 'Trebuchet MS';
+               src: local('Fira Sans');
+            }
+            /* Google Font Mappings */
+            @font-face {
+               font-family: 'Comic Sans MS';
+               src: local('Comic Neue');
+            }
+            @font-face {
+               font-family: 'Impact';
+               src: local('Oswald');
+            }
+
+            /* Page Setup */
             @page {
               size: ${canvasWidth}px ${canvasHeight}px;
               margin: 0;

@@ -171,12 +171,17 @@ export const insertSavedDesignSchema = savedDesignSchema.omit({
 export type InsertSavedDesign = z.infer<typeof insertSavedDesignSchema>;
 
 export const availableFonts = [
-  "Arial",
-  "Comic Sans MS",
-  "Courier New",
-  "Georgia",
-  "Impact",
   "Inter",
+  "Arial", // Will render Arimo
+  "Verdana", // Will render DejaVu Sans
+  "Times New Roman", // Will render Tinos
+  "Georgia", // Will render Gelasio
+  "Courier New", // Will render Cousine
+  "Trebuchet MS", // Will render Fira Sans
+  "Calibri", // Will render Carlito
+  "Cambria", // Will render Caladea
+  "Comic Sans MS", // Will render Comic Relief (web font)
+  "Impact", // Will render Oswald (web font)
   "JetBrains Mono",
   "Lato",
   "Lora",
@@ -190,9 +195,6 @@ export const availableFonts = [
   "Raleway",
   "Roboto",
   "Roboto Slab",
-  "Times New Roman",
-  "Trebuchet MS",
-  "Verdana",
 ] as const;
 
 export const pageSizes = {
