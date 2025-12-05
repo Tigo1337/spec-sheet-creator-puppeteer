@@ -3,12 +3,14 @@ import { useUser } from "@clerk/clerk-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useCanvasStore } from "@/stores/canvas-store";
 import { queryClient } from "@/lib/queryClient";
-import type { SavedDesign } from "@shared/schema";
+import type { SavedDesign, Template } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -30,51 +32,89 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Save, Pencil, Trash2, Loader2, FileText } from "lucide-react";
+import { 
+  Save, 
+  Pencil, 
+  Trash2, 
+  Loader2, 
+  FileText, 
+  FilePlus, 
+  LayoutTemplate, 
+  Layers, 
+  BookOpen, 
+  ChevronLeft, 
+  ChevronRight 
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { isHtmlContent } from "@/lib/canvas-utils";
+import { formatContent } from "@/lib/formatter";
 
 export function SavedDesignsTab() {
   const { user } = useUser();
   const { toast } = useToast();
+  const isAdmin = user?.publicMetadata?.role === "admin";
+
+  // Dialog States
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [newDesignDialogOpen, setNewDesignDialogOpen] = useState(false);
+  const [saveTemplateDialogOpen, setSaveTemplateDialogOpen] = useState(false);
+
+  // Form States
   const [designName, setDesignName] = useState("");
   const [designDescription, setDesignDescription] = useState("");
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateDesc, setNewTemplateDesc] = useState("");
+  const [isGeneratingPreviews, setIsGeneratingPreviews] = useState(false);
 
   const {
     elements,
     canvasWidth,
     canvasHeight,
     backgroundColor,
-    pageCount, // NEW: Get page count from store
+    pageCount,
+    activePageIndex,
+    selectedElementIds,
+    resetCanvas,
     loadTemplate,
+    saveAsTemplate,
+    setActivePage,
+    clearSelection,
+    selectElements,
+    hasUnsavedChanges,
+    excelData,
+    selectedRowIndex
   } = useCanvasStore();
 
-  const { data: designs = [], isLoading } = useQuery<SavedDesign[]>({
+  // --- QUERIES ---
+
+  const { data: designs = [], isLoading: isLoadingDesigns } = useQuery<SavedDesign[]>({
     queryKey: ["/api/designs"],
     enabled: !!user,
     queryFn: async () => {
-      const response = await fetch("/api/designs", {
-        credentials: "include",
-      });
+      const response = await fetch("/api/designs", { credentials: "include" });
       if (!response.ok) throw new Error("Failed to fetch designs");
       return response.json();
     },
   });
 
+  const { data: templates, isLoading: isLoadingTemplates } = useQuery<Template[]>({
+    queryKey: ["/api/templates"],
+  });
+
+  // --- MUTATIONS ---
+
   const saveDesignMutation = useMutation({
     mutationFn: async (data: { name: string; description?: string }) => {
       const response = await fetch("/api/designs", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
           name: data.name,
           description: data.description,
           canvasWidth,
           canvasHeight,
-          pageCount, // NEW: Save page count
+          pageCount,
           backgroundColor,
           elements,
         }),
@@ -84,20 +124,13 @@ export function SavedDesignsTab() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/designs"] });
-      toast({
-        title: "Design saved",
-        description: "Your design has been saved successfully.",
-      });
+      toast({ title: "Design saved", description: "Your design has been saved successfully." });
       setSaveDialogOpen(false);
       setDesignName("");
       setDesignDescription("");
     },
     onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to save design. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to save design.", variant: "destructive" });
     },
   });
 
@@ -111,65 +144,303 @@ export function SavedDesignsTab() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/designs"] });
-      toast({
-        title: "Design deleted",
-        description: "Your design has been deleted.",
-      });
+      toast({ title: "Design deleted", description: "Your design has been deleted." });
     },
     onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to delete design. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to delete design.", variant: "destructive" });
     },
   });
 
+  const createTemplateMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await fetch("/api/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error("Failed to save template");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
+      toast({ title: "Template Saved", description: "Your design has been saved as a template." });
+      setSaveTemplateDialogOpen(false);
+      setNewTemplateName("");
+      setNewTemplateDesc("");
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to save template.", variant: "destructive" });
+    },
+  });
+
+  // --- ACTIONS ---
+
+  const handleCreateDesign = (tier: "basic" | "composite" | "catalog") => {
+    if (tier !== "basic") return;
+    if (hasUnsavedChanges && !confirm("You have unsaved changes. Create a new design anyway?")) {
+      return;
+    }
+    resetCanvas();
+    setNewDesignDialogOpen(false);
+  };
+
+  const handleLoadTemplate = (template: Template) => {
+    if (hasUnsavedChanges && !confirm("You have unsaved changes. Load template anyway?")) {
+      return;
+    }
+    loadTemplate(template);
+    setNewDesignDialogOpen(false);
+    toast({ title: "Template Loaded", description: `Loaded "${template.name}"` });
+  };
+
   const handleLoadDesign = (design: SavedDesign) => {
+    if (hasUnsavedChanges && !confirm("You have unsaved changes. Load design anyway?")) {
+      return;
+    }
     loadTemplate({
       id: design.id,
       name: design.name,
       description: design.description,
       canvasWidth: design.canvasWidth,
       canvasHeight: design.canvasHeight,
-      pageCount: design.pageCount, // NEW: Load page count
+      pageCount: design.pageCount,
       backgroundColor: design.backgroundColor,
       elements: design.elements,
       createdAt: design.createdAt,
       updatedAt: design.updatedAt,
     });
 
+    // Restore image field bindings
     const imageFields = new Set(
       design.elements
         .filter((el) => el.isImageField && el.dataBinding)
         .map((el) => el.dataBinding as string)
     );
+    imageFields.forEach((field) => useCanvasStore.getState().toggleImageField(field));
 
-    if (imageFields.size > 0) {
-      imageFields.forEach((field) => {
-        useCanvasStore.getState().toggleImageField(field);
-      });
-    }
-
-    toast({
-      title: "Design loaded",
-      description: `"${design.name}" has been loaded.`,
-    });
+    toast({ title: "Design loaded", description: `"${design.name}" has been loaded.` });
   };
 
   const handleSaveDesign = () => {
     if (!designName.trim()) {
-      toast({
-        title: "Name required",
-        description: "Please enter a name for your design.",
-        variant: "destructive",
-      });
+      toast({ title: "Name required", description: "Please enter a name.", variant: "destructive" });
       return;
     }
     saveDesignMutation.mutate({
       name: designName.trim(),
       description: designDescription.trim() || undefined,
     });
+  };
+
+  // --- PREVIEW GENERATION (PUPPETEER) ---
+
+  const generateHTMLForPage = (pageIndex: number) => {
+    const container = document.createElement("div");
+    container.style.width = `${canvasWidth}px`;
+    container.style.height = `${canvasHeight}px`;
+    container.style.backgroundColor = backgroundColor;
+    container.style.position = "relative";
+    container.style.overflow = "hidden";
+
+    const pageElements = elements
+      .filter(el => (el.pageIndex ?? 0) === pageIndex)
+      .sort((a, b) => a.zIndex - b.zIndex);
+
+    for (const element of pageElements) {
+      if (!element.visible) continue;
+
+      const elementDiv = document.createElement("div");
+      elementDiv.style.position = "absolute";
+      elementDiv.style.left = `${element.position.x}px`;
+      elementDiv.style.top = `${element.position.y}px`;
+      elementDiv.style.width = `${element.dimension.width}px`;
+      elementDiv.style.height = `${element.dimension.height}px`;
+      elementDiv.style.transform = element.rotation ? `rotate(${element.rotation}deg)` : "";
+      elementDiv.style.boxSizing = "border-box";
+      elementDiv.style.zIndex = String(element.zIndex ?? 0);
+
+      if (element.type === "text" || element.type === "dataField") {
+         const textStyle = element.textStyle || {};
+         elementDiv.style.fontFamily = `"${textStyle.fontFamily}", sans-serif`;
+         elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
+         elementDiv.style.fontWeight = String(textStyle.fontWeight || 400);
+         elementDiv.style.color = textStyle.color || "#000000";
+         elementDiv.style.lineHeight = String(textStyle.lineHeight || 1.5);
+         elementDiv.style.letterSpacing = `${textStyle.letterSpacing || 0}px`;
+         elementDiv.style.display = "flex";
+         elementDiv.style.flexDirection = "column";
+         elementDiv.style.padding = "4px";
+         elementDiv.style.wordBreak = "break-word";
+         elementDiv.style.overflow = "visible";
+
+         const hAlign = textStyle.textAlign || "left";
+         elementDiv.style.textAlign = hAlign;
+
+         const vAlign = textStyle.verticalAlign || "middle";
+         const justifyMap: Record<string, string> = {
+           top: "flex-start",
+           middle: "center",
+           bottom: "flex-end"
+         };
+         elementDiv.style.justifyContent = justifyMap[vAlign];
+
+         if (hAlign === "center") {
+           elementDiv.style.alignItems = "center";
+         } else if (hAlign === "right") {
+           elementDiv.style.alignItems = "flex-end";
+         } else {
+           elementDiv.style.alignItems = "flex-start";
+         }
+
+         let content = element.content || "";
+         // For templates, use placeholder data or real data if available
+         if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
+             content = excelData.rows[selectedRowIndex][element.dataBinding] || content;
+         }
+
+         content = formatContent(content, element.format);
+
+         if (isHtmlContent(content)) {
+            const styles = `
+              <style>
+                ul, ol { margin: 0; padding-left: 1.2em; }
+                li { position: relative; margin: 0.2em 0; }
+                p { margin: 0.2em 0; }
+              </style>
+            `;
+            elementDiv.innerHTML = styles + content;
+            elementDiv.style.display = "flex"; // Keep flex for alignment
+         } else {
+           elementDiv.textContent = content;
+         }
+      } else if (element.type === "shape") {
+         const shapeStyle = element.shapeStyle || {};
+         elementDiv.style.opacity = String(shapeStyle.opacity || 1);
+
+         if (element.shapeType === "line") {
+            elementDiv.style.display = "flex";
+            elementDiv.style.alignItems = "center";
+            elementDiv.style.justifyContent = "center";
+
+            const lineStroke = document.createElement("div");
+            lineStroke.style.width = "100%";
+            lineStroke.style.height = `${shapeStyle.strokeWidth || 1}px`;
+            lineStroke.style.backgroundColor = shapeStyle.stroke || "#9ca3af";
+            elementDiv.appendChild(lineStroke);
+         } else {
+            elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
+            elementDiv.style.border = `${shapeStyle.strokeWidth || 1}px solid ${shapeStyle.stroke || "#9ca3af"}`;
+            elementDiv.style.borderRadius = element.shapeType === "circle" ? "50%" : `${shapeStyle.borderRadius || 0}px`;
+         }
+      } else if (element.type === "image") {
+         let imgSrc = element.imageSrc;
+         if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
+             imgSrc = excelData.rows[selectedRowIndex][element.dataBinding];
+         }
+
+         if (imgSrc) {
+           const img = document.createElement("img");
+           img.src = imgSrc;
+           img.style.width = "100%";
+           img.style.height = "100%";
+           img.style.objectFit = "contain";
+           elementDiv.appendChild(img);
+         }
+      }
+
+      container.appendChild(elementDiv);
+    }
+    return container.outerHTML;
+  };
+
+  const generatePagePreviews = async (): Promise<string[]> => {
+    const previews: string[] = [];
+
+    try {
+      for (let i = 0; i < pageCount; i++) {
+        const pageHtml = generateHTMLForPage(i);
+
+        const fullHtml = `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <link rel="preconnect" href="https://fonts.googleapis.com">
+              <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+              <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=Oswald:wght@400;700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400&family=Lato:wght@400;700&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;700&family=Nunito:wght@400;700&family=Open+Sans:wght@400;700&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;700&family=Raleway:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
+              <style>
+                @font-face { font-family: 'Arial'; src: local('Arimo'); }
+                @font-face { font-family: 'Times New Roman'; src: local('Tinos'); }
+                @font-face { font-family: 'Courier New'; src: local('Cousine'); }
+                @font-face { font-family: 'Georgia'; src: local('Gelasio'); }
+                @font-face { font-family: 'Verdana'; src: local('DejaVu Sans'); }
+                @font-face { font-family: 'Calibri'; src: local('Carlito'); }
+                @font-face { font-family: 'Cambria'; src: local('Caladea'); }
+                @font-face { font-family: 'Trebuchet MS'; src: local('Fira Sans'); }
+                @font-face { font-family: 'Comic Sans MS'; src: local('Comic Neue'); }
+                @font-face { font-family: 'Impact'; src: local('Oswald'); }
+
+                body { margin: 0; padding: 0; box-sizing: border-box; overflow: hidden; }
+                * { box-sizing: inherit; }
+              </style>
+            </head>
+            <body>
+              ${pageHtml}
+            </body>
+          </html>
+        `;
+
+        // Call Server for Preview (Returns JSON with Base64)
+        const response = await fetch("/api/export/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            html: fullHtml,
+            width: canvasWidth,
+            height: canvasHeight,
+          }),
+        });
+
+        if (!response.ok) throw new Error("Server preview failed");
+
+        const data = await response.json();
+
+        // Ensure we have a valid base64 data URI before saving
+        if (data.image && data.image.startsWith("data:image")) {
+          previews.push(data.image);
+        }
+      }
+    } catch (e) {
+      console.error("Preview generation error:", e);
+    }
+    return previews;
+  };
+
+  const handleSaveAsTemplate = async () => {
+    if (!newTemplateName.trim()) {
+      toast({ title: "Name Required", description: "Please name your template", variant: "destructive" });
+      return;
+    }
+
+    setIsGeneratingPreviews(true);
+    // Delay slightly to ensure UI updates before heavy operation
+    setTimeout(async () => {
+      try {
+        const previewImages = await generatePagePreviews();
+
+        // Ensure we have at least one preview, even if it's a placeholder, to prevent "No Preview" text
+        if (previewImages.length === 0) {
+            console.warn("No previews generated, saving template without preview");
+        }
+
+        const templateData = saveAsTemplate(newTemplateName, newTemplateDesc, previewImages);
+        createTemplateMutation.mutate(templateData);
+      } catch (error) {
+        console.error("Failed to generate previews:", error);
+        toast({ title: "Error", description: "Failed to generate template preview", variant: "destructive" });
+      } finally {
+        setIsGeneratingPreviews(false);
+      }
+    }, 100);
   };
 
   if (!user) {
@@ -183,6 +454,146 @@ export function SavedDesignsTab() {
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b space-y-3">
+
+        {/* Top Action Buttons */}
+        <div className="flex gap-2">
+          <Button 
+            className="flex-1" 
+            variant="outline" 
+            onClick={() => setNewDesignDialogOpen(true)}
+            data-testid="btn-new-design"
+          >
+            <FilePlus className="h-4 w-4 mr-2" /> New
+          </Button>
+
+          {isAdmin && (
+            <Button 
+              className="flex-1" 
+              variant="outline" 
+              onClick={() => setSaveTemplateDialogOpen(true)}
+              data-testid="btn-save-template"
+            >
+              <LayoutTemplate className="h-4 w-4 mr-2" /> Template
+            </Button>
+          )}
+        </div>
+
+        {/* Create New Design Dialog */}
+        <Dialog open={newDesignDialogOpen} onOpenChange={setNewDesignDialogOpen}>
+          <DialogContent className="max-w-5xl h-[80vh] flex flex-col" style={{ zIndex: 2147483647 }}>
+            <DialogHeader>
+              <DialogTitle>Create New Design</DialogTitle>
+              <DialogDescription>Start from a blank canvas or choose a template.</DialogDescription>
+            </DialogHeader>
+
+            <Tabs defaultValue="blank" className="flex-1 flex flex-col mt-4 min-h-0">
+              <TabsList>
+                <TabsTrigger value="blank">Blank Canvas</TabsTrigger>
+                <TabsTrigger value="templates">Templates</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="blank" className="flex-1 mt-4 overflow-y-auto">
+                <div className="grid md:grid-cols-3 gap-6 pb-2">
+                  {/* Basic Spec Sheet */}
+                  <Card 
+                    className="p-6 cursor-pointer border-2 hover:border-primary/50 transition-all flex flex-col gap-4"
+                    onClick={() => handleCreateDesign("basic")}
+                  >
+                    <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+                      <FileText className="h-6 w-6" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg">Basic Spec Sheet</h3>
+                      <p className="text-sm text-muted-foreground mt-2">Best for data-driven documents like spec sheets, price lists, or invoices.</p>
+                    </div>
+                    <Button className="w-full mt-2" variant="outline">Select Basic</Button>
+                  </Card>
+
+                  {/* Composite Report (Disabled) */}
+                  <Card className="p-6 border flex flex-col gap-4 relative overflow-hidden bg-muted/10 opacity-75">
+                    <div className="absolute top-3 right-3">
+                      <Badge variant="secondary" className="text-[10px] font-normal tracking-wide">COMING SOON</Badge>
+                    </div>
+                    <div className="w-12 h-12 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500">
+                      <Layers className="h-6 w-6" />
+                    </div>
+                    <div className="space-y-2 flex-1">
+                      <h3 className="font-semibold text-lg text-muted-foreground">Composite Report</h3>
+                      <p className="text-sm text-muted-foreground">For documents requiring external PDF covers or inserts.</p>
+                    </div>
+                    <Button className="w-full mt-2" variant="ghost" disabled>Unavailable</Button>
+                  </Card>
+
+                  {/* Full Catalog (Disabled) */}
+                  <Card className="p-6 border flex flex-col gap-4 relative overflow-hidden bg-muted/10 opacity-75">
+                    <div className="absolute top-3 right-3">
+                      <Badge variant="secondary" className="text-[10px] font-normal tracking-wide">COMING SOON</Badge>
+                    </div>
+                    <div className="w-12 h-12 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500">
+                      <BookOpen className="h-6 w-6" />
+                    </div>
+                    <div className="space-y-2 flex-1">
+                      <h3 className="font-semibold text-lg text-muted-foreground">Full Catalog</h3>
+                      <p className="text-sm text-muted-foreground">Advanced publishing for large catalogs.</p>
+                    </div>
+                    <Button className="w-full mt-2" variant="ghost" disabled>Unavailable</Button>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="templates" className="flex-1 mt-4 overflow-y-auto">
+                {isLoadingTemplates ? (
+                  <div className="flex flex-col items-center justify-center h-48">
+                    <Loader2 className="h-8 w-8 animate-spin mb-2" />
+                    <p>Loading...</p>
+                  </div>
+                ) : !templates?.length ? (
+                  <div className="flex flex-col items-center justify-center h-48 text-muted-foreground border-2 border-dashed rounded-lg">
+                    <p>No templates found.</p>
+                  </div>
+                ) : (
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {templates.map((template) => (
+                      <TemplateCard 
+                        key={template.id} 
+                        template={template} 
+                        onSelect={() => handleLoadTemplate(template)} 
+                      />
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </DialogContent>
+        </Dialog>
+
+        {/* Save As Template Dialog */}
+        <Dialog open={saveTemplateDialogOpen} onOpenChange={setSaveTemplateDialogOpen}>
+          <DialogContent style={{ zIndex: 2147483647 }}>
+            <DialogHeader>
+              <DialogTitle>Save as Template</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Template Name</Label>
+                <Input value={newTemplateName} onChange={(e) => setNewTemplateName(e.target.value)} placeholder="e.g. Standard Layout" />
+              </div>
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <Input value={newTemplateDesc} onChange={(e) => setNewTemplateDesc(e.target.value)} placeholder="Description" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSaveTemplateDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSaveAsTemplate} disabled={createTemplateMutation.isPending || isGeneratingPreviews}>
+                {(createTemplateMutation.isPending || isGeneratingPreviews) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Save Template
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Save Current Design Dialog (Existing) */}
         <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
           <DialogTrigger asChild>
             <Button 
@@ -194,7 +605,6 @@ export function SavedDesignsTab() {
               Save Current Design
             </Button>
           </DialogTrigger>
-          {/* FIX: Use style prop with max int z-index to guarantee overlay */}
           <DialogContent style={{ zIndex: 2147483647 }}>
             <DialogHeader>
               <DialogTitle>Save Design</DialogTitle>
@@ -253,7 +663,7 @@ export function SavedDesignsTab() {
 
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-3">
-          {isLoading ? (
+          {isLoadingDesigns ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
@@ -305,7 +715,6 @@ export function SavedDesignsTab() {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </AlertDialogTrigger>
-                      {/* FIX: Use style prop with max int z-index here as well */}
                       <AlertDialogContent style={{ zIndex: 2147483647 }}>
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete Design?</AlertDialogTitle>
@@ -336,5 +745,64 @@ export function SavedDesignsTab() {
         </div>
       </ScrollArea>
     </div>
+  );
+}
+
+function TemplateCard({ template, onSelect }: { template: Template; onSelect: () => void }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const images = template.previewImages || [];
+  const hasMulti = images.length > 1;
+
+  const nextPreview = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev + 1) % images.length);
+  };
+
+  const prevPreview = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
+
+  return (
+    <Card 
+      className="p-4 cursor-pointer hover:border-primary/50 transition-all flex flex-col group relative overflow-hidden"
+      onClick={onSelect}
+    >
+      <div className="aspect-[3/4] bg-muted rounded mb-3 flex items-center justify-center overflow-hidden relative border border-border">
+        {images.length > 0 ? (
+          <img 
+            src={images[currentIndex]} 
+            alt={`Preview ${currentIndex}`} 
+            className="w-full h-full object-contain bg-white"
+          />
+        ) : (
+          <div className="text-xs text-muted-foreground">No Preview</div>
+        )}
+
+        {hasMulti && (
+          <div className="absolute bottom-2 left-0 right-0 flex justify-center items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+             <button 
+              onClick={prevPreview}
+              className="bg-black/50 text-white rounded-full p-1 hover:bg-black/70 transition-colors"
+            >
+              <ChevronLeft className="h-3 w-3" />
+            </button>
+
+            <span className="bg-black/50 text-white text-[10px] px-2 py-0.5 rounded-full">
+               {currentIndex + 1} / {images.length}
+            </span>
+
+            <button 
+              onClick={nextPreview}
+              className="bg-black/50 text-white rounded-full p-1 hover:bg-black/70 transition-colors"
+            >
+              <ChevronRight className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+      </div>
+      <h4 className="font-medium truncate text-sm">{template.name}</h4>
+      {template.description && <p className="text-xs text-muted-foreground truncate">{template.description}</p>}
+    </Card>
   );
 }
