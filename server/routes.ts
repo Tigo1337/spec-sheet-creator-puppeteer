@@ -21,6 +21,9 @@ export async function registerRoutes(
   // 1. PDF Export Route (High Quality)
   // ============================================
   app.post("/api/export/pdf", async (req, res) => {
+    console.log("-> PDF Generation Request Received");
+
+    // Get scale from body (default to 2)
     const { html, width, height, pageCount = 1, scale = 2 } = req.body;
 
     if (!html || !width || !height) {
@@ -28,6 +31,8 @@ export async function registerRoutes(
     }
 
     try {
+      console.log(`-> Launching Puppeteer (Width: ${width}, Height: ${height}, Pages: ${pageCount}, Scale: ${scale}x)...`);
+
       const browser = await puppeteer.launch({
         headless: true,
         executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
@@ -45,13 +50,15 @@ export async function registerRoutes(
       await page.setViewport({
         width: Math.ceil(width),
         height: Math.ceil(height),
-        deviceScaleFactor: Number(scale),
+        deviceScaleFactor: Number(scale), // Use the dynamic scale factor
       });
 
       await page.setContent(html, {
         waitUntil: ["load", "networkidle0"],
         timeout: 60000,
       });
+
+      console.log("-> Content loaded, printing PDF...");
 
       const pdfData = await page.pdf({
         printBackground: true,
@@ -60,8 +67,10 @@ export async function registerRoutes(
 
       await browser.close();
 
-      // Return Binary Buffer (Fixes "Corrupted File")
+      // Convert to Buffer (Fixes "Corrupted File")
       const pdfBuffer = Buffer.from(pdfData);
+
+      console.log(`-> PDF Generated Successfully. Size: ${pdfBuffer.length} bytes`);
 
       res.set({
         "Content-Type": "application/pdf",
@@ -104,7 +113,7 @@ export async function registerRoutes(
 
       const page = await browser.newPage();
 
-      // Low scale is fine for thumbnails (faster)
+      // Lower scale for thumbnails (faster/smaller)
       await page.setViewport({
         width: Math.ceil(width),
         height: Math.ceil(height),
@@ -126,7 +135,7 @@ export async function registerRoutes(
 
       await browser.close();
 
-      // Return JSON for frontend
+      // Return JSON so frontend can safely parse it
       res.json({ 
         image: `data:image/jpeg;base64,${base64String}` 
       });
@@ -138,7 +147,7 @@ export async function registerRoutes(
   });
 
   // ============================================
-  // Standard Routes
+  // Standard CRUD Routes
   // ============================================
 
   app.get("/api/templates", async (req, res) => {
@@ -254,6 +263,7 @@ export async function registerRoutes(
     }
   });
 
+  // Object Storage routes
   app.get("/public-objects/:filePath(*)", async (req, res) => {
     const filePath = req.params.filePath;
     try {
@@ -294,6 +304,7 @@ export async function registerRoutes(
     }
   });
 
+  // Stripe
   app.get("/api/stripe/config", async (req, res) => {
     try {
       const publishableKey = await getStripePublishableKey();

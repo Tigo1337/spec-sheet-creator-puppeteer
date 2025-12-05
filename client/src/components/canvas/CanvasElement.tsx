@@ -166,7 +166,6 @@ export function CanvasElement({
                   display: "block",
                 }}
               >
-                {/* UPDATED: CSS to match PDF export logic for consistent bullet rendering */}
                 <style>{`
                   ul { 
                     list-style-type: none !important; 
@@ -267,13 +266,12 @@ export function CanvasElement({
       {...listeners}
       {...attributes}
       data-testid={`canvas-element-${element.id}`}
-      // UPDATED: Added canvas-element-wrapper class
       className={`absolute transition-shadow duration-100 canvas-element-wrapper`}
       style={{
         ...style,
         ...(isSelected && {
           outline: "2px solid #3b82f6", 
-          outlineOffset: "2px", 
+          outlineOffset: "0px", // FIX: Changed from 2px to 0px to hug element tightly
           backgroundColor: "transparent",
         }),
       }}

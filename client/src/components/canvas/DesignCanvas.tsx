@@ -234,8 +234,8 @@ export function DesignCanvas() {
                 height: canvasHeight * zoom,
                 backgroundColor,
                 backgroundImage: showGrid
-                  ? `linear-gradient(to right, hsl(var(--border) / 0.15) 1px, transparent 1px),
-                     linear-gradient(to bottom, hsl(var(--border) / 0.15) 1px, transparent 1px)`
+                  ? `linear-gradient(to right, rgba(0, 0, 0, 0.15) 1px, transparent 1px),
+                     linear-gradient(to bottom, rgba(0, 0, 0, 0.15) 1px, transparent 1px)`
                   : undefined,
                 backgroundSize: showGrid ? `${gridSize * zoom}px ${gridSize * zoom}px` : undefined,
                 cursor: activeTool === "text" ? "text" : activeTool === "shape" ? "crosshair" : "default",
