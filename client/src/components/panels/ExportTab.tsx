@@ -4,6 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -111,25 +112,21 @@ export function ExportTab() {
         ctx.clearRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Check for PNG to preserve transparency
         const isPNG = imgSrc.toLowerCase().includes(".png") || imgSrc.startsWith("data:image/png");
 
         if (isPNG) {
-           // PNG: Always lossless, ignores quality, preserves transparency
            const dataUrl = canvas.toDataURL("image/png");
            resolve(dataUrl);
         } else {
-           // JPEG: Lossy compression for photos
            const dataUrl = canvas.toDataURL("image/jpeg", quality);
            resolve(dataUrl);
         }
       };
-      img.onerror = () => resolve(imgSrc); // Fallback to original on error
+      img.onerror = () => resolve(imgSrc);
       img.src = imgSrc;
     });
   };
 
-  // Helper to generate the full HTML string for a single page
   const generateHTMLForPage = async (pageIndex: number, rowData: Record<string, string> = {}) => {
     const container = document.createElement("div");
     container.style.width = `${canvasWidth}px`;
@@ -167,7 +164,7 @@ export function ExportTab() {
          elementDiv.style.flexDirection = "column";
          elementDiv.style.padding = "4px";
          elementDiv.style.wordBreak = "break-word";
-         elementDiv.style.overflow = "visible"; // Allow text overflow
+         elementDiv.style.overflow = "visible";
 
          const hAlign = textStyle.textAlign || "left";
          elementDiv.style.textAlign = hAlign;
@@ -206,7 +203,7 @@ export function ExportTab() {
               </style>
             `;
             elementDiv.innerHTML = styles + content;
-            elementDiv.style.display = "block";
+            // FIX: Removed display: block to allow Flexbox (justifyContent) to center content
          } else {
            elementDiv.textContent = content;
          }
@@ -242,21 +239,19 @@ export function ExportTab() {
 
          if (imgSrc) {
            const img = document.createElement("img");
-           // MODE LOGIC: Only compress if digital mode
            if (exportMode === "digital") {
                try {
                  const compressedSrc = await compressImage(
                    imgSrc, 
-                   element.dimension.width * 2, // 2x for retina
+                   element.dimension.width * 2,
                    element.dimension.height * 2,
-                   0.75 // 75% quality for digital
+                   0.75
                  );
                  img.src = compressedSrc;
                } catch {
                  img.src = imgSrc; 
                }
            } else {
-               // Print mode: Use original source directly
                img.src = imgSrc;
            }
 
@@ -273,63 +268,27 @@ export function ExportTab() {
     return container.outerHTML;
   };
 
-  // Helper to call server API
   const fetchPdfBuffer = async (html: string, pages: number, title: string) => {
     const fullHtml = `
       <!DOCTYPE html>
       <html>
         <head>
           <title>${title}</title>
-
           <link rel="preconnect" href="https://fonts.googleapis.com">
           <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
           <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=Oswald:wght@400;700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400&family=Lato:wght@400;700&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;700&family=Nunito:wght@400;700&family=Open+Sans:wght@400;700&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;700&family=Raleway:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
-
           <style>
-            /* Font Aliasing for Linux Compatibility */
-            @font-face {
-              font-family: 'Arial';
-              src: local('Arimo');
-            }
-            @font-face {
-              font-family: 'Times New Roman';
-              src: local('Tinos');
-            }
-            @font-face {
-              font-family: 'Courier New';
-              src: local('Cousine');
-            }
-            @font-face {
-              font-family: 'Georgia';
-              src: local('Gelasio');
-            }
-            @font-face {
-              font-family: 'Verdana';
-              src: local('DejaVu Sans');
-            }
-            @font-face {
-              font-family: 'Calibri';
-              src: local('Carlito');
-            }
-            @font-face {
-              font-family: 'Cambria';
-              src: local('Caladea');
-            }
-            @font-face {
-               font-family: 'Trebuchet MS';
-               src: local('Fira Sans');
-            }
-            /* Google Font Mappings */
-            @font-face {
-               font-family: 'Comic Sans MS';
-               src: local('Comic Neue');
-            }
-            @font-face {
-               font-family: 'Impact';
-               src: local('Oswald');
-            }
+            @font-face { font-family: 'Arial'; src: local('Arimo'); }
+            @font-face { font-family: 'Times New Roman'; src: local('Tinos'); }
+            @font-face { font-family: 'Courier New'; src: local('Cousine'); }
+            @font-face { font-family: 'Georgia'; src: local('Gelasio'); }
+            @font-face { font-family: 'Verdana'; src: local('DejaVu Sans'); }
+            @font-face { font-family: 'Calibri'; src: local('Carlito'); }
+            @font-face { font-family: 'Cambria'; src: local('Caladea'); }
+            @font-face { font-family: 'Trebuchet MS'; src: local('Fira Sans'); }
+            @font-face { font-family: 'Comic Sans MS'; src: local('Comic Neue'); }
+            @font-face { font-family: 'Impact'; src: local('Oswald'); }
 
-            /* Page Setup */
             @page {
               size: ${canvasWidth}px ${canvasHeight}px;
               margin: 0;
@@ -389,10 +348,8 @@ export function ExportTab() {
         setProgress(Math.round(((i + 1) / pageCount) * 50)); 
       }
 
-      // Move filename calculation UP before fetch
       const fileName = getConstructedFilename(selectedRowIndex);
 
-      // Pass fileName to fetchPdfBuffer
       const pdfBlob = await fetchPdfBuffer(combinedHtml, pageCount, fileName);
 
       const url = window.URL.createObjectURL(pdfBlob);
@@ -452,7 +409,6 @@ export function ExportTab() {
             combinedHtml += `<div class="page-container">${pageHtml}</div>`;
         }
 
-        // Move filename calculation UP before fetch
         let pdfName = getConstructedFilename(rowIndex);
         let uniqueName = pdfName;
         let counter = 1;
@@ -462,7 +418,6 @@ export function ExportTab() {
         }
         usedFilenames.add(uniqueName);
 
-        // Pass uniqueName as title
         const pdfBlob = await fetchPdfBuffer(combinedHtml, pageCount, uniqueName);
 
         zip.file(`${uniqueName}.pdf`, pdfBlob);
@@ -506,7 +461,6 @@ export function ExportTab() {
   return (
     <ScrollArea className="h-full">
       <div className="p-4 space-y-4">
-        {/* Filename Construction Section */}
         <div>
           <h3 className="font-medium text-sm mb-3 flex items-center gap-2">
             <FileSignature className="h-4 w-4" />
@@ -633,7 +587,6 @@ export function ExportTab() {
 
         <Separator />
 
-        {/* Export status */}
         {isExporting && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm">
