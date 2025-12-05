@@ -18,24 +18,22 @@ export async function registerRoutes(
   const objectStorageService = new ObjectStorageService();
 
   // ============================================
-  // 1. PDF Export Route (High Quality)
+  // 1. PDF Export Route (High Quality + CMYK)
   // ============================================
   app.post("/api/export/pdf", async (req, res) => {
-    console.log("-> PDF Generation Request Received");
-
-    // Get scale from body (default to 2)
-    const { html, width, height, pageCount = 1, scale = 2 } = req.body;
+    // Destructure colorModel (default to rgb)
+    const { html, width, height, pageCount = 1, scale = 2, colorModel = 'rgb' } = req.body;
 
     if (!html || !width || !height) {
       return res.status(400).json({ error: "Missing required parameters" });
     }
 
     try {
-      console.log(`-> Launching Puppeteer (Width: ${width}, Height: ${height}, Pages: ${pageCount}, Scale: ${scale}x)...`);
+      console.log(`-> Generating PDF (Scale: ${scale}x, Mode: ${colorModel.toUpperCase()})...`);
 
       const browser = await puppeteer.launch({
         headless: true,
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+        executablePath: process.env.NIX_CHROMIUM_WRAPPER,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -50,15 +48,13 @@ export async function registerRoutes(
       await page.setViewport({
         width: Math.ceil(width),
         height: Math.ceil(height),
-        deviceScaleFactor: Number(scale), // Use the dynamic scale factor
+        deviceScaleFactor: Number(scale),
       });
 
       await page.setContent(html, {
         waitUntil: ["load", "networkidle0"],
         timeout: 60000,
       });
-
-      console.log("-> Content loaded, printing PDF...");
 
       const pdfData = await page.pdf({
         printBackground: true,
@@ -67,18 +63,50 @@ export async function registerRoutes(
 
       await browser.close();
 
-      // Convert to Buffer (Fixes "Corrupted File")
-      const pdfBuffer = Buffer.from(pdfData);
+      let finalPdfBuffer = Buffer.from(pdfData);
 
-      console.log(`-> PDF Generated Successfully. Size: ${pdfBuffer.length} bytes`);
+      // --- CMYK POST-PROCESSING ---
+      if (colorModel === 'cmyk') {
+        console.log("-> Converting to CMYK via Ghostscript...");
+
+        const timestamp = Date.now();
+        const inputPath = path.resolve(`/tmp/input_${timestamp}.pdf`);
+        const outputPath = path.resolve(`/tmp/output_${timestamp}.pdf`);
+
+        // 1. Write the RGB PDF to disk
+        await fs.promises.writeFile(inputPath, finalPdfBuffer);
+
+        // 2. Run Ghostscript command
+        // -dPDFSETTINGS=/prepress ensures high quality
+        // -sColorConversionStrategy=CMYK forces conversion
+        try {
+          await execAsync(
+            `gs -o "${outputPath}" -sDEVICE=pdfwrite -sColorConversionStrategy=CMYK -dProcessColorModel=/DeviceCMYK -dPDFSETTINGS=/prepress -dSAFER -dBATCH -dNOPAUSE "${inputPath}"`
+          );
+
+          // 3. Read back the converted file
+          finalPdfBuffer = await fs.promises.readFile(outputPath);
+
+          // 4. Cleanup temp files
+          await fs.promises.unlink(inputPath);
+          await fs.promises.unlink(outputPath);
+
+          console.log("-> CMYK Conversion Successful.");
+        } catch (gsError) {
+          console.error("Ghostscript conversion failed, falling back to RGB:", gsError);
+          // Fallback: We send the RGB buffer if conversion fails
+        }
+      }
+
+      console.log(`-> Sending Final PDF (${finalPdfBuffer.length} bytes)`);
 
       res.set({
         "Content-Type": "application/pdf",
         "Content-Disposition": "attachment; filename=export.pdf",
-        "Content-Length": String(pdfBuffer.length),
+        "Content-Length": String(finalPdfBuffer.length),
       });
 
-      res.send(pdfBuffer);
+      res.send(finalPdfBuffer);
 
     } catch (error) {
       console.error("PDF Generation Error:", error);

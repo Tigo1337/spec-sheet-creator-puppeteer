@@ -316,24 +316,28 @@ export function ExportTab() {
 
     const scaleFactor = exportMode === 'print' ? 4 : 2;
 
-    const response = await fetch("/api/export/pdf", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        html: fullHtml,
-        width: canvasWidth,
-        height: canvasHeight,
-        scale: scaleFactor,
-        pageCount: pages,
-      }),
-    });
+      // NEW: Determine color model based on export mode
+      const colorMode = exportMode === 'print' ? 'cmyk' : 'rgb';
 
-    if (!response.ok) {
-      throw new Error("Server failed to generate PDF");
-    }
+      const response = await fetch("/api/export/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          html: fullHtml,
+          width: canvasWidth,
+          height: canvasHeight,
+          scale: scaleFactor,
+          pageCount: pages,
+          colorModel: colorMode, // Send the flag
+        }),
+      });
 
-    return await response.blob();
-  };
+      if (!response.ok) {
+        throw new Error("Server failed to generate PDF");
+      }
+
+      return await response.blob();
+    };
 
   const generatePDF = async () => {
     setIsExporting(true);
