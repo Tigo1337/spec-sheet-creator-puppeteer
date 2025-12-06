@@ -10,6 +10,16 @@ import { insertTemplateSchema, insertSavedDesignSchema } from "@shared/schema";
 import { stripeService } from "./stripeService";
 import { getStripePublishableKey } from "./stripeClient";
 import puppeteer from "puppeteer";
+import path from "path";
+
+// --- REQUIRED FIXES FOR GHOSTSCRIPT ---
+import fs from "fs";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+// Convert exec to a promise-based function to use with await
+const execAsync = promisify(exec);
+// --------------------------------------
 
 export async function registerRoutes(
   httpServer: Server,
@@ -70,31 +80,36 @@ export async function registerRoutes(
         console.log("-> Converting to CMYK via Ghostscript...");
 
         const timestamp = Date.now();
+        // Use a safe temp directory path
         const inputPath = path.resolve(`/tmp/input_${timestamp}.pdf`);
         const outputPath = path.resolve(`/tmp/output_${timestamp}.pdf`);
 
-        // 1. Write the RGB PDF to disk
-        await fs.promises.writeFile(inputPath, finalPdfBuffer);
-
-        // 2. Run Ghostscript command
-        // -dPDFSETTINGS=/prepress ensures high quality
-        // -sColorConversionStrategy=CMYK forces conversion
         try {
-          await execAsync(
-            `gs -o "${outputPath}" -sDEVICE=pdfwrite -sColorConversionStrategy=CMYK -dProcessColorModel=/DeviceCMYK -dPDFSETTINGS=/prepress -dSAFER -dBATCH -dNOPAUSE "${inputPath}"`
-          );
+            // 1. Write the RGB PDF to disk
+            await fs.promises.writeFile(inputPath, finalPdfBuffer);
 
-          // 3. Read back the converted file
-          finalPdfBuffer = await fs.promises.readFile(outputPath);
+            // 2. Run Ghostscript command
+            // -dPDFSETTINGS=/prepress ensures high quality
+            // -sColorConversionStrategy=CMYK forces conversion
+            await execAsync(
+                `gs -o "${outputPath}" -sDEVICE=pdfwrite -sColorConversionStrategy=CMYK -dProcessColorModel=/DeviceCMYK -dPDFSETTINGS=/prepress -dSAFER -dBATCH -dNOPAUSE "${inputPath}"`
+            );
 
-          // 4. Cleanup temp files
-          await fs.promises.unlink(inputPath);
-          await fs.promises.unlink(outputPath);
+            // 3. Read back the converted file
+            finalPdfBuffer = await fs.promises.readFile(outputPath);
 
-          console.log("-> CMYK Conversion Successful.");
+            // 4. Cleanup temp files
+            await fs.promises.unlink(inputPath);
+            await fs.promises.unlink(outputPath);
+
+            console.log("-> CMYK Conversion Successful.");
         } catch (gsError) {
-          console.error("Ghostscript conversion failed, falling back to RGB:", gsError);
-          // Fallback: We send the RGB buffer if conversion fails
+            console.error("Ghostscript conversion failed, falling back to RGB:", gsError);
+            // Attempt cleanup even if it fails
+            try {
+                if (fs.existsSync(inputPath)) await fs.promises.unlink(inputPath);
+                if (fs.existsSync(outputPath)) await fs.promises.unlink(outputPath);
+            } catch (e) { /* ignore cleanup errors */ }
         }
       }
 
