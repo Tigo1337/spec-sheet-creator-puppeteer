@@ -49,11 +49,20 @@ export function CanvasElement({
   };
 
   const getDisplayContent = () => {
-    if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
-      const value = excelData.rows[selectedRowIndex][element.dataBinding];
-      return value || `{{${element.dataBinding}}}`;
+    // 1. Use content as the primary source (fallback to dataBinding pattern if empty)
+    let content = element.content || (element.dataBinding ? `{{${element.dataBinding}}}` : "");
+
+    // 2. Handle Text Interpolation (Replace {{Variables}} with data)
+    if (excelData && excelData.rows[selectedRowIndex]) {
+        const row = excelData.rows[selectedRowIndex];
+        content = content.replace(/{{(.*?)}}/g, (match, p1) => {
+            const fieldName = p1.trim();
+            // Only replace if we have data for this field
+            return row[fieldName] !== undefined ? row[fieldName] : match; 
+        });
     }
-    return element.content || "";
+
+    return content;
   };
 
   const getImageUrl = () => {
@@ -77,14 +86,10 @@ export function CanvasElement({
         const naturalHeight = img.naturalHeight;
         setImageDimensions({ width: naturalWidth, height: naturalHeight });
 
-        // Auto-resize if it's a fresh image being dragged in (optional logic, kept from original)
-        // Note: You might want to remove the auto-resize on data change if it messes up layouts
-        const aspectRatio = naturalWidth / naturalHeight;
-        const newHeight = Math.round(element.dimension.width / aspectRatio);
-
-        // Only update height if it seems like a new placement or explicit resize isn't set?
-        // For now keeping original behavior but being careful not to cause infinite loops
-        if (!element.dataBinding) { // Only resize static images automatically
+        // Only resize static images automatically to avoid layout shifting on data change
+        if (!element.dataBinding) { 
+             const aspectRatio = naturalWidth / naturalHeight;
+             const newHeight = Math.round(element.dimension.width / aspectRatio);
              updateElement(element.id, {
                 dimension: { width: element.dimension.width, height: newHeight }
              });
@@ -101,11 +106,8 @@ export function CanvasElement({
   // Calculate Effective DPI
   useEffect(() => {
     if (imageDimensions && element.dimension.width > 0) {
-      // Formula: (Natural Pixels / Rendered Pixels) * Screen DPI (96)
       const dpi = (imageDimensions.width / element.dimension.width) * 96;
       setEffectiveDpi(Math.round(dpi));
-
-      // Warn if below 300 DPI (using 295 as buffer for rounding errors)
       setIsLowQuality(dpi < 295);
     } else {
       setIsLowQuality(false);
@@ -149,9 +151,10 @@ export function CanvasElement({
               lineHeight: element.textStyle?.lineHeight || 1.5,
               letterSpacing: `${element.textStyle?.letterSpacing || 0}px`,
               padding: 4 * zoom,
+              whiteSpace: "pre-wrap",
             }}
           >
-            {formatContent(element.content || "Text", element.format)}
+            {formatContent(getDisplayContent(), element.format)}
           </div>
         );
 
@@ -227,7 +230,8 @@ export function CanvasElement({
                 <div style={{ display: "block" }} dangerouslySetInnerHTML={{ __html: displayContent }} />
               </div>
             ) : (
-              <span className="truncate">{displayContent}</span>
+              /* CHANGED: Replaced truncate with whitespace-pre-wrap to support multi-line lists */
+              <span className="whitespace-pre-wrap">{displayContent}</span>
             )}
           </div>
         );
@@ -264,8 +268,6 @@ export function CanvasElement({
       case "image":
         const displayImageUrl = getImageUrl();
         if (displayImageUrl) {
-          // Calculate needed dimensions for 300 DPI
-          // 300 DPI / 96 DPI = 3.125
           const neededWidth = Math.ceil(element.dimension.width * 3.125);
           const neededHeight = Math.ceil(element.dimension.height * 3.125);
           const tooltipText = `Quality: ${effectiveDpi} DPI\nFor 300 DPI print quality at this size, use an image at least ${neededWidth} x ${neededHeight} pixels.`;
@@ -315,7 +317,7 @@ export function CanvasElement({
         ...style,
         ...(isSelected && {
           outline: "2px solid #3b82f6", 
-          outlineOffset: "0px", // FIX: Changed from 2px to 0px to hug element tightly
+          outlineOffset: "0px",
           backgroundColor: "transparent",
         }),
       }}

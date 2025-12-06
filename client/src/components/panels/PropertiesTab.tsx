@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useCanvasStore } from "@/stores/canvas-store";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea"; 
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -38,9 +39,9 @@ import {
   Type,
   Hash,
   Calendar,
-  CheckSquare
+  CheckSquare,
+  Check // Kept Check, Removed Plus
 } from "lucide-react";
-// UPDATED IMPORT: Added openSourceFontMap
 import { availableFonts, openSourceFontMap, type CanvasElement } from "@shared/schema";
 
 export function PropertiesTab() {
@@ -62,6 +63,7 @@ export function PropertiesTab() {
     alignBottom,
     backgroundColor,
     setBackgroundColor,
+    excelData,
   } = useCanvasStore();
 
   const handleImageUrlChange = async (elementId: string, url: string) => {
@@ -71,12 +73,10 @@ export function PropertiesTab() {
       setImageLoadingId(elementId);
       const dimensions = await getImageDimensions(url);
       if (dimensions) {
-        // Scale to reasonable size while maintaining aspect ratio
         const maxWidth = 300;
         let width = maxWidth;
         let height = Math.round((maxWidth / dimensions.width) * dimensions.height);
 
-        // Make sure height doesn't exceed max reasonable size
         const maxHeight = 300;
         if (height > maxHeight) {
           height = maxHeight;
@@ -158,7 +158,6 @@ export function PropertiesTab() {
     });
   };
 
-  // NEW: Formatting Handler
   const handleFormatChange = (key: string, value: any) => {
     updateElement(selectedElement.id, {
       format: {
@@ -167,6 +166,22 @@ export function PropertiesTab() {
       },
     });
   };
+
+  // Helper to determine used fields for visual feedback
+  const getUsedFields = (content: string | undefined) => {
+    if (!content) return new Set<string>();
+    const matches = content.matchAll(/{{(.*?)}}/g);
+    const fields = new Set<string>();
+    for (const match of matches) {
+      fields.add(match[1]);
+    }
+    if (selectedElement.dataBinding) {
+      fields.add(selectedElement.dataBinding);
+    }
+    return fields;
+  };
+
+  const usedFields = getUsedFields(selectedElement.content);
 
   return (
     <ScrollArea className="h-full">
@@ -284,7 +299,7 @@ export function PropertiesTab() {
 
         <Separator />
 
-        {/* Alignment Controls - shown when multiple elements selected */}
+        {/* Alignment Controls */}
         {selectedElementIds.length > 1 && (
           <div>
             <h3 className="font-medium text-sm mb-3">Alignment</h3>
@@ -478,18 +493,43 @@ export function PropertiesTab() {
             <h3 className="font-medium text-sm mb-3">Text Style</h3>
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Content</Label>
-                <Input
+                <div className="flex justify-between items-center">
+                  <Label className="text-xs text-muted-foreground">Content</Label>
+                  {excelData && excelData.headers.length > 0 && (
+                    <Select onValueChange={(value) => {
+                        const currentContent = selectedElement.content || "";
+                        const prefix = currentContent && !currentContent.match(/\s$/) ? "\n" : ""; 
+                        updateElement(selectedElement.id, { 
+                          content: currentContent + prefix + `{{${value}}}` 
+                        });
+                    }}>
+                      <SelectTrigger className="h-auto py-1 px-2 text-xs w-auto border-none shadow-none bg-muted/50 hover:bg-muted text-primary whitespace-nowrap">
+                         <span className="flex items-center gap-1">Insert Field</span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {excelData.headers.map(header => (
+                          <SelectItem key={header} value={header}>
+                            <div className="flex items-center justify-between w-full gap-2">
+                              <span>{header}</span>
+                              {usedFields.has(header) && <Check className="h-3 w-3 text-primary opacity-100" />}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+                <Textarea
                   value={selectedElement.content || ""}
                   onChange={(e) =>
                     updateElement(selectedElement.id, { content: e.target.value })
                   }
-                  placeholder="Enter text..."
+                  placeholder="Enter text or {{FieldName}}..."
                   data-testid="input-content"
+                  className="font-mono text-sm min-h-[100px]"
                 />
               </div>
 
-              {/* UPDATED: Font Family Selector with Open Source Transparency */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Font Family</Label>
                 <Select
@@ -666,9 +706,6 @@ export function PropertiesTab() {
 
             <Separator className="my-4" />
 
-            {/* ========================================================= */}
-            {/* NEW SECTION: DATA FORMATTING & TRANSFORMATIONS            */}
-            {/* ========================================================= */}
             <div>
               <h3 className="font-medium text-sm mb-3 flex items-center gap-2">
                 Data Formatting
@@ -679,7 +716,6 @@ export function PropertiesTab() {
               </h3>
 
               <div className="space-y-4">
-                {/* 1. Data Type Selector */}
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Treat Data As</Label>
                   <Select
@@ -698,7 +734,6 @@ export function PropertiesTab() {
                   </Select>
                 </div>
 
-                {/* OPTION A: TEXT FORMATTING */}
                 {(selectedElement.format?.dataType === "text" || !selectedElement.format?.dataType) && (
                   <div className="space-y-3 p-3 bg-muted/30 rounded-md border">
                     <div className="space-y-1.5">
@@ -721,11 +756,9 @@ export function PropertiesTab() {
                   </div>
                 )}
 
-                {/* OPTION B: NUMBER FORMATTING */}
                 {selectedElement.format?.dataType === "number" && (
                   <div className="space-y-3 p-3 bg-muted/30 rounded-md border">
 
-                    {/* Fraction Toggle */}
                     <div className="flex items-center justify-between">
                       <Label className="text-xs text-muted-foreground">Display as Fraction</Label>
                       <Switch 
@@ -735,7 +768,6 @@ export function PropertiesTab() {
                     </div>
 
                     {selectedElement.format?.useFractions ? (
-                       /* Fractions Settings */
                       <div className="space-y-1.5 animate-in fade-in zoom-in-95 duration-200">
                         <Label className="text-xs text-muted-foreground">Precision (Rounding)</Label>
                         <Select
@@ -756,7 +788,6 @@ export function PropertiesTab() {
                         </Select>
                       </div>
                     ) : (
-                      /* Decimal Settings */
                       <div className="space-y-1.5 animate-in fade-in zoom-in-95 duration-200">
                           <Label className="text-xs text-muted-foreground">Decimal Places</Label>
                           <Input 
@@ -769,7 +800,6 @@ export function PropertiesTab() {
                       </div>
                     )}
 
-                    {/* Unit Affixes */}
                     <div className="space-y-1.5">
                       <Label className="text-xs text-muted-foreground">Append Unit</Label>
                       <Select
@@ -796,7 +826,6 @@ export function PropertiesTab() {
                   </div>
                 )}
 
-                {/* OPTION C: DATE FORMATTING */}
                 {selectedElement.format?.dataType === "date" && (
                   <div className="space-y-3 p-3 bg-muted/30 rounded-md border">
                     <div className="space-y-1.5">
@@ -820,7 +849,6 @@ export function PropertiesTab() {
                   </div>
                 )}
 
-                {/* OPTION D: BOOLEAN MAPPING */}
                 {selectedElement.format?.dataType === "boolean" && (
                    <div className="space-y-3 p-3 bg-muted/30 rounded-md border">
                     <div className="grid grid-cols-2 gap-2">

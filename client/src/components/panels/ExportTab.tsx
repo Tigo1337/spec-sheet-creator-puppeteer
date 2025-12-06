@@ -29,7 +29,6 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { pageSizes } from "@shared/schema";
 import JSZip from "jszip";
 import { isHtmlContent, getImageDimensions } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
@@ -56,10 +55,8 @@ export function ExportTab() {
     pageCount,
   } = useCanvasStore();
 
-  // Check for low quality images when elements or data changes
   useEffect(() => {
     const checkImageQuality = async () => {
-      // Only warn for print mode where 300 DPI matters
       if (exportMode !== 'print') {
         setHasLowQualityImages(false);
         return;
@@ -67,10 +64,8 @@ export function ExportTab() {
 
       let foundIssue = false;
 
-      // Check all elements on all pages
       for (const element of elements) {
         if (element.type === 'image' && element.visible) {
-          // Resolve the actual image URL (handling data bindings)
           let url = element.imageSrc;
           if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
              url = excelData.rows[selectedRowIndex][element.dataBinding] || url;
@@ -79,12 +74,10 @@ export function ExportTab() {
           if (url) {
             const dimensions = await getImageDimensions(url);
             if (dimensions && element.dimension.width > 0) {
-              // Calculate effective DPI: (Natural Pixels / Rendered Pixels) * Screen DPI (96)
               const effectiveDpi = (dimensions.width / element.dimension.width) * 96;
-              // 295 buffer for rounding errors
               if (effectiveDpi < 295) {
                 foundIssue = true;
-                break; // Stop checking if we found at least one
+                break;
               }
             }
           }
@@ -123,14 +116,13 @@ export function ExportTab() {
     return finalName.replace(/[^a-z0-9\s\-_.]/gi, "_");
   };
 
-  // Helper to compress image to reduce file size
   const compressImage = async (
     imgSrc: string, 
     maxWidth: number, 
     maxHeight: number, 
     quality: number
   ): Promise<string> => {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = () => {
@@ -138,7 +130,6 @@ export function ExportTab() {
         let width = img.naturalWidth;
         let height = img.naturalHeight;
 
-        // Scale down if larger than target dimensions
         const scale = Math.min(1, maxWidth / width, maxHeight / height);
         width = Math.round(width * scale);
         height = Math.round(height * scale);
@@ -182,6 +173,9 @@ export function ExportTab() {
       .filter(el => (el.pageIndex ?? 0) === pageIndex)
       .sort((a, b) => a.zIndex - b.zIndex);
 
+    // Determine data source for interpolation
+    const sourceData = Object.keys(rowData).length > 0 ? rowData : (excelData?.rows[selectedRowIndex] || {});
+
     for (const element of pageElements) {
       if (!element.visible) continue;
 
@@ -208,6 +202,7 @@ export function ExportTab() {
          elementDiv.style.padding = "4px";
          elementDiv.style.wordBreak = "break-word";
          elementDiv.style.overflow = "visible";
+         elementDiv.style.whiteSpace = "pre-wrap"; // Respect newlines
 
          const hAlign = textStyle.textAlign || "left";
          elementDiv.style.textAlign = hAlign;
@@ -228,12 +223,17 @@ export function ExportTab() {
            elementDiv.style.alignItems = "flex-start";
          }
 
-         let content = element.content || "";
-         if (element.dataBinding && rowData[element.dataBinding]) {
-           content = rowData[element.dataBinding];
-         } else if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
-             content = excelData.rows[selectedRowIndex][element.dataBinding] || content;
-         }
+         // --- INTERPOLATION LOGIC START ---
+         // Use content as base, fallback to dataBinding format if empty
+         let content = element.content || (element.dataBinding ? `{{${element.dataBinding}}}` : "");
+
+         // Always perform interpolation (replaces {{Key}} with Value)
+         content = content.replace(/{{(.*?)}}/g, (match, p1) => {
+             const fieldName = p1.trim();
+             const val = sourceData[fieldName];
+             return val !== undefined ? val : match;
+         });
+         // --- INTERPOLATION LOGIC END ---
 
          content = formatContent(content, element.format);
 
@@ -271,12 +271,10 @@ export function ExportTab() {
          }
       } else if (element.type === "image") {
          let imgSrc = element.imageSrc;
-         if (element.dataBinding) {
-            if (rowData[element.dataBinding]) {
-                imgSrc = rowData[element.dataBinding];
-            } else if (excelData && excelData.rows[selectedRowIndex]) {
-                imgSrc = excelData.rows[selectedRowIndex][element.dataBinding];
-            }
+
+         // Resolve Image Source
+         if (element.dataBinding && sourceData[element.dataBinding]) {
+            imgSrc = sourceData[element.dataBinding];
          }
 
          if (imgSrc) {
@@ -356,7 +354,6 @@ export function ExportTab() {
       </html>
     `;
 
-    // 96 DPI * 3.125 = 300 DPI
     const scaleFactor = exportMode === 'print' ? 3.125 : 2;
     const colorMode = exportMode === 'print' ? 'cmyk' : 'rgb';
 
