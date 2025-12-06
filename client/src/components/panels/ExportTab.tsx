@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCanvasStore } from "@/stores/canvas-store";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -26,10 +26,12 @@ import {
   FileArchive,
   Monitor,
   Printer,
+  AlertTriangle
 } from "lucide-react";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { pageSizes } from "@shared/schema";
 import JSZip from "jszip";
-import { isHtmlContent } from "@/lib/canvas-utils";
+import { isHtmlContent, getImageDimensions } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
 
 export function ExportTab() {
@@ -38,6 +40,7 @@ export function ExportTab() {
   const [exportStatus, setExportStatus] = useState<"idle" | "success" | "error">("idle");
   const [filenamePattern, setFilenamePattern] = useState("");
   const [exportMode, setExportMode] = useState<"digital" | "print">("digital");
+  const [hasLowQualityImages, setHasLowQualityImages] = useState(false);
 
   const { toast } = useToast();
 
@@ -52,6 +55,46 @@ export function ExportTab() {
     selectedRowIndex,
     pageCount,
   } = useCanvasStore();
+
+  // Check for low quality images when elements or data changes
+  useEffect(() => {
+    const checkImageQuality = async () => {
+      // Only warn for print mode where 300 DPI matters
+      if (exportMode !== 'print') {
+        setHasLowQualityImages(false);
+        return;
+      }
+
+      let foundIssue = false;
+
+      // Check all elements on all pages
+      for (const element of elements) {
+        if (element.type === 'image' && element.visible) {
+          // Resolve the actual image URL (handling data bindings)
+          let url = element.imageSrc;
+          if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
+             url = excelData.rows[selectedRowIndex][element.dataBinding] || url;
+          }
+
+          if (url) {
+            const dimensions = await getImageDimensions(url);
+            if (dimensions && element.dimension.width > 0) {
+              // Calculate effective DPI: (Natural Pixels / Rendered Pixels) * Screen DPI (96)
+              const effectiveDpi = (dimensions.width / element.dimension.width) * 96;
+              // 295 buffer for rounding errors
+              if (effectiveDpi < 295) {
+                foundIssue = true;
+                break; // Stop checking if we found at least one
+              }
+            }
+          }
+        }
+      }
+      setHasLowQualityImages(foundIssue);
+    };
+
+    checkImageQuality();
+  }, [elements, excelData, selectedRowIndex, exportMode]);
 
   const insertVariable = (header: string) => {
     setFilenamePattern((prev) => `${prev}{{${header}}}`);
@@ -203,7 +246,6 @@ export function ExportTab() {
               </style>
             `;
             elementDiv.innerHTML = styles + content;
-            // FIX: Removed display: block to allow Flexbox (justifyContent) to center content
          } else {
            elementDiv.textContent = content;
          }
@@ -314,30 +356,29 @@ export function ExportTab() {
       </html>
     `;
 
-    const scaleFactor = exportMode === 'print' ? 4 : 2;
+    // 96 DPI * 3.125 = 300 DPI
+    const scaleFactor = exportMode === 'print' ? 3.125 : 2;
+    const colorMode = exportMode === 'print' ? 'cmyk' : 'rgb';
 
-      // NEW: Determine color model based on export mode
-      const colorMode = exportMode === 'print' ? 'cmyk' : 'rgb';
+    const response = await fetch("/api/export/pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        html: fullHtml,
+        width: canvasWidth,
+        height: canvasHeight,
+        scale: scaleFactor,
+        pageCount: pages,
+        colorModel: colorMode,
+      }),
+    });
 
-      const response = await fetch("/api/export/pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          html: fullHtml,
-          width: canvasWidth,
-          height: canvasHeight,
-          scale: scaleFactor,
-          pageCount: pages,
-          colorModel: colorMode, // Send the flag
-        }),
-      });
+    if (!response.ok) {
+      throw new Error("Server failed to generate PDF");
+    }
 
-      if (!response.ok) {
-        throw new Error("Server failed to generate PDF");
-      }
-
-      return await response.blob();
-    };
+    return await response.blob();
+  };
 
   const generatePDF = async () => {
     setIsExporting(true);
@@ -586,6 +627,16 @@ export function ExportTab() {
                   </div>
                </div>
             </div>
+
+            {hasLowQualityImages && exportMode === "print" && (
+               <Alert variant="destructive" className="mt-2 text-xs py-2 bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-200">
+                  <AlertTriangle className="h-4 w-4 !text-yellow-600 dark:!text-yellow-400" />
+                  <AlertTitle className="text-xs font-semibold mb-1">Low Resolution Detected</AlertTitle>
+                  <AlertDescription className="text-[10px] leading-tight opacity-90">
+                     Some images may appear pixelated in print (effective DPI &lt; 300). Check the canvas for details.
+                  </AlertDescription>
+               </Alert>
+            )}
           </div>
         </div>
 

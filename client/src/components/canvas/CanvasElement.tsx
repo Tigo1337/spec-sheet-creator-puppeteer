@@ -4,6 +4,7 @@ import { useCanvasStore } from "@/stores/canvas-store";
 import { useEffect, useState } from "react";
 import { isHtmlContent } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
+import { AlertTriangle } from "lucide-react";
 
 interface CanvasElementProps {
   element: CanvasElementType;
@@ -21,6 +22,10 @@ export function CanvasElement({
   const { excelData, selectedRowIndex, updateElement } = useCanvasStore();
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  // Quality Check States
+  const [isLowQuality, setIsLowQuality] = useState(false);
+  const [effectiveDpi, setEffectiveDpi] = useState(0);
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: element.id,
@@ -61,6 +66,7 @@ export function CanvasElement({
     return null;
   };
 
+  // Update image dimensions when URL changes
   useEffect(() => {
     const url = getImageUrl();
     if (url && url !== imageUrl) {
@@ -71,11 +77,18 @@ export function CanvasElement({
         const naturalHeight = img.naturalHeight;
         setImageDimensions({ width: naturalWidth, height: naturalHeight });
 
+        // Auto-resize if it's a fresh image being dragged in (optional logic, kept from original)
+        // Note: You might want to remove the auto-resize on data change if it messes up layouts
         const aspectRatio = naturalWidth / naturalHeight;
         const newHeight = Math.round(element.dimension.width / aspectRatio);
-        updateElement(element.id, {
-          dimension: { width: element.dimension.width, height: newHeight }
-        });
+
+        // Only update height if it seems like a new placement or explicit resize isn't set?
+        // For now keeping original behavior but being careful not to cause infinite loops
+        if (!element.dataBinding) { // Only resize static images automatically
+             updateElement(element.id, {
+                dimension: { width: element.dimension.width, height: newHeight }
+             });
+        }
       };
       img.onerror = () => {
         setImageDimensions(null);
@@ -84,6 +97,21 @@ export function CanvasElement({
       img.src = url;
     }
   }, [element.dataBinding, selectedRowIndex, element.type, excelData, element.id, element.dimension.width, imageUrl, updateElement]);
+
+  // Calculate Effective DPI
+  useEffect(() => {
+    if (imageDimensions && element.dimension.width > 0) {
+      // Formula: (Natural Pixels / Rendered Pixels) * Screen DPI (96)
+      const dpi = (imageDimensions.width / element.dimension.width) * 96;
+      setEffectiveDpi(Math.round(dpi));
+
+      // Warn if below 300 DPI (using 295 as buffer for rounding errors)
+      setIsLowQuality(dpi < 295);
+    } else {
+      setIsLowQuality(false);
+      setEffectiveDpi(0);
+    }
+  }, [imageDimensions, element.dimension.width]);
 
   const style: React.CSSProperties = {
     position: "absolute",
@@ -236,15 +264,31 @@ export function CanvasElement({
       case "image":
         const displayImageUrl = getImageUrl();
         if (displayImageUrl) {
+          // Calculate needed dimensions for 300 DPI
+          // 300 DPI / 96 DPI = 3.125
+          const neededWidth = Math.ceil(element.dimension.width * 3.125);
+          const neededHeight = Math.ceil(element.dimension.height * 3.125);
+          const tooltipText = `Quality: ${effectiveDpi} DPI\nFor 300 DPI print quality at this size, use an image at least ${neededWidth} x ${neededHeight} pixels.`;
+
           return (
-            <img
-              src={displayImageUrl}
-              alt=""
-              crossOrigin="anonymous"
-              className="w-full h-full object-contain"
-              draggable={false}
-              style={{ objectPosition: "center" }}
-            />
+            <div className="relative w-full h-full">
+              <img
+                src={displayImageUrl}
+                alt=""
+                crossOrigin="anonymous"
+                className="w-full h-full object-contain"
+                draggable={false}
+                style={{ objectPosition: "center" }}
+              />
+               {isLowQuality && !element.locked && (
+                <div 
+                  className="absolute top-0 right-0 m-1 bg-yellow-500 text-white p-1 rounded-sm shadow-md z-50 flex items-center gap-1 cursor-help"
+                  title={tooltipText}
+                >
+                  <AlertTriangle size={14} />
+                </div>
+              )}
+            </div>
           );
         }
         return (

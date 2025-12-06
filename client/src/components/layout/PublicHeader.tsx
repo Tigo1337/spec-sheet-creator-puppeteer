@@ -15,7 +15,11 @@ export function PublicHeader() {
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
         <a href="/" className="flex items-center gap-2">
-          <h1 className="text-xl font-bold">SpecSheet Builder</h1>
+          <img 
+            src="https://res.cloudinary.com/olilepage/image/upload/t_transparent_background/v1765033347/doculoom-io-wordmark-logo-cropped_iwkw3v.png" 
+            alt="Doculoom" 
+            className="h-8"
+          />
         </a>
 
         {/* Navigation Menu */}

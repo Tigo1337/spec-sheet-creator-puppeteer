@@ -16,7 +16,6 @@ import {
   FileDown,
   Sun,
   Moon,
-  FileText,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/clerk-react";
@@ -63,10 +62,16 @@ export function Header() {
       {/* Left Section */}
       <div className="flex items-center gap-3 min-w-0">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
-            <FileText className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <span className="font-semibold text-lg hidden sm:block">SpecSheet</span>
+          <img 
+            src="https://res.cloudinary.com/olilepage/image/upload/t_transparent_background/v1765033347/doculoom-io-wordmark-logo-cropped_iwkw3v.png" 
+            alt="Doculoom" 
+            className="h-8 hidden sm:block"
+          />
+          <img 
+            src="https://res.cloudinary.com/olilepage/image/upload/t_transparent_background/v1765033347/doculoom-io-wordmark-logo-cropped_iwkw3v.png" 
+            alt="Doculoom" 
+            className="h-6 sm:hidden"
+          />
         </div>
         <Separator orientation="vertical" className="h-6 hidden sm:block" />
         <div className="flex items-center gap-1 min-w-0">

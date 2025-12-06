@@ -17,7 +17,11 @@ export default function Registration() {
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold">SpecSheet Builder</h1>
+          <img 
+            src="https://res.cloudinary.com/olilepage/image/upload/t_transparent_background/v1765033347/doculoom-io-wordmark-logo-cropped_iwkw3v.png" 
+            alt="Doculoom" 
+            className="h-10 mx-auto mb-4"
+          />
           <p className="text-muted-foreground mt-2">Create your account</p>
         </div>
         <SignUp

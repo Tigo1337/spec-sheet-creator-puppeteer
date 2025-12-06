@@ -9,7 +9,7 @@ export default function Solutions() {
         <div className="space-y-8">
           <div className="text-center space-y-4">
             <h2 className="text-3xl md:text-4xl font-bold">Solutions</h2>
-            <p className="text-lg text-muted-foreground">Learn how SpecSheet Builder solves your design challenges</p>
+            <p className="text-lg text-muted-foreground">Learn how Doculoom solves your design challenges</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 mt-12">
