@@ -12,8 +12,8 @@ createRoot(document.getElementById("root")!).render(
   <ClerkProvider 
     publishableKey={PUBLISHABLE_KEY} 
     afterSignOutUrl="/"
-    signInFallbackRedirectUrl="/"
-    signUpFallbackRedirectUrl="/"
+    signInFallbackRedirectUrl="/editor" // <--- CHANGE THIS to /editor
+    signUpFallbackRedirectUrl="/checkout" // Keep this as is (goes to checkout flow)
   >
     <App />
   </ClerkProvider>

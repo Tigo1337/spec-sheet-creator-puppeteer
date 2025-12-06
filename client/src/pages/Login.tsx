@@ -15,7 +15,7 @@ export default function Login() {
         <SignIn
           routing="hash"
           signUpUrl="/registration"
-          fallbackRedirectUrl="/"
+          fallbackRedirectUrl="/editor" // <--- CHANGE THIS to /editor
           appearance={{
             elements: {
               rootBox: "mx-auto",

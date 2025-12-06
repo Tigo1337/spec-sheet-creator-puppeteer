@@ -1,8 +1,10 @@
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { useUser } from "@clerk/clerk-react"; // Import useUser
 
 export function PublicHeader() {
   const [location] = useLocation();
+  const { isSignedIn } = useUser(); // Check auth state
 
   const navItems = [
     { label: "Solutions", href: "/solutions" },
@@ -13,7 +15,7 @@ export function PublicHeader() {
   return (
     <header className="border-b bg-background">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-        {/* Logo */}
+        {/* ... Logo ... */}
         <a href="/" className="flex items-center gap-2">
           <img 
             src="https://res.cloudinary.com/olilepage/image/upload/t_transparent_background/v1765033347/doculoom-io-wordmark-logo-cropped_iwkw3v.png" 
@@ -22,7 +24,7 @@ export function PublicHeader() {
           />
         </a>
 
-        {/* Navigation Menu */}
+        {/* ... Navigation Menu ... */}
         <nav className="hidden md:flex items-center gap-6">
           {navItems.map((item) => (
             <a
@@ -33,25 +35,30 @@ export function PublicHeader() {
                   ? "text-foreground font-medium"
                   : "text-muted-foreground hover:text-foreground"
               }`}
-              data-testid={`nav-link-${item.label.toLowerCase()}`}
             >
               {item.label}
             </a>
           ))}
         </nav>
 
-        {/* Auth Buttons */}
+        {/* Dynamic Auth Buttons */}
         <div className="flex items-center gap-3">
-          <a href="/login">
-            <Button variant="ghost" size="sm" data-testid="btn-sign-in">
-              Sign In
-            </Button>
-          </a>
-          <a href="/registration">
-            <Button size="sm" data-testid="btn-sign-up">
-              Sign Up
-            </Button>
-          </a>
+          {isSignedIn ? (
+            <a href="/editor">
+              <Button size="sm" className="font-semibold">
+                Go to App
+              </Button>
+            </a>
+          ) : (
+            <>
+              <a href="/login">
+                <Button variant="ghost" size="sm">Sign In</Button>
+              </a>
+              <a href="/registration">
+                <Button size="sm">Sign Up</Button>
+              </a>
+            </>
+          )}
         </div>
       </div>
     </header>

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SignedIn, SignedOut, useClerk } from "@clerk/clerk-react";
+import { SignedIn, SignedOut, useClerk, useUser } from "@clerk/clerk-react"; // Added useUser
 import Editor from "@/pages/Editor";
 import Homepage from "@/pages/Homepage";
 import Solutions from "@/pages/Solutions";
@@ -15,35 +15,6 @@ import Registration from "@/pages/Registration";
 import Checkout from "@/pages/Checkout";
 import CheckoutSuccess from "@/pages/CheckoutSuccess";
 import NotFound from "@/pages/not-found";
-
-function PublicRouter() {
-  return (
-    <Switch>
-      <Route path="/" component={Homepage} />
-      <Route path="/solutions" component={Solutions} />
-      <Route path="/features" component={Features} />
-      <Route path="/pricing" component={Pricing} />
-      <Route path="/login" component={Login} />
-      <Route path="/registration" component={Registration} />
-      <Route path="/checkout" component={Checkout} />
-      <Route path="/checkout/success" component={CheckoutSuccess} />
-      <Route component={NotFound} />
-    </Switch>
-  );
-}
-
-function ProtectedRouter() {
-  return (
-    <Switch>
-      <Route path="/" component={Editor} />
-      <Route path="/editor" component={Editor} />
-      <Route path="/checkout" component={Checkout} />
-      <Route path="/checkout/success" component={CheckoutSuccess} />
-      <Route path="/pricing" component={Pricing} />
-      <Route component={NotFound} />
-    </Switch>
-  );
-}
 
 function AppContent() {
   const { loaded } = useClerk();
@@ -67,14 +38,35 @@ function AppContent() {
   }
 
   return (
-    <>
-      <SignedOut>
-        <PublicRouter />
-      </SignedOut>
-      <SignedIn>
-        <ProtectedRouter />
-      </SignedIn>
-    </>
+    <Switch>
+      {/* Public Marketing Routes - Accessible to everyone */}
+      <Route path="/" component={Homepage} />
+      <Route path="/solutions" component={Solutions} />
+      <Route path="/features" component={Features} />
+      <Route path="/pricing" component={Pricing} />
+
+      {/* Auth Routes */}
+      <Route path="/login" component={Login} />
+      <Route path="/registration" component={Registration} />
+
+      {/* Checkout handles its own auth redirects internally */}
+      <Route path="/checkout" component={Checkout} />
+      <Route path="/checkout/success" component={CheckoutSuccess} />
+
+      {/* Protected App Route */}
+      <Route path="/editor">
+        {/* If signed in, show Editor. If not, redirect to Login */}
+        <SignedIn>
+          <Editor />
+        </SignedIn>
+        <SignedOut>
+          <Redirect to="/login" />
+        </SignedOut>
+      </Route>
+
+      {/* Fallback */}
+      <Route component={NotFound} />
+    </Switch>
   );
 }
 

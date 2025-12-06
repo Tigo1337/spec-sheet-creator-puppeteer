@@ -18,7 +18,7 @@ import {
   Moon,
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useUser } from "@clerk/clerk-react";
+import { useUser, UserButton } from "@clerk/clerk-react";
 
 export function Header() {
   const { user } = useUser();
@@ -150,6 +150,11 @@ export function Header() {
           <FileDown className="h-4 w-4" />
           Export
         </Button>
+
+        {/* User Profile / Sign Out Button */}
+        <div className="ml-2 flex items-center">
+          <UserButton afterSignOutUrl="/" />
+        </div>
       </div>
     </header>
   );
