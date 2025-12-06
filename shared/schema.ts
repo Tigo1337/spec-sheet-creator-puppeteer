@@ -172,16 +172,16 @@ export type InsertSavedDesign = z.infer<typeof insertSavedDesignSchema>;
 
 export const availableFonts = [
   "Inter",
-  "Arial", // Will render Arimo
-  "Verdana", // Will render DejaVu Sans
-  "Times New Roman", // Will render Tinos
-  "Georgia", // Will render Gelasio
-  "Courier New", // Will render Cousine
-  "Trebuchet MS", // Will render Fira Sans
-  "Calibri", // Will render Carlito
-  "Cambria", // Will render Caladea
-  "Comic Sans MS", // Will render Comic Relief (web font)
-  "Impact", // Will render Oswald (web font)
+  "Arial", 
+  "Verdana", 
+  "Times New Roman", 
+  "Georgia", 
+  "Courier New", 
+  "Trebuchet MS", 
+  "Calibri", 
+  "Cambria", 
+  "Comic Sans MS", 
+  "Impact", 
   "JetBrains Mono",
   "Lato",
   "Lora",
@@ -196,6 +196,20 @@ export const availableFonts = [
   "Roboto",
   "Roboto Slab",
 ] as const;
+
+// NEW: Add this mapping object
+export const openSourceFontMap: Record<string, string> = {
+  "Arial": "Arimo",
+  "Verdana": "DejaVu Sans",
+  "Times New Roman": "Tinos",
+  "Georgia": "Gelasio",
+  "Courier New": "Cousine",
+  "Trebuchet MS": "Fira Sans",
+  "Calibri": "Carlito",
+  "Cambria": "Caladea",
+  "Comic Sans MS": "Comic Neue",
+  "Impact": "Oswald",
+};
 
 export const pageSizes = {
   letter: { width: 816, height: 1056 },

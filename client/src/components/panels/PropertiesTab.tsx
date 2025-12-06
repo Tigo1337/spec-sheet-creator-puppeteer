@@ -40,7 +40,8 @@ import {
   Calendar,
   CheckSquare
 } from "lucide-react";
-import { availableFonts, type CanvasElement } from "@shared/schema";
+// UPDATED IMPORT: Added openSourceFontMap
+import { availableFonts, openSourceFontMap, type CanvasElement } from "@shared/schema";
 
 export function PropertiesTab() {
   const [imageLoadingId, setImageLoadingId] = useState<string | null>(null);
@@ -488,6 +489,7 @@ export function PropertiesTab() {
                 />
               </div>
 
+              {/* UPDATED: Font Family Selector with Open Source Transparency */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Font Family</Label>
                 <Select
@@ -497,12 +499,22 @@ export function PropertiesTab() {
                   <SelectTrigger data-testid="select-font">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    {availableFonts.map((font) => (
-                      <SelectItem key={font} value={font} style={{ fontFamily: font }}>
-                        {font}
-                      </SelectItem>
-                    ))}
+                  <SelectContent className="max-h-[300px]">
+                    {availableFonts.map((font) => {
+                      const replacement = openSourceFontMap[font];
+                      return (
+                        <SelectItem key={font} value={font} style={{ fontFamily: font }}>
+                           <span className="flex items-center gap-2">
+                             {font}
+                             {replacement && (
+                               <span className="text-xs text-muted-foreground font-normal ml-1">
+                                 ({replacement})
+                               </span>
+                             )}
+                           </span>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -746,14 +758,14 @@ export function PropertiesTab() {
                     ) : (
                       /* Decimal Settings */
                       <div className="space-y-1.5 animate-in fade-in zoom-in-95 duration-200">
-                         <Label className="text-xs text-muted-foreground">Decimal Places</Label>
-                         <Input 
-                           type="number" 
-                           min={0} 
-                           max={10}
-                           value={selectedElement.format?.decimalPlaces ?? 2}
-                           onChange={(e) => handleFormatChange("decimalPlaces", Number(e.target.value))}
-                         />
+                          <Label className="text-xs text-muted-foreground">Decimal Places</Label>
+                          <Input 
+                            type="number" 
+                            min={0} 
+                            max={10}
+                            value={selectedElement.format?.decimalPlaces ?? 2}
+                            onChange={(e) => handleFormatChange("decimalPlaces", Number(e.target.value))}
+                          />
                       </div>
                     )}
 
@@ -812,22 +824,22 @@ export function PropertiesTab() {
                 {selectedElement.format?.dataType === "boolean" && (
                    <div className="space-y-3 p-3 bg-muted/30 rounded-md border">
                     <div className="grid grid-cols-2 gap-2">
-                       <div className="space-y-1.5">
-                         <Label className="text-xs text-muted-foreground text-green-600">If TRUE (1)</Label>
-                         <Input 
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground text-green-600">If TRUE (1)</Label>
+                          <Input 
                             placeholder="Included"
                             value={selectedElement.format?.trueLabel || ""}
                             onChange={(e) => handleFormatChange("trueLabel", e.target.value)}
-                         />
-                       </div>
-                       <div className="space-y-1.5">
-                         <Label className="text-xs text-muted-foreground text-red-500">If FALSE (0)</Label>
-                         <Input 
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground text-red-500">If FALSE (0)</Label>
+                          <Input 
                             placeholder="-"
                             value={selectedElement.format?.falseLabel || ""}
                             onChange={(e) => handleFormatChange("falseLabel", e.target.value)}
-                         />
-                       </div>
+                          />
+                        </div>
                     </div>
                    </div>
                 )}
