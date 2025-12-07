@@ -48,6 +48,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { isHtmlContent } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
+import QRCode from "qrcode"; // <--- NEW IMPORT
 
 export function SavedDesignsTab() {
   const { user } = useUser();
@@ -234,7 +235,7 @@ export function SavedDesignsTab() {
 
   // --- PREVIEW GENERATION (PUPPETEER) ---
 
-  const generateHTMLForPage = (pageIndex: number) => {
+  const generateHTMLForPage = async (pageIndex: number) => { // <--- Made Async
     const container = document.createElement("div");
     container.style.width = `${canvasWidth}px`;
     container.style.height = `${canvasHeight}px`;
@@ -346,6 +347,38 @@ export function SavedDesignsTab() {
            img.style.objectFit = "contain";
            elementDiv.appendChild(img);
          }
+      } else if (element.type === "qrcode") { // <--- NEW QR LOGIC FOR PREVIEW
+         let content = element.content || "https://doculoom.io";
+
+         // Use variable data if available, otherwise just use the raw content pattern
+         if (element.content && excelData && excelData.rows[selectedRowIndex]) {
+             content = element.content.replace(/{{(.*?)}}/g, (match, p1) => {
+                 const fieldName = p1.trim();
+                 return excelData.rows[selectedRowIndex][fieldName] || match; 
+             });
+         }
+
+         if (content) {
+             try {
+                 const svgString = await QRCode.toString(content, {
+                    type: 'svg',
+                    errorCorrectionLevel: 'M', // Medium is fine for preview
+                    margin: 0, 
+                    color: {
+                        dark: element.textStyle?.color || '#000000',
+                        light: '#00000000' 
+                    }
+                 });
+                 elementDiv.innerHTML = svgString;
+                 const svgEl = elementDiv.querySelector("svg");
+                 if (svgEl) {
+                     svgEl.style.width = "100%";
+                     svgEl.style.height = "100%";
+                 }
+             } catch (e) {
+                 console.error("Error generating QR for Preview", e);
+             }
+         }
       }
 
       container.appendChild(elementDiv);
@@ -358,7 +391,7 @@ export function SavedDesignsTab() {
 
     try {
       for (let i = 0; i < pageCount; i++) {
-        const pageHtml = generateHTMLForPage(i);
+        const pageHtml = await generateHTMLForPage(i); // <--- AWAIT HERE
 
         const fullHtml = `
           <!DOCTYPE html>
