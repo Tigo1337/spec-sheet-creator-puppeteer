@@ -17,6 +17,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -40,7 +46,8 @@ import {
   Hash,
   Calendar,
   CheckSquare,
-  Check // Kept Check, Removed Plus
+  Check,
+  List
 } from "lucide-react";
 import { availableFonts, openSourceFontMap, type CanvasElement } from "@shared/schema";
 
@@ -170,11 +177,13 @@ export function PropertiesTab() {
   // Helper to determine used fields for visual feedback
   const getUsedFields = (content: string | undefined) => {
     if (!content) return new Set<string>();
+    // Matches {{FieldName}}
     const matches = content.matchAll(/{{(.*?)}}/g);
     const fields = new Set<string>();
     for (const match of matches) {
       fields.add(match[1]);
     }
+    // Also include direct dataBinding if present
     if (selectedElement.dataBinding) {
       fields.add(selectedElement.dataBinding);
     }
@@ -495,28 +504,50 @@ export function PropertiesTab() {
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
                   <Label className="text-xs text-muted-foreground">Content</Label>
+
+                  {/* MULTI-SELECT DROPDOWN LOGIC */}
                   {excelData && excelData.headers.length > 0 && (
-                    <Select onValueChange={(value) => {
-                        const currentContent = selectedElement.content || "";
-                        const prefix = currentContent && !currentContent.match(/\s$/) ? "\n" : ""; 
-                        updateElement(selectedElement.id, { 
-                          content: currentContent + prefix + `{{${value}}}` 
-                        });
-                    }}>
-                      <SelectTrigger className="h-auto py-1 px-2 text-xs w-auto border-none shadow-none bg-muted/50 hover:bg-muted text-primary whitespace-nowrap">
-                         <span className="flex items-center gap-1">Insert Field</span>
-                      </SelectTrigger>
-                      <SelectContent>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          className="h-auto py-1 px-2 text-xs w-auto border-none shadow-none bg-muted/50 hover:bg-muted text-primary whitespace-nowrap"
+                        >
+                           <span className="flex items-center gap-1">Insert Field</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="max-h-[300px] overflow-y-auto">
                         {excelData.headers.map(header => (
-                          <SelectItem key={header} value={header}>
+                          <DropdownMenuItem 
+                            key={header} 
+                            onSelect={(e) => {
+                              e.preventDefault(); // Keep menu open for multiple selections
+
+                              const currentContent = selectedElement.content || "";
+                              const fieldTag = `{{${header}}}`;
+
+                              if (currentContent.includes(fieldTag)) {
+                                 // TOGGLE OFF: Remove all instances of this field
+                                 // Using split/join is a safe way to remove all occurrences without regex escaping issues
+                                 const newContent = currentContent.split(fieldTag).join("");
+                                 updateElement(selectedElement.id, { content: newContent });
+                              } else {
+                                 // TOGGLE ON: Add field
+                                 const prefix = currentContent && !currentContent.match(/\s$/) ? "\n" : ""; 
+                                 updateElement(selectedElement.id, { 
+                                   content: currentContent + prefix + fieldTag 
+                                 });
+                              }
+                            }}
+                          >
                             <div className="flex items-center justify-between w-full gap-2">
                               <span>{header}</span>
                               {usedFields.has(header) && <Check className="h-3 w-3 text-primary opacity-100" />}
                             </div>
-                          </SelectItem>
+                          </DropdownMenuItem>
                         ))}
-                      </SelectContent>
-                    </Select>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   )}
                 </div>
                 <Textarea
@@ -750,6 +781,26 @@ export function PropertiesTab() {
                           <SelectItem value="title">Title Case (Aa)</SelectItem>
                           <SelectItem value="upper">UPPER CASE (AA)</SelectItem>
                           <SelectItem value="lower">lower case (aa)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* LIST STYLE SELECTOR */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">List Style</Label>
+                      <Select
+                        value={selectedElement.format?.listStyle || "none"}
+                        onValueChange={(value) => handleFormatChange("listStyle", value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No List</SelectItem>
+                          <SelectItem value="disc"><div className="flex items-center gap-2"><List className="w-3 h-3"/> Bullets (•)</div></SelectItem>
+                          <SelectItem value="circle">Hollow Bullets (○)</SelectItem>
+                          <SelectItem value="square">Square Bullets (■)</SelectItem>
+                          <SelectItem value="decimal">Numbered List (1, 2, 3)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

@@ -41,6 +41,11 @@ function toTitleCase(str: string): string {
   );
 }
 
+// Helper: Check if content looks like HTML
+function isHtml(content: string): boolean {
+  return /<[a-z][\s\S]*>/i.test(content);
+}
+
 // MAIN FUNCTION: formatContent
 export function formatContent(content: string | undefined, format?: ElementFormat): string {
   if (!content) return "";
@@ -105,6 +110,20 @@ export function formatContent(content: string | undefined, format?: ElementForma
     case "upper": text = text.toUpperCase(); break;
     case "lower": text = text.toLowerCase(); break;
     case "title": text = toTitleCase(text); break;
+  }
+
+  // 5. LIST STYLING (Applies to Text)
+  if (format.listStyle && format.listStyle !== 'none') {
+    // If it's NOT already HTML, split by newlines and wrap in <li>
+    if (!isHtml(text)) {
+       const items = text.split('\n').filter(line => line.trim() !== '');
+       if (items.length > 0) {
+         const tag = format.listStyle === 'decimal' ? 'ol' : 'ul';
+         // The actual style type (disc, circle, etc) will be handled by CSS in the component
+         // based on the format.listStyle property
+         return `<${tag}>${items.map(i => `<li>${i}</li>`).join('')}</${tag}>`;
+       }
+    }
   }
 
   return text;

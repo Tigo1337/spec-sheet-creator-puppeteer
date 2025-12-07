@@ -52,6 +52,8 @@ export const formatSchema = z.object({
   dateFormat: z.string().default("MM/DD/YYYY"),
   trueLabel: z.string().optional(),
   falseLabel: z.string().optional(),
+  // NEW: List Styling
+  listStyle: z.enum(["none", "disc", "circle", "square", "decimal"]).default("none"),
 });
 
 export type ElementFormat = z.infer<typeof formatSchema>;
@@ -69,7 +71,6 @@ export const canvasElementSchema = z.object({
   content: z.string().optional(),
   dataBinding: z.string().optional(), 
 
-  // ✅ Correctly includes pageIndex
   pageIndex: z.number().default(0),
 
   textStyle: textStyleSchema.optional(),
@@ -91,7 +92,6 @@ export const templateSchema = z.object({
   canvasWidth: z.number().default(816),
   canvasHeight: z.number().default(1056),
 
-  // NEW: Added pageCount and previewImages
   pageCount: z.number().default(1),
   previewImages: z.array(z.string()).default([]),
 
@@ -152,7 +152,6 @@ export const savedDesignSchema = z.object({
   canvasWidth: z.number().default(816),
   canvasHeight: z.number().default(1056),
 
-  // NEW: Added pageCount
   pageCount: z.number().default(1),
 
   backgroundColor: z.string().default("#ffffff"),
@@ -197,7 +196,6 @@ export const availableFonts = [
   "Roboto Slab",
 ] as const;
 
-// NEW: Add this mapping object
 export const openSourceFontMap: Record<string, string> = {
   "Arial": "Arimo",
   "Verdana": "DejaVu Sans",
@@ -216,10 +214,6 @@ export const pageSizes = {
   a4: { width: 794, height: 1123 },
   legal: { width: 816, height: 1344 },
 } as const;
-
-// ============================================
-// Drizzle ORM Table Definitions
-// ============================================
 
 export const savedDesignsTable = pgTable("saved_designs", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
@@ -242,10 +236,7 @@ export const templatesTable = pgTable("templates", {
   canvasWidth: integer("canvas_width").notNull().default(816),
   canvasHeight: integer("canvas_height").notNull().default(1056),
   pageCount: integer("page_count").notNull().default(1),
-
-  // NEW: Preview images column
   previewImages: jsonb("preview_images").default([]),
-
   backgroundColor: varchar("background_color", { length: 50 }).notNull().default("#ffffff"),
   elements: jsonb("elements").notNull().default([]),
   createdAt: timestamp("created_at").notNull().defaultNow(),

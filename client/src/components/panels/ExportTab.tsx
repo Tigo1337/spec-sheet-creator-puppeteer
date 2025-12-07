@@ -190,7 +190,12 @@ export function ExportTab() {
       elementDiv.style.zIndex = String(element.zIndex ?? 0);
 
       if (element.type === "text" || element.type === "dataField") {
+         const elementId = `el-${element.id}`; // Generate unique ID for CSS
+         elementDiv.id = elementId;
+
          const textStyle = element.textStyle || {};
+         // For export, we typically use the selected font, even for data fields, to keep it clean. 
+         // If you want the export to also force monospace for data fields, change this logic.
          elementDiv.style.fontFamily = `"${textStyle.fontFamily}", sans-serif`;
          elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
          elementDiv.style.fontWeight = String(textStyle.fontWeight || 400);
@@ -202,7 +207,7 @@ export function ExportTab() {
          elementDiv.style.padding = "4px";
          elementDiv.style.wordBreak = "break-word";
          elementDiv.style.overflow = "visible";
-         elementDiv.style.whiteSpace = "pre-wrap"; // Respect newlines
+         elementDiv.style.whiteSpace = "pre-wrap"; 
 
          const hAlign = textStyle.textAlign || "left";
          elementDiv.style.textAlign = hAlign;
@@ -223,26 +228,36 @@ export function ExportTab() {
            elementDiv.style.alignItems = "flex-start";
          }
 
-         // --- INTERPOLATION LOGIC START ---
-         // Use content as base, fallback to dataBinding format if empty
          let content = element.content || (element.dataBinding ? `{{${element.dataBinding}}}` : "");
 
-         // Always perform interpolation (replaces {{Key}} with Value)
          content = content.replace(/{{(.*?)}}/g, (match, p1) => {
              const fieldName = p1.trim();
              const val = sourceData[fieldName];
              return val !== undefined ? val : match;
          });
-         // --- INTERPOLATION LOGIC END ---
 
          content = formatContent(content, element.format);
 
          if (isHtmlContent(content)) {
+            const listStyleType = element.format?.listStyle && element.format.listStyle !== 'none' 
+                ? element.format.listStyle 
+                : 'none';
+
+            // SCOPED CSS for PDF Export
             const styles = `
               <style>
-                ul, ol { margin: 0; padding-left: 1.2em; }
-                li { position: relative; margin: 0.2em 0; }
-                p { margin: 0.2em 0; }
+                #${elementId} ul, #${elementId} ol { 
+                  list-style-type: ${listStyleType} !important; 
+                  margin: 0 !important; 
+                  padding-left: ${listStyleType === 'none' ? '0' : '1.5em'} !important; 
+                  display: block !important; 
+                }
+                #${elementId} li { 
+                  position: relative !important; 
+                  margin: 0.2em 0 !important; 
+                  display: list-item !important;
+                }
+                #${elementId} p { margin: 0.2em 0; }
               </style>
             `;
             elementDiv.innerHTML = styles + content;
@@ -272,7 +287,6 @@ export function ExportTab() {
       } else if (element.type === "image") {
          let imgSrc = element.imageSrc;
 
-         // Resolve Image Source
          if (element.dataBinding && sourceData[element.dataBinding]) {
             imgSrc = sourceData[element.dataBinding];
          }

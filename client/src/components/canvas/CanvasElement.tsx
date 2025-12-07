@@ -27,6 +27,9 @@ export function CanvasElement({
   const [isLowQuality, setIsLowQuality] = useState(false);
   const [effectiveDpi, setEffectiveDpi] = useState(0);
 
+  // Generate a safe unique ID for CSS scoping
+  const elementScopeId = `el-${element.id}`;
+
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: element.id,
     disabled: element.locked,
@@ -49,7 +52,7 @@ export function CanvasElement({
   };
 
   const getDisplayContent = () => {
-    // 1. Use content as the primary source (fallback to dataBinding pattern if empty)
+    // 1. Use content as base, fallback to dataBinding pattern if empty
     let content = element.content || (element.dataBinding ? `{{${element.dataBinding}}}` : "");
 
     // 2. Handle Text Interpolation (Replace {{Variables}} with data)
@@ -86,7 +89,7 @@ export function CanvasElement({
         const naturalHeight = img.naturalHeight;
         setImageDimensions({ width: naturalWidth, height: naturalHeight });
 
-        // Only resize static images automatically to avoid layout shifting on data change
+        // Only resize static images automatically
         if (!element.dataBinding) { 
              const aspectRatio = naturalWidth / naturalHeight;
              const newHeight = Math.round(element.dimension.width / aspectRatio);
@@ -129,109 +132,73 @@ export function CanvasElement({
   };
 
   const renderContent = () => {
+    const listStyleType = element.format?.listStyle && element.format.listStyle !== 'none' 
+      ? element.format.listStyle 
+      : 'none';
+
     switch (element.type) {
       case "text":
+      case "dataField":
+        const isDataField = element.type === "dataField";
         const verticalAlignMap = {
           top: "flex-start",
           middle: "center",
           bottom: "flex-end",
         };
-        return (
-          <div
-            className="w-full h-full overflow-hidden canvas-element-content"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: verticalAlignMap[element.textStyle?.verticalAlign || "middle"] as any,
-              fontFamily: element.textStyle?.fontFamily || "Inter",
-              fontSize: (element.textStyle?.fontSize || 16) * zoom,
-              fontWeight: element.textStyle?.fontWeight || 400,
-              color: element.textStyle?.color || "#000000",
-              textAlign: element.textStyle?.textAlign || "left",
-              lineHeight: element.textStyle?.lineHeight || 1.5,
-              letterSpacing: `${element.textStyle?.letterSpacing || 0}px`,
-              padding: 4 * zoom,
-              whiteSpace: "pre-wrap",
-            }}
-          >
-            {formatContent(getDisplayContent(), element.format)}
-          </div>
-        );
-
-      case "dataField":
-        const dataFieldVerticalAlignMap = {
-          top: "flex-start",
-          middle: "center",
-          bottom: "flex-end",
-        };
-
-        const rawContent = getDisplayContent();
-        const displayContent = formatContent(rawContent, element.format);
+        const rawTextContent = getDisplayContent();
+        const displayContent = formatContent(rawTextContent, element.format);
         const hasHtml = isHtmlContent(displayContent);
 
         return (
           <div
-            className="w-full h-full rounded border-2 border-dashed overflow-hidden canvas-data-field canvas-element-content"
+            id={elementScopeId} // Unique ID for CSS scoping
+            // CONDITIONAL CLASS: Add border and rounded corners if it's a dataField
+            className={`w-full h-full overflow-hidden canvas-element-content ${isDataField ? "rounded-md border-2 border-dashed" : ""}`}
             style={{
               display: "flex",
-              alignItems: dataFieldVerticalAlignMap[element.textStyle?.verticalAlign || "middle"] as any,
-              justifyContent: element.textStyle?.textAlign === "center" ? "center" : element.textStyle?.textAlign === "right" ? "flex-end" : "flex-start",
-              padding: 4 * zoom, 
-              fontFamily: element.textStyle?.fontFamily || "JetBrains Mono",
-              fontSize: (element.textStyle?.fontSize || 14) * zoom,
-              fontWeight: element.textStyle?.fontWeight || 500,
+              flexDirection: "column",
+              justifyContent: verticalAlignMap[element.textStyle?.verticalAlign || "middle"] as any,
+              // FONT: Default to JetBrains Mono for dataFields, Inter for Text
+              fontFamily: element.textStyle?.fontFamily || (isDataField ? "JetBrains Mono" : "Inter"),
+              fontSize: (element.textStyle?.fontSize || (isDataField ? 14 : 16)) * zoom,
+              fontWeight: element.textStyle?.fontWeight || (isDataField ? 500 : 400),
               color: element.textStyle?.color || "#000000",
-              backgroundColor: "transparent",
-              borderColor: "#8b5cf6", 
-              lineHeight: element.textStyle?.lineHeight || 1.4,
+              textAlign: element.textStyle?.textAlign || "left",
+              lineHeight: element.textStyle?.lineHeight || (isDataField ? 1.4 : 1.5),
               letterSpacing: `${element.textStyle?.letterSpacing || 0}px`,
+              padding: 4 * zoom,
+              // COLORS: Restore Purple styling for Data Fields
+              borderColor: isDataField ? "#8b5cf6" : "transparent",
+              backgroundColor: isDataField ? "transparent" : "rgba(139, 92, 246, 0.05)",
+              whiteSpace: hasHtml ? "normal" : "pre-wrap", 
             }}
           >
             {hasHtml ? (
-              <div
-                style={{
-                  flex: 1,
-                  overflow: "auto",
-                  fontSize: (element.textStyle?.fontSize || 14) * zoom,
-                  lineHeight: element.textStyle?.lineHeight || 1.4,
-                  display: "block",
-                }}
-              >
-                <style>{`
-                  ul { 
-                    list-style-type: none !important; 
+               <div
+                  style={{
+                    width: "100%",
+                  }}
+               >
+                 {/* SCOPED CSS: Only affects this element ID */}
+                 <style>{`
+                  #${elementScopeId} ul, #${elementScopeId} ol { 
+                    list-style-type: ${listStyleType} !important; 
                     margin: 0 !important; 
-                    padding-left: 0 !important; 
+                    padding-left: ${listStyleType === 'none' ? '0' : '1.5em'} !important; 
                     display: block !important; 
                   }
-                  li { 
+                  #${elementScopeId} li { 
                     position: relative !important;
                     margin: 0.2em 0 !important; 
-                    padding-left: 1.2em !important;
-                    display: block !important; 
+                    display: list-item !important;
                     text-align: left !important;
                   }
-                  li::before {
-                    content: "•" !important;
-                    position: absolute !important;
-                    left: 0 !important;
-                    top: 0 !important;
-                  }
-                  ol { 
-                    list-style-type: decimal !important; 
-                    margin: 0 !important; 
-                    padding-left: 1.2em !important; 
-                    display: block !important; 
-                  }
-                  strong, b { font-weight: bold; }
-                  em, i { font-style: italic; }
-                  p { margin: 0.2em 0; display: block !important; }
+                  #${elementScopeId} p { margin: 0.2em 0; display: block !important; }
                 `}</style>
-                <div style={{ display: "block" }} dangerouslySetInnerHTML={{ __html: displayContent }} />
-              </div>
+                <div dangerouslySetInnerHTML={{ __html: displayContent }} />
+               </div>
             ) : (
-              /* CHANGED: Replaced truncate with whitespace-pre-wrap to support multi-line lists */
-              <span className="whitespace-pre-wrap">{displayContent}</span>
+              displayContent
             )}
           </div>
         );
