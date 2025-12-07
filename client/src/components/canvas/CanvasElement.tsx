@@ -132,9 +132,8 @@ export function CanvasElement({
   };
 
   const renderContent = () => {
-    const listStyleType = element.format?.listStyle && element.format.listStyle !== 'none' 
-      ? element.format.listStyle 
-      : 'none';
+    const listStyleProp = element.format?.listStyle;
+    const hasCustomListStyle = listStyleProp && listStyleProp !== 'none';
 
     switch (element.type) {
       case "text":
@@ -179,12 +178,17 @@ export function CanvasElement({
                     width: "100%",
                   }}
                >
-                 {/* SCOPED CSS: Only affects this element ID */}
+                 {/* SCOPED CSS: Override Tailwind's list reset behavior */}
                  <style>{`
+                  #${elementScopeId} ul { 
+                    list-style-type: ${hasCustomListStyle ? listStyleProp : 'disc'} !important; 
+                  }
+                  #${elementScopeId} ol { 
+                    list-style-type: ${hasCustomListStyle ? listStyleProp : 'decimal'} !important; 
+                  }
                   #${elementScopeId} ul, #${elementScopeId} ol { 
-                    list-style-type: ${listStyleType} !important; 
                     margin: 0 !important; 
-                    padding-left: ${listStyleType === 'none' ? '0' : '1.5em'} !important; 
+                    padding-left: 1.5em !important; 
                     display: block !important; 
                   }
                   #${elementScopeId} li { 

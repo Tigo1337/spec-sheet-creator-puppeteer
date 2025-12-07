@@ -4,7 +4,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -194,8 +193,6 @@ export function ExportTab() {
          elementDiv.id = elementId;
 
          const textStyle = element.textStyle || {};
-         // For export, we typically use the selected font, even for data fields, to keep it clean. 
-         // If you want the export to also force monospace for data fields, change this logic.
          elementDiv.style.fontFamily = `"${textStyle.fontFamily}", sans-serif`;
          elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
          elementDiv.style.fontWeight = String(textStyle.fontWeight || 400);
@@ -207,7 +204,7 @@ export function ExportTab() {
          elementDiv.style.padding = "4px";
          elementDiv.style.wordBreak = "break-word";
          elementDiv.style.overflow = "visible";
-         elementDiv.style.whiteSpace = "pre-wrap"; 
+         // elementDiv.style.whiteSpace = "pre-wrap"; // MOVED: Now set conditionally below
 
          const hAlign = textStyle.textAlign || "left";
          elementDiv.style.textAlign = hAlign;
@@ -238,19 +235,23 @@ export function ExportTab() {
 
          content = formatContent(content, element.format);
 
-         if (isHtmlContent(content)) {
-            const listStyleType = element.format?.listStyle && element.format.listStyle !== 'none' 
-                ? element.format.listStyle 
-                : 'none';
+         // FIX: Check for HTML first, then set white-space accordingly
+         const hasHtml = isHtmlContent(content);
+         elementDiv.style.whiteSpace = hasHtml ? "normal" : "pre-wrap";
+
+         if (hasHtml) {
+            // FIX: Allow default bullets (no list-style-type: none) unless specifically overridden
+            const listStyleProp = element.format?.listStyle;
+            const hasCustomListStyle = listStyleProp && listStyleProp !== 'none';
 
             // SCOPED CSS for PDF Export
             const styles = `
               <style>
                 #${elementId} ul, #${elementId} ol { 
-                  list-style-type: ${listStyleType} !important; 
                   margin: 0 !important; 
-                  padding-left: ${listStyleType === 'none' ? '0' : '1.5em'} !important; 
+                  padding-left: 1.5em !important; 
                   display: block !important; 
+                  ${hasCustomListStyle ? `list-style-type: ${listStyleProp} !important;` : ''}
                 }
                 #${elementId} li { 
                   position: relative !important; 
@@ -342,6 +343,16 @@ export function ExportTab() {
             @font-face { font-family: 'Trebuchet MS'; src: local('Fira Sans'); }
             @font-face { font-family: 'Comic Sans MS'; src: local('Comic Neue'); }
             @font-face { font-family: 'Impact'; src: local('Oswald'); }
+
+            /* CSS RESET for PDF Export - Critical for fixing spacing issues */
+            body, h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd {
+              margin: 0;
+            }
+            ul, ol {
+              margin: 0;
+              padding: 0;
+              list-style: none; /* Default to none, overridden by scoped styles */
+            }
 
             @page {
               size: ${canvasWidth}px ${canvasHeight}px;

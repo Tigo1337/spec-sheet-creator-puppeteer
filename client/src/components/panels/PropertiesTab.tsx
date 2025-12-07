@@ -797,7 +797,7 @@ export function PropertiesTab() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">No List</SelectItem>
-                          <SelectItem value="disc"><div className="flex items-center gap-2"><List className="w-3 h-3"/> Bullets (•)</div></SelectItem>
+                          <SelectItem value="disc"> Bullets (•)</SelectItem>
                           <SelectItem value="circle">Hollow Bullets (○)</SelectItem>
                           <SelectItem value="square">Square Bullets (■)</SelectItem>
                           <SelectItem value="decimal">Numbered List (1, 2, 3)</SelectItem>

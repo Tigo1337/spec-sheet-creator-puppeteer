@@ -4,30 +4,15 @@ import { type ElementFormat } from "@shared/schema";
 function toFraction(value: number, precision: number = 16): string {
   const wholeNumber = Math.floor(value);
   const decimalPart = value - wholeNumber;
-
-  // If basically an integer, return just the integer
   if (Math.abs(decimalPart) < 0.0001) return wholeNumber.toString();
-
-  // Calculate numerator for the chosen precision (e.g. 16ths)
   let numerator = Math.round(decimalPart * precision);
   let denominator = precision;
-
-  // Reduce fraction (GCD)
   const gcd = (a: number, b: number): number => b ? gcd(b, a % b) : a;
   const commonDivisor = gcd(numerator, denominator);
-
   numerator /= commonDivisor;
   denominator /= commonDivisor;
-
-  // Handle case where rounding bumped it to the next whole number
-  if (numerator === denominator) {
-    return (wholeNumber + 1).toString();
-  }
-
-  if (numerator === 0) {
-    return wholeNumber.toString();
-  }
-
+  if (numerator === denominator) return (wholeNumber + 1).toString();
+  if (numerator === 0) return wholeNumber.toString();
   return wholeNumber === 0 
     ? `${numerator}/${denominator}` 
     : `${wholeNumber} ${numerator}/${denominator}`;
@@ -43,35 +28,52 @@ function toTitleCase(str: string): string {
 
 // Helper: Check if content looks like HTML
 function isHtml(content: string): boolean {
+  if (!content) return false;
   return /<[a-z][\s\S]*>/i.test(content);
 }
 
-// MAIN FUNCTION: formatContent
+// Helper: Apply casing only to text nodes within HTML
+function applyCasingToHtml(html: string, casing: "upper" | "lower" | "title" | "none"): string {
+  if (typeof document === 'undefined') return html;
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  const walk = (node: Node) => {
+    if (node.nodeType === 3) { // TEXT_NODE
+      const text = node.nodeValue || "";
+      if (text.trim().length > 0) {
+        let newText = text;
+        switch (casing) {
+          case "upper": newText = text.toUpperCase(); break;
+          case "lower": newText = text.toLowerCase(); break;
+          case "title": newText = toTitleCase(text); break;
+        }
+        if (newText !== text) node.nodeValue = newText;
+      }
+    } else {
+      node.childNodes.forEach(walk);
+    }
+  };
+  walk(div);
+  return div.innerHTML;
+}
+
+// MAIN FUNCTION
 export function formatContent(content: string | undefined, format?: ElementFormat): string {
   if (!content) return "";
   if (!format) return content;
 
   // 1. DATA TYPE: NUMBER
   if (format.dataType === "number") {
-    // Clean string to get raw number (remove existing $ or units if user typed them)
     const rawNum = parseFloat(content.replace(/[^\d.-]/g, ''));
-    if (isNaN(rawNum)) return content; // Fallback if not a number
+    if (isNaN(rawNum)) return content;
+    let result = format.useFractions
+      ? toFraction(rawNum, format.fractionPrecision)
+      : rawNum.toFixed(format.decimalPlaces ?? 2);
 
-    let result = "";
-
-    if (format.useFractions) {
-      result = toFraction(rawNum, format.fractionPrecision);
-    } else {
-      result = rawNum.toFixed(format.decimalPlaces ?? 2);
-    }
-
-    // Append Unit
     if (format.unit) {
-      // Handle prefix units like $ separately if needed, but for now specific requests were suffix
       if (format.unit === "$") result = `$${result}`;
       else result = `${result} ${format.unit}`;
     }
-
     return result;
   }
 
@@ -79,48 +81,46 @@ export function formatContent(content: string | undefined, format?: ElementForma
   if (format.dataType === "date") {
     const date = new Date(content);
     if (isNaN(date.getTime())) return content;
-
-    // Simple format map
     switch (format.dateFormat) {
-      case "MM/DD/YYYY":
-        return date.toLocaleDateString('en-US'); // 12/25/2025
-      case "DD/MM/YYYY":
-        return date.toLocaleDateString('en-GB'); // 25/12/2025
-      case "YYYY-MM-DD":
-        return date.toISOString().split('T')[0]; // 2025-12-25
-      case "MMM D, YYYY":
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      case "MMMM D, YYYY":
-        return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-      default:
-        return date.toLocaleDateString();
+      case "MM/DD/YYYY": return date.toLocaleDateString('en-US');
+      case "DD/MM/YYYY": return date.toLocaleDateString('en-GB');
+      case "YYYY-MM-DD": return date.toISOString().split('T')[0];
+      case "MMM D, YYYY": return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      case "MMMM D, YYYY": return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      default: return date.toLocaleDateString();
     }
   }
 
   // 3. DATA TYPE: BOOLEAN
   if (format.dataType === "boolean") {
     const isTrue = ["true", "1", "yes", "on"].includes(content.toLowerCase());
-    if (isTrue) return format.trueLabel || "Yes";
-    return format.falseLabel || "No";
+    return isTrue ? (format.trueLabel || "Yes") : (format.falseLabel || "No");
   }
 
-  // 4. DATA TYPE: TEXT (Default)
+  // 4. DATA TYPE: TEXT
   let text = content;
-  switch (format.casing) {
-    case "upper": text = text.toUpperCase(); break;
-    case "lower": text = text.toLowerCase(); break;
-    case "title": text = toTitleCase(text); break;
+
+  if (isHtml(text)) {
+    // FIX 1: Safely apply casing to HTML content without breaking tags
+    if (format.casing && format.casing !== "none") {
+      text = applyCasingToHtml(text, format.casing);
+    }
+  } else {
+    // Standard text casing
+    switch (format.casing) {
+      case "upper": text = text.toUpperCase(); break;
+      case "lower": text = text.toLowerCase(); break;
+      case "title": text = toTitleCase(text); break;
+    }
   }
 
-  // 5. LIST STYLING (Applies to Text)
+  // 5. LIST STYLING (For plain text only)
   if (format.listStyle && format.listStyle !== 'none') {
-    // If it's NOT already HTML, split by newlines and wrap in <li>
+    // Only apply manual list wrapping if it's NOT already HTML
     if (!isHtml(text)) {
        const items = text.split('\n').filter(line => line.trim() !== '');
        if (items.length > 0) {
          const tag = format.listStyle === 'decimal' ? 'ol' : 'ul';
-         // The actual style type (disc, circle, etc) will be handled by CSS in the component
-         // based on the format.listStyle property
          return `<${tag}>${items.map(i => `<li>${i}</li>`).join('')}</${tag}>`;
        }
     }
