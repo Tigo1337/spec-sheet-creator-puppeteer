@@ -459,6 +459,11 @@ export function PropertiesTab() {
                     newDimension.height = Math.round(newWidth / ratio);
                   }
 
+                  // Force 1:1 ratio for QR codes
+                  if (selectedElement.type === "qrcode") {
+                    newDimension.height = newWidth;
+                  }
+
                   updateElement(selectedElement.id, {
                     dimension: newDimension,
                   });
@@ -483,6 +488,11 @@ export function PropertiesTab() {
                     newDimension.width = Math.round(newHeight * ratio);
                   }
 
+                  // Force 1:1 ratio for QR codes
+                  if (selectedElement.type === "qrcode") {
+                    newDimension.width = newHeight;
+                  }
+
                   updateElement(selectedElement.id, {
                     dimension: newDimension,
                   });
@@ -495,7 +505,7 @@ export function PropertiesTab() {
 
         <Separator />
 
-        {/* NEW: QR Code Properties Block */}
+        {/* QR Code Settings */}
         {selectedElement.type === "qrcode" && (
           <div>
             <h3 className="font-medium text-sm mb-3">QR Code Settings</h3>
@@ -503,7 +513,6 @@ export function PropertiesTab() {
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
                   <Label className="text-xs text-muted-foreground">Content / URL</Label>
-                   {/* Dynamic Field Inserter */}
                    {excelData && excelData.headers.length > 0 && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -568,7 +577,6 @@ export function PropertiesTab() {
             </div>
           </div>
         )}
-
 
         {/* Text Properties & Data Formatting */}
         {(selectedElement.type === "text" ||

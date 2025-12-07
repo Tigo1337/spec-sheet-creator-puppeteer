@@ -52,7 +52,9 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
   useEffect(() => {
     if (!isResizing || !activeHandle) return;
 
-    const isImageElement = element.type === "image";
+    // UPDATED: Treat QR codes like images for resizing (Fixed Aspect Ratio)
+    const isFixedRatio = element.type === "image" || element.type === "qrcode";
+
     const isCornerHandle = activeHandle === "nw" || activeHandle === "ne" || activeHandle === "se" || activeHandle === "sw";
 
     const handleMouseMove = (e: MouseEvent) => {
@@ -64,7 +66,7 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
       let newX = startPosition.x;
       let newY = startPosition.y;
 
-      if (isImageElement) {
+      if (isFixedRatio) {
         if (isCornerHandle) {
           const ratio = startDimension.width / startDimension.height;
 
@@ -141,7 +143,7 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isResizing, activeHandle, startPos, startDimension, startPosition, zoom, elementId, resizeElement, moveElement, shouldSnap]);
+  }, [isResizing, activeHandle, startPos, startDimension, startPosition, zoom, elementId, resizeElement, moveElement, shouldSnap, element.type]);
 
   const { position, dimension } = element;
   const left = position.x * zoom;
@@ -149,9 +151,9 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
   const width = dimension.width * zoom;
   const height = dimension.height * zoom;
 
-  const isImageElement = element.type === "image";
+  // UPDATED: Check for fixed ratio here as well to hide edge handles
+  const isFixedRatio = element.type === "image" || element.type === "qrcode";
 
-  // UPDATE: Added data-html2canvas-ignore to hide this from screenshots
   return (
     <div data-html2canvas-ignore="true">
       {/* Corner handles - always shown */}
@@ -172,8 +174,8 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
         onMouseDown={handleMouseDown("sw")}
       />
 
-      {/* Edge handles - only for non-image elements */}
-      {!isImageElement && (
+      {/* Edge handles - only for non-image/non-QR elements */}
+      {!isFixedRatio && (
         <>
           <div
             style={{ ...handleStyle, left: left + width / 2 - 4, top: top - 4, cursor: "n-resize" }}
