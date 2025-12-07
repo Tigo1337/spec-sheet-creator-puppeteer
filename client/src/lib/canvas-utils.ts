@@ -61,6 +61,36 @@ export function createShapeElement(
   };
 }
 
+// NEW: QR Code Creator
+export function createQRCodeElement(
+  x: number,
+  y: number,
+  content: string = "https://doculoom.io"
+): CanvasElement {
+  return {
+    id: nanoid(),
+    type: "qrcode",
+    position: { x: snapToGrid(x), y: snapToGrid(y) },
+    dimension: { width: 100, height: 100 },
+    rotation: 0,
+    locked: false,
+    visible: true,
+    zIndex: Date.now(),
+    content,
+    // We use textStyle.color to control the QR code color
+    textStyle: {
+      fontFamily: "Inter",
+      fontSize: 16,
+      fontWeight: 400,
+      color: "#000000",
+      textAlign: "left",
+      verticalAlign: "middle",
+      lineHeight: 1.5,
+      letterSpacing: 0,
+    },
+  };
+}
+
 export function createDataFieldElement(
   x: number,
   y: number,

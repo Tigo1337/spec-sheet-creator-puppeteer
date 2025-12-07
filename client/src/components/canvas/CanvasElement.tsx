@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { isHtmlContent } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
 import { AlertTriangle } from "lucide-react";
+import QRCode from "qrcode";
 
 interface CanvasElementProps {
   element: CanvasElementType;
@@ -22,6 +23,9 @@ export function CanvasElement({
   const { excelData, selectedRowIndex, updateElement } = useCanvasStore();
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  // QR Code State
+  const [qrSvg, setQrSvg] = useState<string>("");
 
   // Quality Check States
   const [isLowQuality, setIsLowQuality] = useState(false);
@@ -80,6 +84,8 @@ export function CanvasElement({
 
   // Update image dimensions when URL changes
   useEffect(() => {
+    if (element.type !== "image") return;
+
     const url = getImageUrl();
     if (url && url !== imageUrl) {
       setImageUrl(url);
@@ -105,6 +111,32 @@ export function CanvasElement({
       img.src = url;
     }
   }, [element.dataBinding, selectedRowIndex, element.type, excelData, element.id, element.dimension.width, imageUrl, updateElement]);
+
+  // QR Code Generation Effect
+  useEffect(() => {
+    if (element.type === "qrcode") { 
+       const content = getDisplayContent();
+
+       // If using Dynamic QR, we would append the shortID base URL here
+       // For now, we encode the content directly (Static Mode)
+       // const urlToEncode = element.qrCodeId 
+       //    ? `https://doculoom.io/q/${element.qrCodeId}` 
+       //    : content;
+
+       if (content) {
+         QRCode.toString(content, {
+           type: 'svg',
+           errorCorrectionLevel: 'H',
+           margin: 1,
+           color: {
+             dark: element.textStyle?.color || '#000000',
+             light: '#00000000' // Transparent background
+           }
+         }).then(svg => setQrSvg(svg))
+           .catch(err => console.error("QR Gen Error", err));
+       }
+    }
+  }, [element.content, element.type, element.dataBinding, excelData, selectedRowIndex, element.textStyle?.color]);
 
   // Calculate Effective DPI
   useEffect(() => {
@@ -270,6 +302,14 @@ export function CanvasElement({
               {element.dataBinding ? `No image for ${element.dataBinding}` : "No image"}
             </span>
           </div>
+        );
+
+      case "qrcode": 
+        return (
+          <div 
+            className="w-full h-full"
+            dangerouslySetInnerHTML={{ __html: qrSvg }}
+          />
         );
 
       default:

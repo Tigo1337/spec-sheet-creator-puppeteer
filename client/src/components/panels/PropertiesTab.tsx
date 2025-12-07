@@ -495,6 +495,81 @@ export function PropertiesTab() {
 
         <Separator />
 
+        {/* NEW: QR Code Properties Block */}
+        {selectedElement.type === "qrcode" && (
+          <div>
+            <h3 className="font-medium text-sm mb-3">QR Code Settings</h3>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <Label className="text-xs text-muted-foreground">Content / URL</Label>
+                   {/* Dynamic Field Inserter */}
+                   {excelData && excelData.headers.length > 0 && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          className="h-auto py-1 px-2 text-xs w-auto border-none shadow-none bg-muted/50 hover:bg-muted text-primary whitespace-nowrap"
+                        >
+                           <span className="flex items-center gap-1">Insert Field</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="max-h-[300px] overflow-y-auto">
+                        {excelData.headers.map(header => (
+                          <DropdownMenuItem 
+                            key={header} 
+                            onSelect={(e) => {
+                              const currentContent = selectedElement.content || "";
+                              const fieldTag = `{{${header}}}`;
+                              updateElement(selectedElement.id, { 
+                                content: currentContent + fieldTag 
+                              });
+                            }}
+                          >
+                            <div className="flex items-center justify-between w-full gap-2">
+                              <span>{header}</span>
+                            </div>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+                <Textarea
+                  value={selectedElement.content || ""}
+                  onChange={(e) =>
+                    updateElement(selectedElement.id, { content: e.target.value })
+                  }
+                  placeholder="https://example.com"
+                  className="font-mono text-sm min-h-[80px]"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  You can use data fields like {'{{SKU}}'} to generate dynamic QR codes for each row.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Color</Label>
+                 <div className="flex gap-2">
+                  <Input
+                    type="color"
+                    value={selectedElement.textStyle?.color || "#000000"}
+                    onChange={(e) => handleTextStyleChange("color", e.target.value)}
+                    className="w-12 h-9 p-1 cursor-pointer"
+                  />
+                  <Input
+                    type="text"
+                    value={selectedElement.textStyle?.color || "#000000"}
+                    onChange={(e) => handleTextStyleChange("color", e.target.value)}
+                    className="flex-1 font-mono text-sm"
+                  />
+                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+
         {/* Text Properties & Data Formatting */}
         {(selectedElement.type === "text" ||
           selectedElement.type === "dataField") && (

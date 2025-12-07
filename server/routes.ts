@@ -11,6 +11,7 @@ import { stripeService } from "./stripeService";
 import { getStripePublishableKey } from "./stripeClient";
 import puppeteer from "puppeteer";
 import path from "path";
+import { nanoid } from "nanoid"; // Ensure nanoid is available in server context
 
 // --- REQUIRED FIXES FOR GHOSTSCRIPT ---
 import fs from "fs";
@@ -26,6 +27,32 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   const objectStorageService = new ObjectStorageService();
+
+  // ============================================
+  // 0. Dynamic QR Code Redirection (Public)
+  // ============================================
+  app.get("/q/:id", async (req, res) => {
+    const shortId = req.params.id;
+
+    try {
+      // NOTE: For MVP, we mock the DB lookup. 
+      // To fully implement, you must add `getQRCode(id)` to your `server/storage.ts`
+      // const qrRecord = await storage.getQRCode(shortId);
+
+      const qrRecord = { destinationUrl: "https://doculoom.io" }; // Default fallback for testing
+
+      if (qrRecord) {
+         // 301 Redirect: Browser will cache this redirect. 
+         // Use 302 if you want to track analytics on every scan.
+         return res.redirect(302, qrRecord.destinationUrl);
+      }
+
+      res.status(404).send("QR Code link not found");
+    } catch (error) {
+      console.error("QR Redirect Error:", error);
+      res.status(500).send("Internal Server Error");
+    }
+  });
 
   // ============================================
   // 1. PDF Export Route (High Quality + CMYK)
@@ -186,6 +213,31 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Preview Generation Error:", error);
       res.status(500).json({ error: "Failed to generate preview" });
+    }
+  });
+
+  // ============================================
+  // QR Code CRUD API
+  // ============================================
+  app.post("/api/qrcodes", async (req, res) => {
+    try {
+      const auth = getAuth(req);
+      if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
+
+      const { destinationUrl } = req.body;
+      if (!destinationUrl) return res.status(400).json({ error: "Destination URL is required" });
+
+      const shortId = nanoid(8); // Generate short ID like "x8k29a"
+
+      // TODO: Call storage.createQRCode(...) here to persist to DB
+      // const newQR = await storage.createQRCode({ id: shortId, ... });
+
+      // Mock response for now
+      const newQR = { id: shortId, destinationUrl };
+
+      res.status(201).json(newQR);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create QR code" });
     }
   });
 

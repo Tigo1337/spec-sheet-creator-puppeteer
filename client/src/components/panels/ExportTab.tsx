@@ -31,6 +31,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import JSZip from "jszip";
 import { isHtmlContent, getImageDimensions } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
+import QRCode from "qrcode"; // <--- NEW IMPORT
 
 export function ExportTab() {
   const [isExporting, setIsExporting] = useState(false);
@@ -204,7 +205,6 @@ export function ExportTab() {
          elementDiv.style.padding = "4px";
          elementDiv.style.wordBreak = "break-word";
          elementDiv.style.overflow = "visible";
-         // elementDiv.style.whiteSpace = "pre-wrap"; // MOVED: Now set conditionally below
 
          const hAlign = textStyle.textAlign || "left";
          elementDiv.style.textAlign = hAlign;
@@ -235,16 +235,13 @@ export function ExportTab() {
 
          content = formatContent(content, element.format);
 
-         // FIX: Check for HTML first, then set white-space accordingly
          const hasHtml = isHtmlContent(content);
          elementDiv.style.whiteSpace = hasHtml ? "normal" : "pre-wrap";
 
          if (hasHtml) {
-            // FIX: Allow default bullets (no list-style-type: none) unless specifically overridden
             const listStyleProp = element.format?.listStyle;
             const hasCustomListStyle = listStyleProp && listStyleProp !== 'none';
 
-            // SCOPED CSS for PDF Export
             const styles = `
               <style>
                 #${elementId} ul, #${elementId} ol { 
@@ -315,6 +312,39 @@ export function ExportTab() {
            img.style.objectFit = "contain";
            elementDiv.appendChild(img);
          }
+      } else if (element.type === "qrcode") { // <--- NEW QR LOGIC
+         let content = element.content || "https://doculoom.io";
+
+         // Handle Variable Replacement in QR Code Content
+         content = content.replace(/{{(.*?)}}/g, (match, p1) => {
+             const fieldName = p1.trim();
+             const val = sourceData[fieldName];
+             return val !== undefined ? val : match;
+         });
+
+         if (content) {
+             try {
+                 const svgString = await QRCode.toString(content, {
+                    type: 'svg',
+                    errorCorrectionLevel: 'H',
+                    margin: 0, // No margin for print
+                    color: {
+                        dark: element.textStyle?.color || '#000000',
+                        light: '#00000000' // Transparent
+                    }
+                 });
+                 elementDiv.innerHTML = svgString;
+
+                 // Ensure SVG scales to container
+                 const svgEl = elementDiv.querySelector("svg");
+                 if (svgEl) {
+                     svgEl.style.width = "100%";
+                     svgEl.style.height = "100%";
+                 }
+             } catch (e) {
+                 console.error("Error generating QR for PDF", e);
+             }
+         }
       }
 
       container.appendChild(elementDiv);
@@ -344,14 +374,14 @@ export function ExportTab() {
             @font-face { font-family: 'Comic Sans MS'; src: local('Comic Neue'); }
             @font-face { font-family: 'Impact'; src: local('Oswald'); }
 
-            /* CSS RESET for PDF Export - Critical for fixing spacing issues */
+            /* CSS RESET for PDF Export */
             body, h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd {
               margin: 0;
             }
             ul, ol {
               margin: 0;
               padding: 0;
-              list-style: none; /* Default to none, overridden by scoped styles */
+              list-style: none; 
             }
 
             @page {

@@ -2,8 +2,8 @@ import { z } from "zod";
 import { pgTable, varchar, text, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
-// Canvas Element Types
-export type ElementType = "text" | "shape" | "image" | "table" | "dataField";
+// Canvas Element Types - Added "qrcode"
+export type ElementType = "text" | "shape" | "image" | "table" | "dataField" | "qrcode";
 
 // Position and dimension types
 export const positionSchema = z.object({
@@ -52,7 +52,6 @@ export const formatSchema = z.object({
   dateFormat: z.string().default("MM/DD/YYYY"),
   trueLabel: z.string().optional(),
   falseLabel: z.string().optional(),
-  // NEW: List Styling
   listStyle: z.enum(["none", "disc", "circle", "square", "decimal"]).default("none"),
 });
 
@@ -61,7 +60,8 @@ export type ElementFormat = z.infer<typeof formatSchema>;
 // Canvas element schema
 export const canvasElementSchema = z.object({
   id: z.string(),
-  type: z.enum(["text", "shape", "image", "table", "dataField"]),
+  // Updated Enum to include qrcode
+  type: z.enum(["text", "shape", "image", "table", "dataField", "qrcode"]),
   position: positionSchema,
   dimension: dimensionSchema,
   rotation: z.number().default(0),
@@ -80,6 +80,9 @@ export const canvasElementSchema = z.object({
   shapeType: z.enum(["rectangle", "circle", "line"]).optional(),
   imageSrc: z.string().optional(),
   isImageField: z.boolean().default(false),
+
+  // New field for Dynamic QR Codes
+  qrCodeId: z.string().optional(),
 });
 
 export type CanvasElement = z.infer<typeof canvasElementSchema>;
@@ -182,17 +185,17 @@ export const availableFonts = [
   "Comic Sans MS", 
   "Impact", 
   "JetBrains Mono",
-  "Lato",
-  "Lora",
-  "Merriweather",
-  "Montserrat",
-  "Nunito",
-  "Open Sans",
-  "Oswald",
-  "Playfair Display",
-  "Poppins",
-  "Raleway",
-  "Roboto",
+  "Lato", 
+  "Lora", 
+  "Merriweather", 
+  "Montserrat", 
+  "Nunito", 
+  "Open Sans", 
+  "Oswald", 
+  "Playfair Display", 
+  "Poppins", 
+  "Raleway", 
+  "Roboto", 
   "Roboto Slab",
 ] as const;
 
@@ -269,3 +272,14 @@ export const dbUserSchema = z.object({
 });
 
 export const insertDbUserSchema = dbUserSchema.omit({ createdAt: true, updatedAt: true });
+
+// NEW: QR Codes Table for Dynamic Linking
+export const qrCodesTable = pgTable("qr_codes", {
+  id: varchar("id", { length: 12 }).primaryKey(), // Short code (e.g. "abc12")
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  designId: varchar("design_id", { length: 36 }),
+  destinationUrl: text("destination_url").notNull(),
+  scanCount: integer("scan_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});

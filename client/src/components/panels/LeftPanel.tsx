@@ -34,11 +34,13 @@ import {
   AlignCenter,
   AlignRight,
   Bold,
+  QrCode // Import QrCode icon
 } from "lucide-react";
 import {
   createTextElement,
   createShapeElement,
   createImageElement,
+  createQRCodeElement, // Import helper
 } from "@/lib/canvas-utils";
 import { availableFonts } from "@shared/schema";
 
@@ -80,6 +82,12 @@ export function LeftPanel() {
     const x = canvasWidth / 2 - 100;
     const y = canvasHeight / 2 - 75;
     addElement(createImageElement(x, y));
+  };
+
+  const handleAddQRCode = () => {
+    const x = canvasWidth / 2 - 50;
+    const y = canvasHeight / 2 - 50;
+    addElement(createQRCodeElement(x, y));
   };
 
   const toolButtons = [
@@ -124,6 +132,7 @@ export function LeftPanel() {
               Text Formatting
             </h3>
             <div className="space-y-3">
+              {/* Font settings removed for brevity, they remain same as original */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Font</Label>
                 <Select
@@ -281,7 +290,7 @@ export function LeftPanel() {
       )}
 
       <ScrollArea className="flex-1">
-        <Accordion type="multiple" defaultValue={["text", "shapes", "images"]} className="px-2">
+        <Accordion type="multiple" defaultValue={["text", "shapes", "images", "qr"]} className="px-2">
           <AccordionItem value="text" className="border-b-0">
             <AccordionTrigger className="py-2 text-sm hover:no-underline">
               <div className="flex items-center gap-2">
@@ -384,6 +393,33 @@ export function LeftPanel() {
               </Button>
               <p className="text-xs text-muted-foreground mt-2 px-1">
                 Add an image placeholder, then set the image URL in the properties panel.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          <Separator className="my-1" />
+
+          {/* NEW: QR Codes Section */}
+          <AccordionItem value="qr" className="border-b-0">
+            <AccordionTrigger className="py-2 text-sm hover:no-underline">
+              <div className="flex items-center gap-2">
+                <QrCode className="h-4 w-4" />
+                <span>QR & Barcodes</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pt-1 pb-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start gap-2"
+                onClick={handleAddQRCode}
+                data-testid="add-qr-code"
+              >
+                <QrCode className="h-4 w-4" />
+                <span>Add QR Code</span>
+              </Button>
+              <p className="text-xs text-muted-foreground mt-2 px-1">
+                Generates a scannable QR code. You can link it to dynamic data.
               </p>
             </AccordionContent>
           </AccordionItem>
