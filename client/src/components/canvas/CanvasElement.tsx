@@ -56,15 +56,12 @@ export function CanvasElement({
   };
 
   const getDisplayContent = () => {
-    // 1. Use content as base, fallback to dataBinding pattern if empty
     let content = element.content || (element.dataBinding ? `{{${element.dataBinding}}}` : "");
 
-    // 2. Handle Text Interpolation (Replace {{Variables}} with data)
     if (excelData && excelData.rows[selectedRowIndex]) {
         const row = excelData.rows[selectedRowIndex];
         content = content.replace(/{{(.*?)}}/g, (match, p1) => {
             const fieldName = p1.trim();
-            // Only replace if we have data for this field
             return row[fieldName] !== undefined ? row[fieldName] : match; 
         });
     }
@@ -95,7 +92,6 @@ export function CanvasElement({
         const naturalHeight = img.naturalHeight;
         setImageDimensions({ width: naturalWidth, height: naturalHeight });
 
-        // Only resize static images automatically
         if (!element.dataBinding) { 
              const aspectRatio = naturalWidth / naturalHeight;
              const newHeight = Math.round(element.dimension.width / aspectRatio);
@@ -116,13 +112,6 @@ export function CanvasElement({
   useEffect(() => {
     if (element.type === "qrcode") { 
        const content = getDisplayContent();
-
-       // If using Dynamic QR, we would append the shortID base URL here
-       // For now, we encode the content directly (Static Mode)
-       // const urlToEncode = element.qrCodeId 
-       //    ? `https://doculoom.io/q/${element.qrCodeId}` 
-       //    : content;
-
        if (content) {
          QRCode.toString(content, {
            type: 'svg',
@@ -130,7 +119,7 @@ export function CanvasElement({
            margin: 1,
            color: {
              dark: element.textStyle?.color || '#000000',
-             light: '#00000000' // Transparent background
+             light: '#00000000' 
            }
          }).then(svg => setQrSvg(svg))
            .catch(err => console.error("QR Gen Error", err));
@@ -182,14 +171,12 @@ export function CanvasElement({
 
         return (
           <div
-            id={elementScopeId} // Unique ID for CSS scoping
-            // CONDITIONAL CLASS: Add border and rounded corners if it's a dataField
+            id={elementScopeId}
             className={`w-full h-full overflow-hidden canvas-element-content ${isDataField ? "rounded-md border-2 border-dashed" : ""}`}
             style={{
               display: "flex",
               flexDirection: "column",
               justifyContent: verticalAlignMap[element.textStyle?.verticalAlign || "middle"] as any,
-              // FONT: Default to JetBrains Mono for dataFields, Inter for Text
               fontFamily: element.textStyle?.fontFamily || (isDataField ? "JetBrains Mono" : "Inter"),
               fontSize: (element.textStyle?.fontSize || (isDataField ? 14 : 16)) * zoom,
               fontWeight: element.textStyle?.fontWeight || (isDataField ? 500 : 400),
@@ -198,37 +185,18 @@ export function CanvasElement({
               lineHeight: element.textStyle?.lineHeight || (isDataField ? 1.4 : 1.5),
               letterSpacing: `${element.textStyle?.letterSpacing || 0}px`,
               padding: 4 * zoom,
-              // COLORS: Restore Purple styling for Data Fields
               borderColor: isDataField ? "#8b5cf6" : "transparent",
               backgroundColor: isDataField ? "transparent" : "rgba(139, 92, 246, 0.05)",
               whiteSpace: hasHtml ? "normal" : "pre-wrap", 
             }}
           >
             {hasHtml ? (
-               <div
-                  style={{
-                    width: "100%",
-                  }}
-               >
-                 {/* SCOPED CSS: Override Tailwind's list reset behavior */}
+               <div style={{ width: "100%" }}>
                  <style>{`
-                  #${elementScopeId} ul { 
-                    list-style-type: ${hasCustomListStyle ? listStyleProp : 'disc'} !important; 
-                  }
-                  #${elementScopeId} ol { 
-                    list-style-type: ${hasCustomListStyle ? listStyleProp : 'decimal'} !important; 
-                  }
-                  #${elementScopeId} ul, #${elementScopeId} ol { 
-                    margin: 0 !important; 
-                    padding-left: 1.5em !important; 
-                    display: block !important; 
-                  }
-                  #${elementScopeId} li { 
-                    position: relative !important;
-                    margin: 0.2em 0 !important; 
-                    display: list-item !important;
-                    text-align: left !important;
-                  }
+                  #${elementScopeId} ul { list-style-type: ${hasCustomListStyle ? listStyleProp : 'disc'} !important; }
+                  #${elementScopeId} ol { list-style-type: ${hasCustomListStyle ? listStyleProp : 'decimal'} !important; }
+                  #${elementScopeId} ul, #${elementScopeId} ol { margin: 0 !important; padding-left: 1.5em !important; display: block !important; }
+                  #${elementScopeId} li { position: relative !important; margin: 0.2em 0 !important; display: list-item !important; text-align: left !important; }
                   #${elementScopeId} p { margin: 0.2em 0; display: block !important; }
                 `}</style>
                 <div dangerouslySetInnerHTML={{ __html: displayContent }} />
@@ -243,18 +211,13 @@ export function CanvasElement({
         const shapeStyle: React.CSSProperties = {
           backgroundColor: element.shapeStyle?.fill || "#e5e7eb",
           border: `${(element.shapeStyle?.strokeWidth || 1) * zoom}px solid ${element.shapeStyle?.stroke || "#9ca3af"}`,
-          borderRadius:
-            element.shapeType === "circle"
-              ? "50%"
-              : (element.shapeStyle?.borderRadius || 0) * zoom,
+          borderRadius: element.shapeType === "circle" ? "50%" : (element.shapeStyle?.borderRadius || 0) * zoom,
           opacity: element.shapeStyle?.opacity || 1,
         };
 
         if (element.shapeType === "line") {
           return (
-            <div
-              className="w-full h-full flex items-center justify-center"
-            >
+            <div className="w-full h-full flex items-center justify-center">
               <div
                 className="w-full"
                 style={{
@@ -276,7 +239,11 @@ export function CanvasElement({
           const tooltipText = `Quality: ${effectiveDpi} DPI\nFor 300 DPI print quality at this size, use an image at least ${neededWidth} x ${neededHeight} pixels.`;
 
           return (
-            <div className="relative w-full h-full">
+            // UPDATED: Added opacity style here
+            <div 
+              className="relative w-full h-full" 
+              style={{ opacity: element.shapeStyle?.opacity ?? 1 }}
+            >
               <img
                 src={displayImageUrl}
                 alt=""

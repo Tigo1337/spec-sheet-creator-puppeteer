@@ -174,16 +174,13 @@ export function PropertiesTab() {
     });
   };
 
-  // Helper to determine used fields for visual feedback
   const getUsedFields = (content: string | undefined) => {
     if (!content) return new Set<string>();
-    // Matches {{FieldName}}
     const matches = content.matchAll(/{{(.*?)}}/g);
     const fields = new Set<string>();
     for (const match of matches) {
       fields.add(match[1]);
     }
-    // Also include direct dataBinding if present
     if (selectedElement.dataBinding) {
       fields.add(selectedElement.dataBinding);
     }
@@ -227,6 +224,7 @@ export function PropertiesTab() {
 
           <Separator orientation="vertical" className="h-6 mx-1" />
 
+          {/* Layer Controls */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -459,7 +457,6 @@ export function PropertiesTab() {
                     newDimension.height = Math.round(newWidth / ratio);
                   }
 
-                  // Force 1:1 ratio for QR codes
                   if (selectedElement.type === "qrcode") {
                     newDimension.height = newWidth;
                   }
@@ -488,7 +485,6 @@ export function PropertiesTab() {
                     newDimension.width = Math.round(newHeight * ratio);
                   }
 
-                  // Force 1:1 ratio for QR codes
                   if (selectedElement.type === "qrcode") {
                     newDimension.width = newHeight;
                   }
@@ -610,12 +606,9 @@ export function PropertiesTab() {
                               const fieldTag = `{{${header}}}`;
 
                               if (currentContent.includes(fieldTag)) {
-                                 // TOGGLE OFF: Remove all instances of this field
-                                 // Using split/join is a safe way to remove all occurrences without regex escaping issues
                                  const newContent = currentContent.split(fieldTag).join("");
                                  updateElement(selectedElement.id, { content: newContent });
                               } else {
-                                 // TOGGLE ON: Add field
                                  const prefix = currentContent && !currentContent.match(/\s$/) ? "\n" : ""; 
                                  updateElement(selectedElement.id, { 
                                    content: currentContent + prefix + fieldTag 
@@ -1112,7 +1105,8 @@ export function PropertiesTab() {
                     className="flex-1"
                     onClick={() => {
                       const minZIndex = Math.min(...elements.map(el => el.zIndex || 0));
-                      updateElement(selectedElement.id, { zIndex: minZIndex - 1 });
+                      // Use store method now to handle negative index prevention
+                      sendToBack(selectedElement.id);
                     }}
                     data-testid="btn-send-to-back"
                   >
@@ -1153,8 +1147,51 @@ export function PropertiesTab() {
                   data-testid="input-image-url"
                 />
               </div>
+
+              {/* UPDATED: Added Opacity Control for Images */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">
+                  Opacity: {Math.round((selectedElement.shapeStyle?.opacity ?? 1) * 100)}%
+                </Label>
+                <Slider
+                  value={[(selectedElement.shapeStyle?.opacity ?? 1) * 100]}
+                  onValueChange={([value]) =>
+                    handleShapeStyleChange("opacity", value / 100)
+                  }
+                  min={0}
+                  max={100}
+                  step={5}
+                  data-testid="slider-opacity"
+                />
+              </div>
+
+              {/* UPDATED: Added Layer Controls for Images */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Layer</Label>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => sendToBack(selectedElement.id)}
+                    data-testid="btn-send-to-back"
+                  >
+                    Send to Back
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => bringToFront(selectedElement.id)}
+                    data-testid="btn-bring-to-front"
+                  >
+                    Bring to Front
+                  </Button>
+                </div>
+              </div>
+
               {selectedElement.imageSrc && (
-                <div className="aspect-video bg-muted rounded-md overflow-hidden">
+                <div className="aspect-video bg-muted rounded-md overflow-hidden" style={{ opacity: selectedElement.shapeStyle?.opacity ?? 1 }}>
                   <img
                     src={selectedElement.imageSrc}
                     alt="Preview"

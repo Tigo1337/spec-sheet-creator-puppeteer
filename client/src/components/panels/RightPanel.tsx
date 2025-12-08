@@ -10,12 +10,10 @@ export function RightPanel() {
   const { rightPanelTab, setRightPanelTab } = useCanvasStore();
 
   return (
-    // UPDATED: Changed w-80 to w-[400px] to fit the table content better
     <div className="w-[400px] border-l bg-sidebar flex flex-col h-full">
       <Tabs
         value={rightPanelTab}
         onValueChange={(v) => setRightPanelTab(v as typeof rightPanelTab)}
-        // UPDATED: Added h-full and min-h-0 to ensure flex child scrolling works correctly
         className="flex-1 flex flex-col h-full min-h-0"
       >
         <div className="border-b flex-shrink-0">
@@ -55,22 +53,17 @@ export function RightPanel() {
           </TabsList>
         </div>
 
-        {/* UPDATED: For Properties and Export, we use overflow-y-auto 
-           so they scroll natively if the content is long.
-        */}
-        <TabsContent value="properties" className="flex-1 m-0 h-full overflow-y-auto">
+        {/* UPDATED: Changed overflow-y-auto to overflow-hidden so the internal ScrollArea works */}
+        <TabsContent value="properties" className="flex-1 m-0 h-full overflow-hidden">
           <PropertiesTab />
         </TabsContent>
 
-        {/* UPDATED: For Data, we use overflow-hidden.
-           Since DataTab uses <ScrollArea className="h-full"> internally, 
-           we let the child component handle the scrolling to avoid double scrollbars.
-        */}
         <TabsContent value="data" className="flex-1 m-0 h-full overflow-hidden">
           <DataTab />
         </TabsContent>
 
-        <TabsContent value="export" className="flex-1 m-0 h-full overflow-y-auto">
+        {/* UPDATED: Changed overflow-y-auto to overflow-hidden here too */}
+        <TabsContent value="export" className="flex-1 m-0 h-full overflow-hidden">
           <ExportTab />
         </TabsContent>
 

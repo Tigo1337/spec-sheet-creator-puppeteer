@@ -7,7 +7,6 @@ function calculateGridSize(width: number, height: number): number {
   const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b);
   const g = gcd(width, height);
 
-  // Get all divisors of GCD in descending order
   const divisors: number[] = [];
   for (let i = 1; i <= Math.sqrt(g); i++) {
     if (g % i === 0) {
@@ -17,12 +16,10 @@ function calculateGridSize(width: number, height: number): number {
   }
   divisors.sort((a, b) => b - a);
 
-  // Target approximately 80-100 squares per dimension for consistency
   const targetSquares = 90;
   const avgDim = (width + height) / 2;
   const targetGridSize = Math.round(avgDim / targetSquares);
 
-  // Find best divisor closest to target that divides both dimensions evenly
   let bestDiv = divisors[0];
   let bestDiff = Math.abs(targetGridSize - bestDiv);
 
@@ -113,7 +110,6 @@ interface CanvasState {
   toggleImageField: (fieldName: string) => void;
 
   setCurrentTemplate: (template: Template | null) => void;
-  // UPDATED: Add previewImages parameter
   saveAsTemplate: (name: string, description?: string, previewImages?: string[]) => Template;
   loadTemplate: (template: Template) => void;
 
@@ -128,7 +124,6 @@ interface CanvasState {
   resetCanvas: () => void;
 }
 
-// History for undo/redo
 interface HistoryState {
   elements: CanvasElement[];
 }
@@ -138,11 +133,8 @@ let history: HistoryState[] = [];
 let historyIndex = -1;
 
 function saveToHistory(elements: CanvasElement[]) {
-  // Remove any forward history
   history = history.slice(0, historyIndex + 1);
-  // Add new state
   history.push({ elements: JSON.parse(JSON.stringify(elements)) });
-  // Limit history size
   if (history.length > MAX_HISTORY) {
     history = history.slice(history.length - MAX_HISTORY);
   }
@@ -207,18 +199,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   addPage: () => {
     set((state) => ({ 
       pageCount: state.pageCount + 1,
-      activePageIndex: state.pageCount // Switch to the new page
+      activePageIndex: state.pageCount 
     }));
   },
 
   removePage: (index) => {
     const { pageCount, elements } = get();
-    if (pageCount <= 1) return; // Don't delete the last page
+    if (pageCount <= 1) return;
 
-    // 1. Remove elements on this page
     const newElements = elements.filter(el => el.pageIndex !== index);
 
-    // 2. Shift elements on subsequent pages up by one
     const shiftedElements = newElements.map(el => {
       if (el.pageIndex !== undefined && el.pageIndex > index) {
         return { ...el, pageIndex: el.pageIndex - 1 };
@@ -238,8 +228,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   addElement: (element) => {
     const { elements, activePageIndex } = get();
-    // Assign the new element to the currently active page
-    const newElement = { ...element, pageIndex: activePageIndex };
+    // Default new elements to maxZ + 1 so they appear on top
+    const maxZ = Math.max(...elements.map(el => el.zIndex), 0);
+    const newElement = { ...element, pageIndex: activePageIndex, zIndex: maxZ + 1 };
+
     const newElements = [...elements, newElement];
     saveToHistory(newElements);
     set({ elements: newElements, hasUnsavedChanges: true });
@@ -276,6 +268,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const element = get().elements.find((el) => el.id === id);
     if (!element) return;
 
+    const maxZ = Math.max(...get().elements.map((el) => el.zIndex), 0);
+
     const newElement: CanvasElement = {
       ...element,
       id: nanoid(),
@@ -283,9 +277,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         x: element.position.x + 20,
         y: element.position.y + 20,
       },
-      // Keep on same page as original
       pageIndex: element.pageIndex,
-      zIndex: Date.now(),
+      zIndex: maxZ + 1, // Ensure new items are on top
     };
 
     const elements = [...get().elements, newElement];
@@ -344,13 +337,36 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ elements, hasUnsavedChanges: true });
   },
 
+  // UPDATED: Logic to prevent negative Z-Indices
   sendToBack: (id) => {
-    const minZ = Math.min(...get().elements.map((el) => el.zIndex), 0);
-    const elements = get().elements.map((el) =>
-      el.id === id ? { ...el, zIndex: minZ - 1 } : el
-    );
-    saveToHistory(elements);
-    set({ elements, hasUnsavedChanges: true });
+    const allElements = get().elements;
+    const currentMin = Math.min(...allElements.map((el) => el.zIndex), 0);
+
+    // If the lowest item is already safely above 0, we can just subtract.
+    // If it's 0 or less, we must shift everything else UP to make room at the bottom.
+    // This avoids creating negative Z-indices which hide behind the canvas background.
+
+    let updatedElements;
+
+    if (currentMin > 0) {
+        // Safe to subtract
+        updatedElements = allElements.map((el) =>
+            el.id === id ? { ...el, zIndex: currentMin - 1 } : el
+        );
+    } else {
+        // Min is already 0. We cannot go to -1.
+        // Solution: Shift everyone else UP by 1, and set target to 0.
+        updatedElements = allElements.map((el) => {
+            if (el.id === id) {
+                return { ...el, zIndex: 0 };
+            } else {
+                return { ...el, zIndex: el.zIndex + 1 };
+            }
+        });
+    }
+
+    saveToHistory(updatedElements);
+    set({ elements: updatedElements, hasUnsavedChanges: true });
   },
 
   alignLeft: () => {
@@ -478,7 +494,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         newSet.add(fieldName);
       }
 
-      // Update elements with matching dataBinding to mark/unmark as image field
       const elements = state.elements.map((el) =>
         el.dataBinding === fieldName
           ? { ...el, isImageField: !newSet.has(fieldName) ? false : true }
@@ -491,7 +506,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setCurrentTemplate: (template) => set({ currentTemplate: template }),
 
-  // UPDATED: Save previews
   saveAsTemplate: (name, description, previewImages = []) => {
     const { elements, canvasWidth, canvasHeight, backgroundColor, pageCount } = get();
     const template: Template = {
@@ -501,7 +515,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canvasWidth,
       canvasHeight,
       pageCount,
-      previewImages, // Saved to state/DB
+      previewImages, 
       backgroundColor,
       elements: JSON.parse(JSON.stringify(elements)),
       createdAt: new Date().toISOString(),
