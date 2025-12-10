@@ -658,6 +658,7 @@ export function SavedDesignsTab() {
           <DialogTrigger asChild>
             <Button 
               className="w-full" 
+              // Enable button if in Catalog Mode OR if standard elements exist
               disabled={elements.length === 0 && !isCatalogMode}
               data-testid="button-save-design"
             >
