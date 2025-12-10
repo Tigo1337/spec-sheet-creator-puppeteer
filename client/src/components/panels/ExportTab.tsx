@@ -413,9 +413,9 @@ export function ExportTab() {
       div.style.textAlign = settings.chapterStyle?.textAlign || "left";
       div.style.lineHeight = String(settings.chapterStyle?.lineHeight || 1.5); 
 
-      // Match Canvas Margins
-      div.style.marginTop = "8px"; 
-      div.style.marginBottom = "4px";
+      // UPDATED: No Margins
+      div.style.marginTop = "0px"; 
+      div.style.marginBottom = "0px";
       div.style.breakInside = "avoid"; 
       return div;
   };
@@ -612,17 +612,14 @@ export function ExportTab() {
              currentGroup = group;
 
              // === RESOLVE CHAPTER ELEMENTS ===
-             // 1. Start with Default/Template elements
              let chapterElements = chapterSection?.elements || [];
              let chapterBg = chapterSection?.backgroundColor || "#ffffff";
 
-             // 2. Override with Unique Design if it exists
              if (group && chapterDesigns[group]) {
                  chapterElements = chapterDesigns[group].elements;
                  chapterBg = chapterDesigns[group].backgroundColor;
              }
 
-             // 3. Only render if we have something to show
              if (chapterElements.length > 0) {
                  // Render Chapter Page using current row data
                  const chapterHtml = await renderPageHTML(chapterElements, row, chapterBg);

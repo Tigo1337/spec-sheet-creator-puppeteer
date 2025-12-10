@@ -138,19 +138,25 @@ export function CanvasElement({
     }
   }, [imageDimensions, element.dimension.width]);
 
-  // --- OPTIMIZED TOC CALCULATION ---
-  // Using specific dependencies to avoid infinite loops on generic 'element' updates
-  const tocData = useMemo(() => {
-    if (element.type !== "toc-list") return null;
+  // STABLE DEPENDENCIES FOR TOC
+  const elementId = element.id;
+  const elementType = element.type;
+  const elementHeight = element.dimension.height;
+  const elementDataBinding = element.dataBinding;
+  const tocSettingsString = JSON.stringify(element.tocSettings);
+  const textStyleString = JSON.stringify(element.textStyle);
 
-    const settings = element.tocSettings || { title: "Table of Contents", showTitle: true };
+  const tocData = useMemo(() => {
+    if (elementType !== "toc-list") return null;
+
+    const settings = JSON.parse(tocSettingsString || "{}");
     const groupBy = settings.groupByField;
     const dummyMap: any[] = [];
 
     if (excelData && excelData.rows.length > 0) {
         for (let i = 0; i < excelData.rows.length; i++) {
             const row = excelData.rows[i];
-            const title = row[element.dataBinding || "Name"] || `Product ${i + 1}`;
+            const title = row[elementDataBinding || "Name"] || `Product ${i + 1}`;
             const group = groupBy ? row[groupBy] : undefined;
             dummyMap.push({ title, page: i + 2, group }); 
         }
@@ -160,22 +166,27 @@ export function CanvasElement({
         if (groupBy) dummyMap.push({ title: "Product 3", page: 4, group: "Category B" });
     }
 
-    // Only recalculate when dimension height, settings, or data changes
-    return paginateTOC(element, dummyMap, element.dimension.height);
+    const tempElement = {
+        ...element,
+        textStyle: JSON.parse(textStyleString || "{}"),
+        tocSettings: settings
+    };
+
+    return paginateTOC(tempElement, dummyMap, elementHeight);
   }, [
-      element.type, 
-      element.dimension.height, 
-      element.tocSettings, 
-      element.dataBinding, 
-      element.textStyle,
+      elementType, 
+      elementHeight, 
+      tocSettingsString, 
+      textStyleString,
+      elementDataBinding, 
       excelData
   ]);
 
   useEffect(() => {
-    if (previewPage >= (tocData?.length || 1)) {
+    if (tocData && previewPage >= tocData.length) {
         setPreviewPage(0);
     }
-  }, [tocData, previewPage]);
+  }, [tocData?.length]);
 
 
   const style: React.CSSProperties = {
@@ -362,8 +373,9 @@ export function CanvasElement({
                                   fontSize: (settings.chapterStyle?.fontSize || 18) * zoom,
                                   fontWeight: settings.chapterStyle?.fontWeight,
                                   color: settings.chapterStyle?.color,
-                                  marginTop: 8 * zoom,
-                                  marginBottom: 4 * zoom,
+                                  // UPDATED: Removed hardcoded margins
+                                  marginTop: 0,
+                                  marginBottom: 0,
                                   lineHeight: settings.chapterStyle?.lineHeight || 1.5,
                                   breakInside: "avoid"
                               }}>

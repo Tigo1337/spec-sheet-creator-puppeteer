@@ -333,7 +333,9 @@ export const paginateTOC = (tocElement: CanvasElement, pageMap: any[], elementHe
   // Use actual configured line height for headers, default to 1.5
   const headerFontSize = settings.chapterStyle?.fontSize || 18;
   const headerLineHeight = settings.chapterStyle?.lineHeight || 1.5;
-  const headerHeight = (headerFontSize * headerLineHeight) + 12; // 8px top + 4px bottom margin
+
+  // UPDATED: Removed +12px margin compensation (was 8px top + 4px bottom)
+  const headerHeight = (headerFontSize * headerLineHeight); 
 
   // Use actual configured line height for items, default to 1.5
   const itemFontSize = tocElement.textStyle?.fontSize || 14;

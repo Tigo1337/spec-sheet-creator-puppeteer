@@ -160,6 +160,7 @@ export function PropertiesTab() {
     });
   };
 
+  // Helper for deep updates on tocSettings
   const handleTocSettingChange = (
     section: "titleStyle" | "chapterStyle",
     key: keyof NonNullable<CanvasElement["textStyle"]>,
@@ -249,6 +250,7 @@ export function PropertiesTab() {
 
           <Separator orientation="vertical" className="h-6 mx-1" />
 
+          {/* Layer Controls */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -675,7 +677,6 @@ export function PropertiesTab() {
                     <h3 className="font-medium text-sm mb-3 text-primary">Chapter Style</h3>
                     <div className="space-y-3 p-3 bg-muted/20 rounded-md border">
 
-                        {/* NEW: Chapter Cover Toggle */}
                         <div className="flex items-center justify-between">
                             <Label className="text-xs text-muted-foreground font-medium text-primary">Enable Chapter Covers</Label>
                             <Switch
@@ -707,11 +708,42 @@ export function PropertiesTab() {
                                 <Label className="text-xs text-muted-foreground">Font Size</Label>
                                 <Input type="number" value={selectedElement.tocSettings.chapterStyle?.fontSize} onChange={(e) => handleTocSettingChange("chapterStyle", "fontSize", Number(e.target.value))} />
                             </div>
+                            {/* UPDATED: Replaced Input with Select for Weight */}
                             <div className="space-y-1.5">
                                 <Label className="text-xs text-muted-foreground">Weight</Label>
-                                <Input type="number" value={selectedElement.tocSettings.chapterStyle?.fontWeight} onChange={(e) => handleTocSettingChange("chapterStyle", "fontWeight", Number(e.target.value))} />
+                                <Select
+                                    value={String(selectedElement.tocSettings.chapterStyle?.fontWeight || 600)}
+                                    onValueChange={(value) => handleTocSettingChange("chapterStyle", "fontWeight", Number(value))}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="300">Light</SelectItem>
+                                        <SelectItem value="400">Regular</SelectItem>
+                                        <SelectItem value="500">Medium</SelectItem>
+                                        <SelectItem value="600">Semibold</SelectItem>
+                                        <SelectItem value="700">Bold</SelectItem>
+                                        <SelectItem value="800">Extra Bold</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
+
+                        {/* NEW: Line Height Control for Chapters */}
+                        <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">
+                                Line Height: {selectedElement.tocSettings.chapterStyle?.lineHeight || 1.1}
+                            </Label>
+                            <Slider
+                                value={[selectedElement.tocSettings.chapterStyle?.lineHeight || 1.1]}
+                                onValueChange={([value]) => handleTocSettingChange("chapterStyle", "lineHeight", value)}
+                                min={0.8}
+                                max={2.5}
+                                step={0.1}
+                            />
+                        </div>
+
                         <div className="space-y-1.5">
                             <Label className="text-xs text-muted-foreground">Color</Label>
                             <div className="flex gap-2">
@@ -729,7 +761,6 @@ export function PropertiesTab() {
             <div>
               <h3 className="font-medium text-sm mb-3 text-primary">Item Row Style</h3>
               <div className="space-y-3 p-3 bg-muted/20 rounded-md border">
-                {/* Re-use handleTextStyleChange which affects the main 'textStyle' of the element */}
                 <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">Font</Label>
                     <Select
@@ -769,7 +800,8 @@ export function PropertiesTab() {
           </div>
         )}
 
-        {/* ... (QR Code, Text Properties, Shape Properties, Image Properties remain unchanged) ... */}
+        {/* ... (Rest of the file remains identical) ... */}
+        {/* QR Code Settings */}
         {selectedElement.type === "qrcode" && (
           <div>
             <h3 className="font-medium text-sm mb-3">QR Code Settings</h3>
@@ -1127,6 +1159,7 @@ export function PropertiesTab() {
                       </Select>
                     </div>
 
+                    {/* LIST STYLE SELECTOR */}
                     <div className="space-y-1.5">
                       <Label className="text-xs text-muted-foreground">List Style</Label>
                       <Select
@@ -1269,6 +1302,7 @@ export function PropertiesTab() {
           </div>
         )}
 
+        {/* Shape Properties */}
         {selectedElement.type === "shape" && (
           <div>
             <h3 className="font-medium text-sm mb-3">Shape Style</h3>
@@ -1368,6 +1402,7 @@ export function PropertiesTab() {
                     size="sm"
                     className="flex-1"
                     onClick={() => {
+                      // Use store method now to handle negative index prevention
                       sendToBack(selectedElement.id);
                     }}
                     data-testid="btn-send-to-back"
@@ -1392,6 +1427,7 @@ export function PropertiesTab() {
           </div>
         )}
 
+        {/* Image Properties */}
         {selectedElement.type === "image" && (
           <div>
             <h3 className="font-medium text-sm mb-3">Image Settings</h3>
@@ -1409,6 +1445,7 @@ export function PropertiesTab() {
                 />
               </div>
 
+              {/* UPDATED: Added Opacity Control for Images */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">
                   Opacity: {Math.round((selectedElement.shapeStyle?.opacity ?? 1) * 100)}%
@@ -1425,6 +1462,7 @@ export function PropertiesTab() {
                 />
               </div>
 
+              {/* UPDATED: Added Layer Controls for Images */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Layer</Label>
                 <div className="flex gap-2">
