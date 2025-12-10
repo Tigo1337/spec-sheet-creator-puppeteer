@@ -328,6 +328,7 @@ export function CanvasElement({
           />
         );
 
+      // --- TOC RENDERER (UPDATED) ---
       case "toc-list":
         const settings = element.tocSettings || { title: "Table of Contents", showTitle: true, columnCount: 1 };
         const columnCount = settings.columnCount || 1;
@@ -360,6 +361,8 @@ export function CanvasElement({
                   fontFamily: element.textStyle?.fontFamily,
                   fontSize: (element.textStyle?.fontSize || 14) * zoom,
                   color: element.textStyle?.color,
+                  // ADDED: Apply weight to the container list
+                  fontWeight: element.textStyle?.fontWeight || 400,
                   lineHeight: element.textStyle?.lineHeight,
                   columnCount: columnCount,
                   columnGap: 24 * zoom,
@@ -373,10 +376,9 @@ export function CanvasElement({
                                   fontSize: (settings.chapterStyle?.fontSize || 18) * zoom,
                                   fontWeight: settings.chapterStyle?.fontWeight,
                                   color: settings.chapterStyle?.color,
-                                  // UPDATED: Removed hardcoded margins
                                   marginTop: 0,
                                   marginBottom: 0,
-                                  lineHeight: settings.chapterStyle?.lineHeight || 1.5,
+                                  lineHeight: settings.chapterStyle?.lineHeight || 1.1,
                                   breakInside: "avoid"
                               }}>
                                   {item.text}

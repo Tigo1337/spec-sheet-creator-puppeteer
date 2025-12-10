@@ -434,7 +434,6 @@ export function PropertiesTab() {
         <div>
           <h3 className="font-medium text-sm mb-3 flex items-center justify-between">
             Position & Size
-            {/* Aspect Ratio Lock Button - Only for images */}
             {selectedElement.type === "image" && (
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -580,7 +579,6 @@ export function PropertiesTab() {
 
               <div className="space-y-3 p-3 bg-muted/20 rounded-md border">
 
-                  {/* Column Toggle */}
                   <div className="space-y-1.5">
                       <Label className="text-xs text-muted-foreground flex items-center gap-2">
                           <Columns className="h-3 w-3" /> 
@@ -645,9 +643,32 @@ export function PropertiesTab() {
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs text-muted-foreground">Weight</Label>
-                                <Input type="number" value={selectedElement.tocSettings.titleStyle?.fontWeight} onChange={(e) => handleTocSettingChange("titleStyle", "fontWeight", Number(e.target.value))} />
+                                <Select
+                                    value={String(selectedElement.tocSettings.titleStyle?.fontWeight || 700)}
+                                    onValueChange={(value) => handleTocSettingChange("titleStyle", "fontWeight", Number(value))}
+                                >
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="400">Regular</SelectItem>
+                                        <SelectItem value="700">Bold</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
+
+                        <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">
+                                Line Height: {selectedElement.tocSettings.titleStyle?.lineHeight || 1.2}
+                            </Label>
+                            <Slider
+                                value={[selectedElement.tocSettings.titleStyle?.lineHeight || 1.2]}
+                                onValueChange={([value]) => handleTocSettingChange("titleStyle", "lineHeight", value)}
+                                min={0.8}
+                                max={2.5}
+                                step={0.1}
+                            />
+                        </div>
+
                         <div className="space-y-1.5">
                             <Label className="text-xs text-muted-foreground">Alignment</Label>
                             <div className="flex gap-1">
@@ -671,7 +692,7 @@ export function PropertiesTab() {
 
             <Separator />
 
-            {/* 3. Chapter Settings (Only if grouping enabled) */}
+            {/* 3. Chapter Settings */}
             {selectedElement.tocSettings.groupByField && (
                 <div>
                     <h3 className="font-medium text-sm mb-3 text-primary">Chapter Style</h3>
@@ -708,29 +729,21 @@ export function PropertiesTab() {
                                 <Label className="text-xs text-muted-foreground">Font Size</Label>
                                 <Input type="number" value={selectedElement.tocSettings.chapterStyle?.fontSize} onChange={(e) => handleTocSettingChange("chapterStyle", "fontSize", Number(e.target.value))} />
                             </div>
-                            {/* UPDATED: Replaced Input with Select for Weight */}
                             <div className="space-y-1.5">
                                 <Label className="text-xs text-muted-foreground">Weight</Label>
                                 <Select
                                     value={String(selectedElement.tocSettings.chapterStyle?.fontWeight || 600)}
                                     onValueChange={(value) => handleTocSettingChange("chapterStyle", "fontWeight", Number(value))}
                                 >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="300">Light</SelectItem>
                                         <SelectItem value="400">Regular</SelectItem>
-                                        <SelectItem value="500">Medium</SelectItem>
-                                        <SelectItem value="600">Semibold</SelectItem>
                                         <SelectItem value="700">Bold</SelectItem>
-                                        <SelectItem value="800">Extra Bold</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                         </div>
 
-                        {/* NEW: Line Height Control for Chapters */}
                         <div className="space-y-1.5">
                             <Label className="text-xs text-muted-foreground">
                                 Line Height: {selectedElement.tocSettings.chapterStyle?.lineHeight || 1.1}
@@ -781,10 +794,34 @@ export function PropertiesTab() {
                         <Label className="text-xs text-muted-foreground">Size</Label>
                         <Input type="number" value={selectedElement.textStyle?.fontSize} onChange={(e) => handleTextStyleChange("fontSize", Number(e.target.value))} />
                     </div>
+                    {/* Consistent Weight Picker for Items */}
                     <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Line Height</Label>
-                        <Input type="number" step={0.1} value={selectedElement.textStyle?.lineHeight} onChange={(e) => handleTextStyleChange("lineHeight", Number(e.target.value))} />
+                        <Label className="text-xs text-muted-foreground">Weight</Label>
+                        <Select
+                            value={String(selectedElement.textStyle?.fontWeight || 400)}
+                            onValueChange={(value) => handleTextStyleChange("fontWeight", Number(value))}
+                        >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="400">Regular</SelectItem>
+                                <SelectItem value="700">Bold</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
+                </div>
+
+                <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">
+                         Line Height: {selectedElement.textStyle?.lineHeight || 1.5}
+                    </Label>
+                    <Slider
+                         value={[selectedElement.textStyle?.lineHeight || 1.5]}
+                         onValueChange={([value]) => handleTextStyleChange("lineHeight", value)}
+                         min={0.8}
+                         max={2.5}
+                         step={0.1}
+                         data-testid="slider-line-height"
+                    />
                 </div>
 
                 <div className="space-y-1.5">
@@ -800,8 +837,7 @@ export function PropertiesTab() {
           </div>
         )}
 
-        {/* ... (Rest of the file remains identical) ... */}
-        {/* QR Code Settings */}
+        {/* ... (QR Code section remains identical) ... */}
         {selectedElement.type === "qrcode" && (
           <div>
             <h3 className="font-medium text-sm mb-3">QR Code Settings</h3>
@@ -883,6 +919,7 @@ export function PropertiesTab() {
                 <div className="flex justify-between items-center">
                   <Label className="text-xs text-muted-foreground">Content</Label>
 
+                  {/* MULTI-SELECT DROPDOWN LOGIC */}
                   {excelData && excelData.headers.length > 0 && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -978,6 +1015,7 @@ export function PropertiesTab() {
                     data-testid="input-font-size"
                   />
                 </div>
+                {/* Standardized Weight Picker for Text/DataFields */}
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Weight</Label>
                   <Select
@@ -990,12 +1028,8 @@ export function PropertiesTab() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="300">Light</SelectItem>
                       <SelectItem value="400">Regular</SelectItem>
-                      <SelectItem value="500">Medium</SelectItem>
-                      <SelectItem value="600">Semibold</SelectItem>
                       <SelectItem value="700">Bold</SelectItem>
-                      <SelectItem value="800">Extra Bold</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1094,6 +1128,7 @@ export function PropertiesTab() {
                 </div>
               </div>
 
+              {/* Standardized Line Height Slider for Text/DataFields */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">
                   Line Height: {selectedElement.textStyle?.lineHeight || 1.5}
@@ -1101,8 +1136,8 @@ export function PropertiesTab() {
                 <Slider
                   value={[selectedElement.textStyle?.lineHeight || 1.5]}
                   onValueChange={([value]) => handleTextStyleChange("lineHeight", value)}
-                  min={1}
-                  max={3}
+                  min={0.8}
+                  max={2.5}
                   step={0.1}
                   data-testid="slider-line-height"
                 />
@@ -1111,6 +1146,7 @@ export function PropertiesTab() {
 
             <Separator className="my-4" />
 
+            {/* Data Formatting Section (unchanged) */}
             <div>
               <h3 className="font-medium text-sm mb-3 flex items-center gap-2">
                 Data Formatting
@@ -1120,6 +1156,7 @@ export function PropertiesTab() {
                 </Tooltip>
               </h3>
 
+              {/* ... (Data formatting inputs remain the same) ... */}
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Treat Data As</Label>
@@ -1159,7 +1196,6 @@ export function PropertiesTab() {
                       </Select>
                     </div>
 
-                    {/* LIST STYLE SELECTOR */}
                     <div className="space-y-1.5">
                       <Label className="text-xs text-muted-foreground">List Style</Label>
                       <Select

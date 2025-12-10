@@ -350,11 +350,14 @@ export function ExportTab() {
          const listDiv = document.createElement("div");
          listDiv.style.flex = "1";
          listDiv.style.overflow = "hidden";
-         // Apply default text styles to the container like Canvas does
+
+         // Apply default styles to the container
          listDiv.style.fontFamily = `"${element.textStyle?.fontFamily}", sans-serif`;
          listDiv.style.fontSize = `${element.textStyle?.fontSize || 14}px`;
          listDiv.style.color = element.textStyle?.color || "#000000";
          listDiv.style.lineHeight = String(element.textStyle?.lineHeight || 1.5);
+         // ADDED: Apply weight to the container
+         listDiv.style.fontWeight = String(element.textStyle?.fontWeight || 400);
 
          // Apply Columns
          if (columnCount > 1) {
@@ -411,7 +414,7 @@ export function ExportTab() {
       div.style.fontWeight = String(settings.chapterStyle?.fontWeight || 600);
       div.style.color = settings.chapterStyle?.color || "#333";
       div.style.textAlign = settings.chapterStyle?.textAlign || "left";
-      div.style.lineHeight = String(settings.chapterStyle?.lineHeight || 1.5); 
+      div.style.lineHeight = String(settings.chapterStyle?.lineHeight || 1.1); 
 
       // UPDATED: No Margins
       div.style.marginTop = "0px"; 
@@ -427,11 +430,15 @@ export function ExportTab() {
       div.style.alignItems = "baseline";
       div.style.marginBottom = "0px"; 
       div.style.paddingBottom = "2px"; 
-      // Explicit fallbacks to match Canvas defaults
+
+      // Apply styles explicitly to the item div
       div.style.fontFamily = `"${style.fontFamily}", sans-serif`;
       div.style.fontSize = `${style.fontSize || 14}px`;
       div.style.color = style.color || "#000000";
       div.style.lineHeight = String(style.lineHeight || 1.5);
+      // ADDED: Explicit weight for items
+      div.style.fontWeight = String(style.fontWeight || 400);
+
       div.style.breakInside = "avoid"; 
 
       const titleSpan = document.createElement("span");
