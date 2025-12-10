@@ -153,7 +153,7 @@ export function PropertiesTab() {
     });
   };
 
-  // Helper for deep updates on tocSettings
+  // Helper for deep updates on tocSettings (New)
   const handleTocSettingChange = (
     section: "titleStyle" | "chapterStyle",
     key: keyof NonNullable<CanvasElement["textStyle"]>,
@@ -207,127 +207,128 @@ export function PropertiesTab() {
   };
 
   const usedFields = getUsedFields(selectedElement.content);
+  const isToc = selectedElement.type === 'toc-list';
 
   return (
     <ScrollArea className="h-full">
       <div className="p-4 space-y-4">
-        {/* Quick Actions */}
-        <div className="flex items-center gap-1 flex-wrap">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => duplicateElement(selectedElement.id)}
-                data-testid="btn-duplicate"
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Duplicate</TooltipContent>
-          </Tooltip>
+        {/* Quick Actions (Hidden for TOC) */}
+        {!isToc && (
+          <div className="flex items-center gap-1 flex-wrap">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => duplicateElement(selectedElement.id)}
+                  data-testid="btn-duplicate"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Duplicate</TooltipContent>
+            </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => deleteElement(selectedElement.id)}
-                data-testid="btn-delete"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Delete</TooltipContent>
-          </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => deleteElement(selectedElement.id)}
+                  data-testid="btn-delete"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Delete</TooltipContent>
+            </Tooltip>
 
-          <Separator orientation="vertical" className="h-6 mx-1" />
+            <Separator orientation="vertical" className="h-6 mx-1" />
 
-          {/* Layer Controls */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => bringToFront(selectedElement.id)}
-                data-testid="btn-bring-front"
-              >
-                <ArrowUp className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Bring to Front</TooltipContent>
-          </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => bringToFront(selectedElement.id)}
+                  data-testid="btn-bring-front"
+                >
+                  <ArrowUp className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Bring to Front</TooltipContent>
+            </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => sendToBack(selectedElement.id)}
-                data-testid="btn-send-back"
-              >
-                <ArrowDown className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Send to Back</TooltipContent>
-          </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => sendToBack(selectedElement.id)}
+                  data-testid="btn-send-back"
+                >
+                  <ArrowDown className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Send to Back</TooltipContent>
+            </Tooltip>
 
-          <Separator orientation="vertical" className="h-6 mx-1" />
+            <Separator orientation="vertical" className="h-6 mx-1" />
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant={selectedElement.locked ? "default" : "ghost"}
-                onClick={() =>
-                  updateElement(selectedElement.id, {
-                    locked: !selectedElement.locked,
-                  })
-                }
-                data-testid="btn-lock"
-              >
-                {selectedElement.locked ? (
-                  <Lock className="h-4 w-4" />
-                ) : (
-                  <Unlock className="h-4 w-4" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {selectedElement.locked ? "Unlock" : "Lock"}
-            </TooltipContent>
-          </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant={selectedElement.locked ? "default" : "ghost"}
+                  onClick={() =>
+                    updateElement(selectedElement.id, {
+                      locked: !selectedElement.locked,
+                    })
+                  }
+                  data-testid="btn-lock"
+                >
+                  {selectedElement.locked ? (
+                    <Lock className="h-4 w-4" />
+                  ) : (
+                    <Unlock className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {selectedElement.locked ? "Unlock" : "Lock"}
+              </TooltipContent>
+            </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant={!selectedElement.visible ? "default" : "ghost"}
-                onClick={() =>
-                  updateElement(selectedElement.id, {
-                    visible: !selectedElement.visible,
-                  })
-                }
-                data-testid="btn-visibility"
-              >
-                {selectedElement.visible ? (
-                  <Eye className="h-4 w-4" />
-                ) : (
-                  <EyeOff className="h-4 w-4" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {selectedElement.visible ? "Hide" : "Show"}
-            </TooltipContent>
-          </Tooltip>
-        </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant={!selectedElement.visible ? "default" : "ghost"}
+                  onClick={() =>
+                    updateElement(selectedElement.id, {
+                      visible: !selectedElement.visible,
+                    })
+                  }
+                  data-testid="btn-visibility"
+                >
+                  {selectedElement.visible ? (
+                    <Eye className="h-4 w-4" />
+                  ) : (
+                    <EyeOff className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {selectedElement.visible ? "Hide" : "Show"}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        )}
 
-        <Separator />
-
-        {/* Alignment Controls */}
-        {selectedElementIds.length > 1 && (
+        {/* Alignment Controls (Hidden for TOC) */}
+        {!isToc && selectedElementIds.length > 1 && (
           <div>
+            <Separator className="mb-4"/>
             <h3 className="font-medium text-sm mb-3">Alignment</h3>
             <div className="space-y-2">
               <div className="flex gap-1">
@@ -421,102 +422,103 @@ export function PropertiesTab() {
           </div>
         )}
 
-        <Separator />
-
-        {/* Position & Size */}
-        <div>
-          <h3 className="font-medium text-sm mb-3">Position & Size</h3>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">X</Label>
-              <Input
-                type="number"
-                value={Math.round(selectedElement.position.x)}
-                onChange={(e) =>
-                  updateElement(selectedElement.id, {
-                    position: {
-                      ...selectedElement.position,
-                      x: Number(e.target.value),
-                    },
-                  })
-                }
-                data-testid="input-pos-x"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Y</Label>
-              <Input
-                type="number"
-                value={Math.round(selectedElement.position.y)}
-                onChange={(e) =>
-                  updateElement(selectedElement.id, {
-                    position: {
-                      ...selectedElement.position,
-                      y: Number(e.target.value),
-                    },
-                  })
-                }
-                data-testid="input-pos-y"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Width</Label>
-              <Input
-                type="number"
-                value={Math.round(selectedElement.dimension.width)}
-                onChange={(e) => {
-                  const newWidth = Number(e.target.value);
-                  let newDimension = {
-                    width: newWidth,
-                    height: selectedElement.dimension.height,
-                  };
-
-                  if (selectedElement.type === "image") {
-                    const ratio = selectedElement.dimension.width / selectedElement.dimension.height;
-                    newDimension.height = Math.round(newWidth / ratio);
+        {/* Position & Size (Hidden for TOC) */}
+        {!isToc && (
+          <div>
+            <Separator className="mb-4"/>
+            <h3 className="font-medium text-sm mb-3">Position & Size</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">X</Label>
+                <Input
+                  type="number"
+                  value={Math.round(selectedElement.position.x)}
+                  onChange={(e) =>
+                    updateElement(selectedElement.id, {
+                      position: {
+                        ...selectedElement.position,
+                        x: Number(e.target.value),
+                      },
+                    })
                   }
-
-                  if (selectedElement.type === "qrcode") {
-                    newDimension.height = newWidth;
+                  data-testid="input-pos-x"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Y</Label>
+                <Input
+                  type="number"
+                  value={Math.round(selectedElement.position.y)}
+                  onChange={(e) =>
+                    updateElement(selectedElement.id, {
+                      position: {
+                        ...selectedElement.position,
+                        y: Number(e.target.value),
+                      },
+                    })
                   }
+                  data-testid="input-pos-y"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Width</Label>
+                <Input
+                  type="number"
+                  value={Math.round(selectedElement.dimension.width)}
+                  onChange={(e) => {
+                    const newWidth = Number(e.target.value);
+                    let newDimension = {
+                      width: newWidth,
+                      height: selectedElement.dimension.height,
+                    };
 
-                  updateElement(selectedElement.id, {
-                    dimension: newDimension,
-                  });
-                }}
-                data-testid="input-width"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Height</Label>
-              <Input
-                type="number"
-                value={Math.round(selectedElement.dimension.height)}
-                onChange={(e) => {
-                  const newHeight = Number(e.target.value);
-                  let newDimension = {
-                    width: selectedElement.dimension.width,
-                    height: newHeight,
-                  };
+                    if (selectedElement.type === "image") {
+                      const ratio = selectedElement.dimension.width / selectedElement.dimension.height;
+                      newDimension.height = Math.round(newWidth / ratio);
+                    }
 
-                  if (selectedElement.type === "image") {
-                    const ratio = selectedElement.dimension.width / selectedElement.dimension.height;
-                    newDimension.width = Math.round(newHeight * ratio);
-                  }
+                    if (selectedElement.type === "qrcode") {
+                      newDimension.height = newWidth;
+                    }
 
-                  if (selectedElement.type === "qrcode") {
-                    newDimension.width = newHeight;
-                  }
+                    updateElement(selectedElement.id, {
+                      dimension: newDimension,
+                    });
+                  }}
+                  data-testid="input-width"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Height</Label>
+                <Input
+                  type="number"
+                  value={Math.round(selectedElement.dimension.height)}
+                  onChange={(e) => {
+                    const newHeight = Number(e.target.value);
+                    let newDimension = {
+                      width: selectedElement.dimension.width,
+                      height: newHeight,
+                    };
 
-                  updateElement(selectedElement.id, {
-                    dimension: newDimension,
-                  });
-                }}
-                data-testid="input-height"
-              />
+                    if (selectedElement.type === "image") {
+                      const ratio = selectedElement.dimension.width / selectedElement.dimension.height;
+                      newDimension.width = Math.round(newHeight * ratio);
+                    }
+
+                    if (selectedElement.type === "qrcode") {
+                      newDimension.width = newHeight;
+                    }
+
+                    updateElement(selectedElement.id, {
+                      dimension: newDimension,
+                    });
+                  }}
+                  data-testid="input-height"
+                />
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <Separator />
 
@@ -592,6 +594,13 @@ export function PropertiesTab() {
                             })}
                         />
                     </div>
+                    <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Font</Label>
+                        <Select value={selectedElement.tocSettings.titleStyle?.fontFamily} onValueChange={(v) => handleTocSettingChange("titleStyle", "fontFamily", v)}>
+                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>{availableFonts.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                        </Select>
+                    </div>
                     <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1.5">
                             <Label className="text-xs text-muted-foreground">Font Size</Label>
@@ -629,6 +638,13 @@ export function PropertiesTab() {
                 <div>
                     <h3 className="font-medium text-sm mb-3 text-primary">Chapter Style</h3>
                     <div className="space-y-3 p-3 bg-muted/20 rounded-md border">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">Font</Label>
+                            <Select value={selectedElement.tocSettings.chapterStyle?.fontFamily} onValueChange={(v) => handleTocSettingChange("chapterStyle", "fontFamily", v)}>
+                                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                <SelectContent>{availableFonts.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </div>
                         <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1.5">
                                 <Label className="text-xs text-muted-foreground">Font Size</Label>
@@ -644,6 +660,14 @@ export function PropertiesTab() {
                             <div className="flex gap-2">
                                 <Input type="color" className="w-8 h-8 p-0" value={selectedElement.tocSettings.chapterStyle?.color} onChange={(e) => handleTocSettingChange("chapterStyle", "color", e.target.value)} />
                                 <Input type="text" className="h-8" value={selectedElement.tocSettings.chapterStyle?.color} onChange={(e) => handleTocSettingChange("chapterStyle", "color", e.target.value)} />
+                            </div>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">Alignment</Label>
+                            <div className="flex gap-1">
+                                {["left", "center", "right"].map((align) => (
+                                    <Button key={align} size="sm" variant={selectedElement.tocSettings!.chapterStyle?.textAlign === align ? "default" : "outline"} onClick={() => handleTocSettingChange("chapterStyle", "textAlign", align)} className="flex-1 h-7 text-xs capitalize">{align}</Button>
+                                ))}
                             </div>
                         </div>
                     </div>
@@ -697,7 +721,7 @@ export function PropertiesTab() {
         )}
 
         {/* QR Code Settings */}
-        {selectedElement.type === "qrcode" && (
+        {!isToc && selectedElement.type === "qrcode" && (
           <div>
             <h3 className="font-medium text-sm mb-3">QR Code Settings</h3>
             <div className="space-y-3">
@@ -770,7 +794,7 @@ export function PropertiesTab() {
         )}
 
         {/* Text Properties & Data Formatting */}
-        {(selectedElement.type === "text" ||
+        {!isToc && (selectedElement.type === "text" ||
           selectedElement.type === "dataField") && (
           <div>
             <h3 className="font-medium text-sm mb-3">Text Style</h3>
@@ -1200,7 +1224,7 @@ export function PropertiesTab() {
         )}
 
         {/* Shape Properties */}
-        {selectedElement.type === "shape" && (
+        {!isToc && selectedElement.type === "shape" && (
           <div>
             <h3 className="font-medium text-sm mb-3">Shape Style</h3>
             <div className="space-y-3">

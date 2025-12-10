@@ -59,7 +59,6 @@ export function ExportTab() {
     catalogSections
   } = useCanvasStore();
 
-  // --- Quality Check Effect ---
   useEffect(() => {
     const checkImageQuality = async () => {
       if (exportMode !== 'print') {
@@ -68,7 +67,6 @@ export function ExportTab() {
       }
 
       let foundIssue = false;
-      // In catalog mode, strictly we should check ALL sections, but checking current is a good start.
       for (const element of currentElements) {
         if (element.type === 'image' && element.visible) {
           let url = element.imageSrc;
@@ -169,7 +167,6 @@ export function ExportTab() {
   };
 
   // --- HTML Generator Engine ---
-  // Refactored to accept elements and data as arguments for Catalog Generation
   const renderPageHTML = async (
     targetElements: CanvasElement[], 
     rowData: Record<string, string> = {}, 
@@ -183,7 +180,6 @@ export function ExportTab() {
     container.style.position = "relative";
     container.style.overflow = "hidden";
 
-    // Determine data source for interpolation
     const sourceData = Object.keys(rowData).length > 0 ? rowData : (excelData?.rows[selectedRowIndex] || {});
 
     const sortedElements = [...targetElements].sort((a, b) => a.zIndex - b.zIndex);
@@ -322,8 +318,13 @@ export function ExportTab() {
       else if (element.type === "toc-list") {
          const settings = element.tocSettings || { title: "Table of Contents", showTitle: true };
 
-         // 1. Render Title
-         if (settings.showTitle) {
+         // SPECIAL HANDLING: Check if specific items are passed via a temporary property
+         // This allows the multi-page generator to feed chunks of items to the renderer.
+         const itemsToRender: any[] = (element as any)._renderItems || [];
+         const isPaged = (element as any)._isPaged || false;
+
+         // 1. Render Title (Only if enabled, or if it's the first page of a paged set)
+         if (settings.showTitle && (!isPaged || (element as any)._isFirstPage)) {
              const titleDiv = document.createElement("div");
              titleDiv.textContent = settings.title;
              titleDiv.style.fontFamily = `"${settings.titleStyle?.fontFamily}", sans-serif`;
@@ -332,6 +333,7 @@ export function ExportTab() {
              titleDiv.style.color = settings.titleStyle?.color || "#000";
              titleDiv.style.textAlign = settings.titleStyle?.textAlign || "left";
              titleDiv.style.marginBottom = "20px";
+             titleDiv.style.lineHeight = String(settings.titleStyle?.lineHeight || 1.2);
              elementDiv.appendChild(titleDiv);
          }
 
@@ -339,39 +341,40 @@ export function ExportTab() {
          ul.style.listStyle = "none"; ul.style.padding = "0"; ul.style.margin = "0";
          ul.style.width = "100%";
 
-         // Group Logic
-         const groupBy = settings.groupByField;
-         if (groupBy) {
-             const groups: Record<string, any[]> = {};
-             pageMap.forEach(item => {
-                 const key = item.group || "Uncategorized";
-                 if (!groups[key]) groups[key] = [];
-                 groups[key].push(item);
-             });
-
-             Object.keys(groups).forEach(groupTitle => {
-                 // Chapter Header
-                 const chapterLi = document.createElement("li");
-                 chapterLi.textContent = groupTitle;
-                 chapterLi.style.fontFamily = `"${settings.chapterStyle?.fontFamily}", sans-serif`;
-                 chapterLi.style.fontSize = `${settings.chapterStyle?.fontSize}px`;
-                 chapterLi.style.fontWeight = String(settings.chapterStyle?.fontWeight);
-                 chapterLi.style.color = settings.chapterStyle?.color || "#333";
-                 chapterLi.style.marginTop = "15px";
-                 chapterLi.style.marginBottom = "5px";
-                 ul.appendChild(chapterLi);
-
-                 // Items
-                 groups[groupTitle].forEach(item => {
+         // If we have pre-calculated items (from pagination), use them directly
+         if (itemsToRender.length > 0) {
+             itemsToRender.forEach(item => {
+                 if (item.type === "header") {
+                     const chapterLi = createTocHeader(item.text, settings);
+                     ul.appendChild(chapterLi);
+                 } else {
                      const itemLi = createTocItem(item, element.textStyle || {});
                      ul.appendChild(itemLi);
+                 }
+             });
+         } 
+         // Fallback: Generate full list (Single Page Mode)
+         else {
+             const groupBy = settings.groupByField;
+             if (groupBy) {
+                 const groups: Record<string, any[]> = {};
+                 pageMap.forEach(item => {
+                     const key = item.group || "Uncategorized";
+                     if (!groups[key]) groups[key] = [];
+                     groups[key].push(item);
                  });
-             });
-         } else {
-             // Flat List
-             pageMap.forEach(item => {
-                 ul.appendChild(createTocItem(item, element.textStyle || {}));
-             });
+
+                 Object.keys(groups).forEach(groupTitle => {
+                     ul.appendChild(createTocHeader(groupTitle, settings));
+                     groups[groupTitle].forEach(item => {
+                         ul.appendChild(createTocItem(item, element.textStyle || {}));
+                     });
+                 });
+             } else {
+                 pageMap.forEach(item => {
+                     ul.appendChild(createTocItem(item, element.textStyle || {}));
+                 });
+             }
          }
          elementDiv.appendChild(ul);
       }
@@ -379,6 +382,20 @@ export function ExportTab() {
       container.appendChild(elementDiv);
     }
     return container.outerHTML;
+  };
+
+  const createTocHeader = (text: string, settings: any) => {
+      const li = document.createElement("li");
+      li.textContent = text;
+      li.style.fontFamily = `"${settings.chapterStyle?.fontFamily}", sans-serif`;
+      li.style.fontSize = `${settings.chapterStyle?.fontSize}px`;
+      li.style.fontWeight = String(settings.chapterStyle?.fontWeight);
+      li.style.color = settings.chapterStyle?.color || "#333";
+      li.style.textAlign = settings.chapterStyle?.textAlign || "left";
+      li.style.marginTop = "15px";
+      li.style.marginBottom = "5px";
+      // No border bottom
+      return li;
   };
 
   const createTocItem = (item: {title: string, page: number}, style: any) => {
@@ -391,13 +408,17 @@ export function ExportTab() {
 
       const titleSpan = document.createElement("span");
       titleSpan.textContent = item.title;
-      titleSpan.style.backgroundColor = "#fff"; // Mask dots behind text
+      titleSpan.style.backgroundColor = "#fff"; 
       titleSpan.style.paddingRight = "5px";
+      titleSpan.style.position = "relative";
+      titleSpan.style.zIndex = "10";
 
       const pageSpan = document.createElement("span");
       pageSpan.textContent = String(item.page);
       pageSpan.style.backgroundColor = "#fff";
       pageSpan.style.paddingLeft = "5px";
+      pageSpan.style.position = "relative";
+      pageSpan.style.zIndex = "10";
 
       li.appendChild(titleSpan); li.appendChild(pageSpan);
       return li;
@@ -412,18 +433,6 @@ export function ExportTab() {
           <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=Oswald:wght@400;700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400&family=Lato:wght@400;700&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;700&family=Nunito:wght@400;700&family=Open+Sans:wght@400;700&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;700&family=Raleway:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
           <style>
             @font-face { font-family: 'Arial'; src: local('Arimo'); }
-            @font-face { font-family: 'Times New Roman'; src: local('Tinos'); }
-            @font-face { font-family: 'Courier New'; src: local('Cousine'); }
-            @font-face { font-family: 'Georgia'; src: local('Gelasio'); }
-            @font-face { font-family: 'Verdana'; src: local('DejaVu Sans'); }
-            @font-face { font-family: 'Calibri'; src: local('Carlito'); }
-            @font-face { font-family: 'Cambria'; src: local('Caladea'); }
-            @font-face { font-family: 'Trebuchet MS'; src: local('Fira Sans'); }
-            @font-face { font-family: 'Comic Sans MS'; src: local('Comic Neue'); }
-            @font-face { font-family: 'Impact'; src: local('Oswald'); }
-
-            body, h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd { margin: 0; }
-            ul, ol { margin: 0; padding: 0; list-style: none; }
             @page { size: ${canvasWidth}px ${canvasHeight}px; margin: 0; }
             body { margin: 0; padding: 0; box-sizing: border-box; }
             * { box-sizing: inherit; }
@@ -462,6 +471,70 @@ export function ExportTab() {
     return await response.blob();
   };
 
+  // --- TOC PAGINATION LOGIC ---
+  const paginateTOC = (tocElement: CanvasElement, pageMap: any[], canvasHeight: number) => {
+      const settings = tocElement.tocSettings || { title: "Table of Contents", showTitle: true };
+      const padding = 32; // 8 * 4px padding in renderer
+      const availableHeight = canvasHeight - (padding * 2);
+
+      const pages: any[][] = [];
+      let currentPage: any[] = [];
+      let currentHeight = 0;
+
+      // Calculate Heights (Estimated)
+      const titleHeight = settings.showTitle ? ((settings.titleStyle?.fontSize || 24) * (settings.titleStyle?.lineHeight || 1.2)) + 20 : 0;
+      const headerHeight = ((settings.chapterStyle?.fontSize || 18) * 1.5) + 20; // 15px top + 5px bottom margins
+      const itemHeight = ((tocElement.textStyle?.fontSize || 14) * (tocElement.textStyle?.lineHeight || 1.8)) + 4; // 4px margin
+
+      // Start first page with Title
+      currentHeight += titleHeight;
+
+      const groupBy = settings.groupByField;
+      if (groupBy) {
+          const groups: Record<string, any[]> = {};
+          pageMap.forEach(item => {
+              const key = item.group || "Uncategorized";
+              if (!groups[key]) groups[key] = [];
+              groups[key].push(item);
+          });
+
+          Object.keys(groups).forEach(groupTitle => {
+              // Check Chapter Header fit
+              if (currentHeight + headerHeight > availableHeight) {
+                  pages.push(currentPage);
+                  currentPage = [];
+                  currentHeight = 0;
+              }
+              currentPage.push({ type: "header", text: groupTitle });
+              currentHeight += headerHeight;
+
+              groups[groupTitle].forEach((item) => {
+                  if (currentHeight + itemHeight > availableHeight) {
+                      pages.push(currentPage);
+                      currentPage = [];
+                      currentHeight = 0;
+                      // Don't repeat header on new page for now (simplification)
+                  }
+                  currentPage.push({ type: "item", ...item });
+                  currentHeight += itemHeight;
+              });
+          });
+      } else {
+          pageMap.forEach(item => {
+              if (currentHeight + itemHeight > availableHeight) {
+                  pages.push(currentPage);
+                  currentPage = [];
+                  currentHeight = 0;
+              }
+              currentPage.push({ type: "item", ...item });
+              currentHeight += itemHeight;
+          });
+      }
+
+      if (currentPage.length > 0) pages.push(currentPage);
+      return pages;
+  };
+
   // --- CATALOG GENERATION LOGIC ---
   const generateFullCatalogPDF = async () => {
     if (!excelData || excelData.rows.length === 0) {
@@ -486,56 +559,97 @@ export function ExportTab() {
          currentPageNumber++;
       }
 
-      // 2. CALCULATE PAGE NUMBERS & BUILD MAP
-      // Look for the TOC element configuration to know which field to use
+      // 2. PRE-CALCULATE PAGE NUMBERS & BUILD MAP
+      // We need to know how many pages the TOC will take BEFORE we assign page numbers to products.
+      // But wait, the TOC lists page numbers... circular dependency?
+      // Solution: Assume TOC starts at currentPageNumber. 
+      // We need to count TOC pages. To count TOC pages, we need the list items.
+      // The list items depend on the Product Pages... which shift if TOC grows?
+      // Standard Catalog: TOC lists *Product Page Numbers*. Products usually start AFTER TOC.
+
       const tocSection = catalogSections.toc;
-      let tocTitleField = "Name"; // Default fallback
+      let tocTitleField = "Name";
       let groupByField = undefined;
+      let tocElement: CanvasElement | undefined;
 
       if (tocSection && tocSection.elements.length > 0) {
-         const tocEl = tocSection.elements.find(el => el.type === "toc-list");
-         if (tocEl) {
-             if (tocEl.dataBinding) tocTitleField = tocEl.dataBinding;
-             if (tocEl.tocSettings?.groupByField) groupByField = tocEl.tocSettings.groupByField;
+         tocElement = tocSection.elements.find(el => el.type === "toc-list");
+         if (tocElement) {
+             if (tocElement.dataBinding) tocTitleField = tocElement.dataBinding;
+             if (tocElement.tocSettings?.groupByField) groupByField = tocElement.tocSettings.groupByField;
          }
-         currentPageNumber++; // Reserve page for TOC
       }
 
-      // 3. PRODUCTS Loop
+      // First pass: Build map assuming products start at "X".
+      // But we don't know "X" until we paginate TOC.
+      // And TOC needs map to paginate. 
+      // Hack: Build a dummy map to calculate TOC length (just names/groups).
+      const dummyMap: any[] = [];
       for (let i = 0; i < excelData.rows.length; i++) {
          const row = excelData.rows[i];
-         const title = row[tocTitleField] || row["Name"] || row["Model"] || `Product ${i + 1}`;
+         const title = row[tocTitleField] || `Product ${i + 1}`;
          const group = groupByField ? row[groupByField] : undefined;
-         pageMap.push({ title, page: currentPageNumber, group });
-         currentPageNumber++;
+         dummyMap.push({ title, page: 0, group }); // Page 0 placeholder
       }
 
-      // 4. GENERATE TOC PAGE (Now that we have the map)
-      if (tocSection && tocSection.elements.length > 0) {
-         const tocHtml = await renderPageHTML(tocSection.elements, {}, tocSection.backgroundColor, pageMap);
-         combinedHtml += `<div class="page-container">${tocHtml}</div>`;
+      let tocPageCount = 0;
+      let tocChunks: any[][] = [];
+
+      if (tocElement) {
+          tocChunks = paginateTOC(tocElement, dummyMap, canvasHeight);
+          tocPageCount = tocChunks.length;
       }
 
-      // 5. GENERATE PRODUCT PAGES
+      // Now we know TOC takes `tocPageCount` pages.
+      const productStartPage = currentPageNumber + tocPageCount;
+
+      // Real Map Build
+      let productPageCounter = productStartPage;
+      for (let i = 0; i < excelData.rows.length; i++) {
+         const row = excelData.rows[i];
+         const title = row[tocTitleField] || `Product ${i + 1}`;
+         const group = groupByField ? row[groupByField] : undefined;
+         pageMap.push({ title, page: productPageCounter, group });
+         productPageCounter++;
+      }
+
+      // 3. GENERATE TOC PAGES (Multi-Page)
+      if (tocSection && tocSection.elements.length > 0 && tocElement) {
+         for (let i = 0; i < tocChunks.length; i++) {
+             // Clone elements to avoid mutation
+             const pageElements = JSON.parse(JSON.stringify(tocSection.elements));
+             // Find the TOC element in clone and inject data
+             const clonedToc = pageElements.find((el: any) => el.id === tocElement!.id);
+             if (clonedToc) {
+                 (clonedToc as any)._renderItems = tocChunks[i];
+                 (clonedToc as any)._isPaged = true;
+                 (clonedToc as any)._isFirstPage = (i === 0);
+             }
+
+             const tocHtml = await renderPageHTML(pageElements, {}, tocSection.backgroundColor);
+             combinedHtml += `<div class="page-container">${tocHtml}</div>`;
+             currentPageNumber++;
+         }
+      }
+
+      // 4. GENERATE PRODUCT PAGES
       const productSection = catalogSections.product;
       for (let i = 0; i < excelData.rows.length; i++) {
          const row = excelData.rows[i];
-         // Pass the page index from the template, usually 0 if single page template
          const productHtml = await renderPageHTML(productSection.elements, row, productSection.backgroundColor);
          combinedHtml += `<div class="page-container">${productHtml}</div>`;
-
-         // Update Progress
          setProgress(Math.round(((i + 1) / excelData.rows.length) * 80) + 10);
+         currentPageNumber++;
       }
 
-      // 6. BACK COVER
+      // 5. BACK COVER
       const backSection = catalogSections.back;
       if (backSection && backSection.elements.length > 0) {
          const backHtml = await renderPageHTML(backSection.elements, {}, backSection.backgroundColor);
          combinedHtml += `<div class="page-container">${backHtml}</div>`;
       }
 
-      // 7. SEND TO PUPPETEER
+      // 6. SEND TO PUPPETEER
       const pdfBlob = await fetchPdfBuffer(combinedHtml, currentPageNumber, "Full Catalog");
       const url = window.URL.createObjectURL(pdfBlob);
       const link = document.createElement("a");
@@ -558,7 +672,7 @@ export function ExportTab() {
     }
   };
 
-  // --- STANDARD GENERATION (Keep existing for Basic Mode) ---
+  // --- STANDARD GENERATION (Basic Mode) ---
   const generatePDF = async () => {
     setIsExporting(true);
     setProgress(0);
