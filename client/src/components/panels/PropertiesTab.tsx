@@ -160,7 +160,6 @@ export function PropertiesTab() {
     });
   };
 
-  // Helper for deep updates on tocSettings
   const handleTocSettingChange = (
     section: "titleStyle" | "chapterStyle",
     key: keyof NonNullable<CanvasElement["textStyle"]>,
@@ -250,7 +249,6 @@ export function PropertiesTab() {
 
           <Separator orientation="vertical" className="h-6 mx-1" />
 
-          {/* Layer Controls */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -517,7 +515,7 @@ export function PropertiesTab() {
 
         <Separator />
 
-        {/* --- TOC ADVANCED SETTINGS (UPDATED) --- */}
+        {/* --- TOC ADVANCED SETTINGS --- */}
         {selectedElement.type === "toc-list" && selectedElement.tocSettings && (
           <div className="space-y-6">
 
@@ -623,7 +621,6 @@ export function PropertiesTab() {
                             />
                         </div>
 
-                        {/* RESTORED: Title Font Selector */}
                         <div className="space-y-1.5">
                             <Label className="text-xs text-muted-foreground">Title Font</Label>
                             <Select
@@ -678,7 +675,18 @@ export function PropertiesTab() {
                     <h3 className="font-medium text-sm mb-3 text-primary">Chapter Style</h3>
                     <div className="space-y-3 p-3 bg-muted/20 rounded-md border">
 
-                        {/* RESTORED: Chapter Font Selector */}
+                        {/* NEW: Chapter Cover Toggle */}
+                        <div className="flex items-center justify-between">
+                            <Label className="text-xs text-muted-foreground font-medium text-primary">Enable Chapter Covers</Label>
+                            <Switch
+                                checked={selectedElement.tocSettings.chapterCoversEnabled}
+                                onCheckedChange={(c) => updateElement(selectedElement.id, {
+                                    tocSettings: { ...selectedElement.tocSettings!, chapterCoversEnabled: c }
+                                })}
+                            />
+                        </div>
+                        <Separator className="my-2"/>
+
                         <div className="space-y-1.5">
                             <Label className="text-xs text-muted-foreground">Font Family</Label>
                             <Select
@@ -761,8 +769,7 @@ export function PropertiesTab() {
           </div>
         )}
 
-        {/* ... (Rest of the file is identical) ... */}
-        {/* QR Code Settings */}
+        {/* ... (QR Code, Text Properties, Shape Properties, Image Properties remain unchanged) ... */}
         {selectedElement.type === "qrcode" && (
           <div>
             <h3 className="font-medium text-sm mb-3">QR Code Settings</h3>
@@ -835,7 +842,6 @@ export function PropertiesTab() {
           </div>
         )}
 
-        {/* Text Properties & Data Formatting */}
         {(selectedElement.type === "text" ||
           selectedElement.type === "dataField") && (
           <div>
@@ -845,7 +851,6 @@ export function PropertiesTab() {
                 <div className="flex justify-between items-center">
                   <Label className="text-xs text-muted-foreground">Content</Label>
 
-                  {/* MULTI-SELECT DROPDOWN LOGIC */}
                   {excelData && excelData.headers.length > 0 && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -861,7 +866,7 @@ export function PropertiesTab() {
                           <DropdownMenuItem 
                             key={header} 
                             onSelect={(e) => {
-                              e.preventDefault(); // Keep menu open for multiple selections
+                              e.preventDefault(); 
 
                               const currentContent = selectedElement.content || "";
                               const fieldTag = `{{${header}}}`;
@@ -1122,7 +1127,6 @@ export function PropertiesTab() {
                       </Select>
                     </div>
 
-                    {/* LIST STYLE SELECTOR */}
                     <div className="space-y-1.5">
                       <Label className="text-xs text-muted-foreground">List Style</Label>
                       <Select
@@ -1265,7 +1269,6 @@ export function PropertiesTab() {
           </div>
         )}
 
-        {/* Shape Properties */}
         {selectedElement.type === "shape" && (
           <div>
             <h3 className="font-medium text-sm mb-3">Shape Style</h3>
@@ -1365,7 +1368,6 @@ export function PropertiesTab() {
                     size="sm"
                     className="flex-1"
                     onClick={() => {
-                      // Use store method now to handle negative index prevention
                       sendToBack(selectedElement.id);
                     }}
                     data-testid="btn-send-to-back"
@@ -1390,7 +1392,6 @@ export function PropertiesTab() {
           </div>
         )}
 
-        {/* Image Properties */}
         {selectedElement.type === "image" && (
           <div>
             <h3 className="font-medium text-sm mb-3">Image Settings</h3>
@@ -1408,7 +1409,6 @@ export function PropertiesTab() {
                 />
               </div>
 
-              {/* UPDATED: Added Opacity Control for Images */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">
                   Opacity: {Math.round((selectedElement.shapeStyle?.opacity ?? 1) * 100)}%
@@ -1425,7 +1425,6 @@ export function PropertiesTab() {
                 />
               </div>
 
-              {/* UPDATED: Added Layer Controls for Images */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Layer</Label>
                 <div className="flex gap-2">

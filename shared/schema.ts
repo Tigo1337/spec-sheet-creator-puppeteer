@@ -72,10 +72,13 @@ export const tocSettingsSchema = z.object({
     letterSpacing: 0
   }),
 
-  // New: Column Count
   columnCount: z.number().min(1).max(2).default(1),
 
   groupByField: z.string().optional(),
+
+  // NEW: Toggle for Chapter Covers
+  chapterCoversEnabled: z.boolean().default(false),
+
   chapterStyle: textStyleSchema.default({
     fontFamily: "Inter",
     fontSize: 18,
@@ -83,7 +86,7 @@ export const tocSettingsSchema = z.object({
     color: "#333333",
     textAlign: "left",
     verticalAlign: "middle",
-    lineHeight: 2,
+    lineHeight: 1.5,
     letterSpacing: 0
   }),
   showPageNumbers: z.boolean().default(true),

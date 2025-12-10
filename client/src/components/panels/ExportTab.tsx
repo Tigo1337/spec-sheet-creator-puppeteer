@@ -56,7 +56,8 @@ export function ExportTab() {
     selectedRowIndex,
     pageCount,
     isCatalogMode,
-    catalogSections
+    catalogSections,
+    chapterDesigns 
   } = useCanvasStore();
 
   useEffect(() => {
@@ -530,12 +531,14 @@ export function ExportTab() {
       let tocTitleField = "Name";
       let groupByField = undefined;
       let tocElement: CanvasElement | undefined;
+      let chapterCoversEnabled = false;
 
       if (tocSection && tocSection.elements.length > 0) {
          tocElement = tocSection.elements.find(el => el.type === "toc-list");
          if (tocElement) {
              if (tocElement.dataBinding) tocTitleField = tocElement.dataBinding;
              if (tocElement.tocSettings?.groupByField) groupByField = tocElement.tocSettings.groupByField;
+             chapterCoversEnabled = !!(groupByField && tocElement.tocSettings?.chapterCoversEnabled);
          }
       }
 
@@ -551,7 +554,6 @@ export function ExportTab() {
       let tocChunks: any[][] = [];
 
       if (tocElement) {
-          // Use Shared Logic
           tocChunks = paginateTOC(tocElement, dummyMap, tocElement.dimension.height);
           tocPageCount = tocChunks.length;
       }
@@ -559,10 +561,19 @@ export function ExportTab() {
       const productStartPage = currentPageNumber + tocPageCount;
 
       let productPageCounter = productStartPage;
+      let currentGroup: string | undefined = undefined;
+
       for (let i = 0; i < excelData.rows.length; i++) {
          const row = excelData.rows[i];
          const title = row[tocTitleField] || `Product ${i + 1}`;
          const group = groupByField ? row[groupByField] : undefined;
+
+         // Handle Chapter Page Numbering
+         if (chapterCoversEnabled && group !== currentGroup) {
+             currentGroup = group;
+             productPageCounter++; // Skip a page number for the chapter cover
+         }
+
          pageMap.push({ title, page: productPageCounter, group });
          productPageCounter++;
       }
@@ -587,10 +598,40 @@ export function ExportTab() {
          }
       }
 
-      // 4. GENERATE PRODUCT PAGES
+      // 4. GENERATE CONTENT PAGES (Chapters + Products)
       const productSection = catalogSections.product;
+      const chapterSection = catalogSections.chapter;
+      currentGroup = undefined; // Reset for generation loop
+
       for (let i = 0; i < excelData.rows.length; i++) {
          const row = excelData.rows[i];
+         const group = groupByField ? row[groupByField] : undefined;
+
+         // Inject Chapter Cover if enabled and group changes
+         if (chapterCoversEnabled && group !== currentGroup) {
+             currentGroup = group;
+
+             // === RESOLVE CHAPTER ELEMENTS ===
+             // 1. Start with Default/Template elements
+             let chapterElements = chapterSection?.elements || [];
+             let chapterBg = chapterSection?.backgroundColor || "#ffffff";
+
+             // 2. Override with Unique Design if it exists
+             if (group && chapterDesigns[group]) {
+                 chapterElements = chapterDesigns[group].elements;
+                 chapterBg = chapterDesigns[group].backgroundColor;
+             }
+
+             // 3. Only render if we have something to show
+             if (chapterElements.length > 0) {
+                 // Render Chapter Page using current row data
+                 const chapterHtml = await renderPageHTML(chapterElements, row, chapterBg);
+                 combinedHtml += `<div class="page-container">${chapterHtml}</div>`;
+                 currentPageNumber++;
+             }
+         }
+
+         // Render Product Page
          const productHtml = await renderPageHTML(productSection.elements, row, productSection.backgroundColor);
          combinedHtml += `<div class="page-container">${productHtml}</div>`;
          setProgress(Math.round(((i + 1) / excelData.rows.length) * 80) + 10);

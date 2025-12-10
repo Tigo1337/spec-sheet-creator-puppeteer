@@ -90,7 +90,7 @@ export function createTOCElement(
         color: "#333333",
         textAlign: "left",
         verticalAlign: "middle",
-        lineHeight: 1.5, // Standardized line height
+        lineHeight: 2.5, // Extra spacing for chapter headers
         letterSpacing: 0
       },
       showPageNumbers: true,

@@ -83,6 +83,11 @@ interface CanvasState {
   activeSectionType: CatalogSectionType;
   catalogSections: Record<CatalogSectionType, CatalogSection>;
 
+  // NEW: Store unique designs for each chapter group
+  // Key = Group Name (e.g., "Accessories"), Value = { elements, backgroundColor }
+  chapterDesigns: Record<string, { elements: CanvasElement[]; backgroundColor: string }>;
+  activeChapterGroup: string | null; // Tracks which specific chapter we are editing
+
   // Actions
   setCanvasSize: (width: number, height: number) => void;
   setBackgroundColor: (color: string) => void;
@@ -107,7 +112,7 @@ interface CanvasState {
 
   moveElement: (id: string, x: number, y: number) => void;
   resizeElement: (id: string, width: number, height: number) => void;
-  toggleAspectRatioLock: (id: string) => void; // New Action
+  toggleAspectRatioLock: (id: string) => void; 
 
   bringToFront: (id: string) => void;
   sendToBack: (id: string) => void;
@@ -137,6 +142,7 @@ interface CanvasState {
   // --- CATALOG ACTIONS ---
   setCatalogMode: (enabled: boolean) => void;
   setActiveSection: (type: CatalogSectionType) => void;
+  setActiveChapterGroup: (groupName: string) => void; // NEW ACTION
 
   undo: () => void;
   redo: () => void;
@@ -207,6 +213,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     product: { type: "product", name: "Product Page", elements: [], backgroundColor: "#ffffff" },
     back: { type: "back", name: "Back Cover", elements: [], backgroundColor: "#ffffff" },
   },
+  chapterDesigns: {},
+  activeChapterGroup: null,
 
   // Actions
   setCanvasSize: (width, height) => {
@@ -360,17 +368,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       let finalWidth = newWidth;
       let finalHeight = newHeight;
 
-      // Aspect Ratio Enforcement Logic
       if (el.aspectRatioLocked && el.aspectRatio) {
-        // Determine which dimension changed relative to its current state
         const currentWidth = el.dimension.width;
         const currentHeight = el.dimension.height;
 
         const widthChange = Math.abs(newWidth - currentWidth);
         const heightChange = Math.abs(newHeight - currentHeight);
 
-        // If width changed more or equal, drive height. Else drive width.
-        // Also handle the edge case where dimensions are small to prevent stuck resizing
         if (widthChange >= heightChange) {
            finalWidth = newWidth;
            finalHeight = Math.max(10, Math.round(newWidth / el.aspectRatio));
@@ -398,7 +402,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const newLockedState = !el.aspectRatioLocked;
       let updates: Partial<CanvasElement> = { aspectRatioLocked: newLockedState };
 
-      // If locking, and we don't have a ratio yet, calculate it from current dimensions
       if (newLockedState && !el.aspectRatio) {
         updates.aspectRatio = el.dimension.width / el.dimension.height;
       }
@@ -573,9 +576,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           ? { 
               ...el, 
               isImageField: isImage,
-              // When converting to image field, default to locked aspect ratio
               aspectRatioLocked: isImage ? true : false,
-              // If we have dimensions, set initial ratio
               aspectRatio: isImage ? el.dimension.width / el.dimension.height : undefined
             }
           : el
@@ -664,30 +665,88 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setCatalogMode: (enabled) => set({ isCatalogMode: enabled }),
 
   setActiveSection: (type) => {
-    const { activeSectionType, elements, backgroundColor, catalogSections } = get();
+    const { activeSectionType, activeChapterGroup, elements, backgroundColor, catalogSections, chapterDesigns } = get();
 
-    // 1. Save current canvas state into the PREVIOUS section slot
-    const updatedSections = {
-      ...catalogSections,
-      [activeSectionType]: {
-        ...catalogSections[activeSectionType],
-        elements: elements,
-        backgroundColor: backgroundColor
-      }
-    };
+    // 1. SAVE CURRENT STATE
+    let updatedSections = { ...catalogSections };
+    let updatedChapterDesigns = { ...chapterDesigns };
 
-    // 2. Load the NEW section state onto the canvas
+    if (activeSectionType === 'chapter' && activeChapterGroup) {
+        // We are leaving a specific chapter design, save it there
+        updatedChapterDesigns[activeChapterGroup] = { elements, backgroundColor };
+    } else {
+        // We are leaving a standard section, save it there
+        updatedSections[activeSectionType] = {
+            ...updatedSections[activeSectionType],
+            elements: elements,
+            backgroundColor: backgroundColor
+        };
+    }
+
+    // 2. LOAD NEW STATE
+    // Note: switching generally to 'chapter' via this method implies Default/Base template if used directly,
+    // or resetting the activeChapterGroup if moving away.
     const targetSection = updatedSections[type];
 
-    // Clear history when switching contexts to avoid undo-ing into a different section
     history = [];
     historyIndex = -1;
 
     set({
       activeSectionType: type,
+      activeChapterGroup: null, // Reset specific chapter when switching main tabs
       catalogSections: updatedSections,
+      chapterDesigns: updatedChapterDesigns,
       elements: targetSection.elements,
       backgroundColor: targetSection.backgroundColor,
+      selectedElementIds: [],
+    });
+  },
+
+  // NEW: Switch to a specific chapter group
+  setActiveChapterGroup: (groupName) => {
+    const { activeSectionType, activeChapterGroup, elements, backgroundColor, catalogSections, chapterDesigns } = get();
+
+    // 1. SAVE CURRENT STATE
+    let updatedSections = { ...catalogSections };
+    let updatedChapterDesigns = { ...chapterDesigns };
+
+    if (activeSectionType === 'chapter' && activeChapterGroup) {
+        updatedChapterDesigns[activeChapterGroup] = { elements, backgroundColor };
+    } else {
+        updatedSections[activeSectionType] = {
+            ...updatedSections[activeSectionType],
+            elements: elements,
+            backgroundColor: backgroundColor
+        };
+    }
+
+    // 2. LOAD NEW STATE
+    let nextElements: CanvasElement[] = [];
+    let nextBg = "#ffffff";
+
+    if (updatedChapterDesigns[groupName]) {
+        // Load existing design
+        nextElements = updatedChapterDesigns[groupName].elements;
+        nextBg = updatedChapterDesigns[groupName].backgroundColor;
+    } else {
+        // Initialize from Default 'chapter' template
+        nextElements = JSON.parse(JSON.stringify(updatedSections.chapter.elements));
+        nextBg = updatedSections.chapter.backgroundColor;
+
+        // Save this immediately so we have a record
+        updatedChapterDesigns[groupName] = { elements: nextElements, backgroundColor: nextBg };
+    }
+
+    history = [];
+    historyIndex = -1;
+
+    set({
+      activeSectionType: 'chapter',
+      activeChapterGroup: groupName,
+      catalogSections: updatedSections,
+      chapterDesigns: updatedChapterDesigns,
+      elements: nextElements,
+      backgroundColor: nextBg,
       selectedElementIds: [],
     });
   },
@@ -725,6 +784,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       zoom: 1,
       pageCount: 1,
       activePageIndex: 0,
+      chapterDesigns: {},
+      activeChapterGroup: null
     });
   },
 }));
