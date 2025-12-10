@@ -153,6 +153,25 @@ export function PropertiesTab() {
     });
   };
 
+  // Helper for deep updates on tocSettings
+  const handleTocSettingChange = (
+    section: "titleStyle" | "chapterStyle",
+    key: keyof NonNullable<CanvasElement["textStyle"]>,
+    value: string | number
+  ) => {
+    if (!selectedElement.tocSettings) return;
+
+    updateElement(selectedElement.id, {
+      tocSettings: {
+        ...selectedElement.tocSettings,
+        [section]: {
+          ...selectedElement.tocSettings[section],
+          [key]: value
+        }
+      }
+    });
+  };
+
   const handleShapeStyleChange = (
     key: keyof NonNullable<CanvasElement["shapeStyle"]>,
     value: string | number
@@ -500,6 +519,182 @@ export function PropertiesTab() {
         </div>
 
         <Separator />
+
+        {/* --- TOC ADVANCED SETTINGS (NEW) --- */}
+        {selectedElement.type === "toc-list" && selectedElement.tocSettings && (
+          <div className="space-y-6">
+
+            {/* 1. TOC Data Configuration */}
+            <div>
+              <h3 className="font-medium text-sm mb-3 text-primary">Data Configuration</h3>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Product Label Field</Label>
+                  <Select
+                    value={selectedElement.dataBinding || ""}
+                    onValueChange={(value) => updateElement(selectedElement.id, { dataBinding: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Data Field" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {excelData?.headers.map((header) => (
+                        <SelectItem key={header} value={header}>{header}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Group by Chapter (Optional)</Label>
+                  <Select
+                    value={selectedElement.tocSettings.groupByField || "none"}
+                    onValueChange={(value) => updateElement(selectedElement.id, { 
+                        tocSettings: { ...selectedElement.tocSettings!, groupByField: value === "none" ? undefined : value } 
+                    })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="No Grouping" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Grouping</SelectItem>
+                      {excelData?.headers.map((header) => (
+                        <SelectItem key={header} value={header}>{header}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* 2. Title Settings */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium text-sm text-primary">Title Settings</h3>
+                <Switch 
+                    checked={selectedElement.tocSettings.showTitle}
+                    onCheckedChange={(c) => updateElement(selectedElement.id, {
+                        tocSettings: { ...selectedElement.tocSettings!, showTitle: c }
+                    })}
+                />
+              </div>
+
+              {selectedElement.tocSettings.showTitle && (
+                <div className="space-y-3 p-3 bg-muted/20 rounded-md border">
+                    <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Title Text</Label>
+                        <Input 
+                            value={selectedElement.tocSettings.title}
+                            onChange={(e) => updateElement(selectedElement.id, {
+                                tocSettings: { ...selectedElement.tocSettings!, title: e.target.value }
+                            })}
+                        />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">Font Size</Label>
+                            <Input type="number" value={selectedElement.tocSettings.titleStyle?.fontSize} onChange={(e) => handleTocSettingChange("titleStyle", "fontSize", Number(e.target.value))} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">Weight</Label>
+                            <Input type="number" value={selectedElement.tocSettings.titleStyle?.fontWeight} onChange={(e) => handleTocSettingChange("titleStyle", "fontWeight", Number(e.target.value))} />
+                        </div>
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Alignment</Label>
+                        <div className="flex gap-1">
+                            {["left", "center", "right"].map((align) => (
+                                <Button
+                                    key={align}
+                                    size="sm"
+                                    variant={selectedElement.tocSettings!.titleStyle?.textAlign === align ? "default" : "outline"}
+                                    onClick={() => handleTocSettingChange("titleStyle", "textAlign", align)}
+                                    className="flex-1 h-7 text-xs capitalize"
+                                >
+                                    {align}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* 3. Chapter Settings (Only if grouping enabled) */}
+            {selectedElement.tocSettings.groupByField && (
+                <div>
+                    <h3 className="font-medium text-sm mb-3 text-primary">Chapter Style</h3>
+                    <div className="space-y-3 p-3 bg-muted/20 rounded-md border">
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground">Font Size</Label>
+                                <Input type="number" value={selectedElement.tocSettings.chapterStyle?.fontSize} onChange={(e) => handleTocSettingChange("chapterStyle", "fontSize", Number(e.target.value))} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground">Weight</Label>
+                                <Input type="number" value={selectedElement.tocSettings.chapterStyle?.fontWeight} onChange={(e) => handleTocSettingChange("chapterStyle", "fontWeight", Number(e.target.value))} />
+                            </div>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">Color</Label>
+                            <div className="flex gap-2">
+                                <Input type="color" className="w-8 h-8 p-0" value={selectedElement.tocSettings.chapterStyle?.color} onChange={(e) => handleTocSettingChange("chapterStyle", "color", e.target.value)} />
+                                <Input type="text" className="h-8" value={selectedElement.tocSettings.chapterStyle?.color} onChange={(e) => handleTocSettingChange("chapterStyle", "color", e.target.value)} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <Separator />
+
+            {/* 4. Item (Product) Settings */}
+            <div>
+              <h3 className="font-medium text-sm mb-3 text-primary">Item Row Style</h3>
+              <div className="space-y-3 p-3 bg-muted/20 rounded-md border">
+                {/* Re-use handleTextStyleChange which affects the main 'textStyle' of the element */}
+                <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Font</Label>
+                    <Select
+                    value={selectedElement.textStyle?.fontFamily || "Inter"}
+                    onValueChange={(value) => handleTextStyleChange("fontFamily", value)}
+                    >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        {availableFonts.map((font) => (
+                        <SelectItem key={font} value={font} style={{ fontFamily: font }}>{font}</SelectItem>
+                        ))}
+                    </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Size</Label>
+                        <Input type="number" value={selectedElement.textStyle?.fontSize} onChange={(e) => handleTextStyleChange("fontSize", Number(e.target.value))} />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Line Height</Label>
+                        <Input type="number" step={0.1} value={selectedElement.textStyle?.lineHeight} onChange={(e) => handleTextStyleChange("lineHeight", Number(e.target.value))} />
+                    </div>
+                </div>
+
+                <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Color</Label>
+                    <div className="flex gap-2">
+                        <Input type="color" className="w-8 h-8 p-0" value={selectedElement.textStyle?.color} onChange={(e) => handleTextStyleChange("color", e.target.value)} />
+                        <Input type="text" className="h-8" value={selectedElement.textStyle?.color} onChange={(e) => handleTextStyleChange("color", e.target.value)} />
+                    </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        )}
 
         {/* QR Code Settings */}
         {selectedElement.type === "qrcode" && (

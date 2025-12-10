@@ -2,8 +2,8 @@ import { z } from "zod";
 import { pgTable, varchar, text, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
-// Canvas Element Types - Added "qrcode"
-export type ElementType = "text" | "shape" | "image" | "table" | "dataField" | "qrcode";
+// Canvas Element Types
+export type ElementType = "text" | "shape" | "image" | "table" | "dataField" | "qrcode" | "toc-list";
 
 // Position and dimension types
 export const positionSchema = z.object({
@@ -57,19 +57,56 @@ export const formatSchema = z.object({
 
 export type ElementFormat = z.infer<typeof formatSchema>;
 
+// --- NEW: TOC Settings Schema ---
+export const tocSettingsSchema = z.object({
+  // Main Title Settings
+  title: z.string().default("Table of Contents"),
+  showTitle: z.boolean().default(true),
+  titleStyle: textStyleSchema.default({
+    fontFamily: "Inter",
+    fontSize: 24,
+    fontWeight: 700,
+    color: "#000000",
+    textAlign: "left",
+    verticalAlign: "top",
+    lineHeight: 1.2,
+    letterSpacing: 0
+  }),
+
+  // Chapter (Category) Settings
+  groupByField: z.string().optional(), // The Excel Header to group by (e.g. "Category")
+  chapterStyle: textStyleSchema.default({
+    fontFamily: "Inter",
+    fontSize: 18,
+    fontWeight: 600,
+    color: "#333333",
+    textAlign: "left",
+    verticalAlign: "middle",
+    lineHeight: 2,
+    letterSpacing: 0
+  }),
+
+  // Item (Row) Settings
+  // We use the element's main 'textStyle' for the actual items (Product Names)
+  showPageNumbers: z.boolean().default(true),
+  leaderStyle: z.enum(["dotted", "solid", "none"]).default("dotted"),
+});
+
+export type TocSettings = z.infer<typeof tocSettingsSchema>;
+
 // Canvas element schema
 export const canvasElementSchema = z.object({
   id: z.string(),
-  // Updated Enum to include qrcode
-  type: z.enum(["text", "shape", "image", "table", "dataField", "qrcode"]),
+  type: z.enum(["text", "shape", "image", "table", "dataField", "qrcode", "toc-list"]),
   position: positionSchema,
   dimension: dimensionSchema,
   rotation: z.number().default(0),
   locked: z.boolean().default(false),
   visible: z.boolean().default(true),
   zIndex: z.number().default(0),
+
   content: z.string().optional(),
-  dataBinding: z.string().optional(), 
+  dataBinding: z.string().optional(), // For TOC, this is the "Product Title" field
 
   pageIndex: z.number().default(0),
 
@@ -77,11 +114,13 @@ export const canvasElementSchema = z.object({
   shapeStyle: shapeStyleSchema.optional(),
   format: formatSchema.optional(),
 
+  // New TOC Specific field
+  tocSettings: tocSettingsSchema.optional(),
+
   shapeType: z.enum(["rectangle", "circle", "line"]).optional(),
   imageSrc: z.string().optional(),
   isImageField: z.boolean().default(false),
 
-  // New field for Dynamic QR Codes
   qrCodeId: z.string().optional(),
 });
 
@@ -273,7 +312,6 @@ export const dbUserSchema = z.object({
 
 export const insertDbUserSchema = dbUserSchema.omit({ createdAt: true, updatedAt: true });
 
-// NEW: QR Codes Table for Dynamic Linking
 export const qrCodesTable = pgTable("qr_codes", {
   id: varchar("id", { length: 12 }).primaryKey(), // Short code (e.g. "abc12")
   userId: varchar("user_id", { length: 255 }).notNull(),

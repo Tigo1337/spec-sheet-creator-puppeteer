@@ -25,13 +25,15 @@ import {
   FileArchive,
   Monitor,
   Printer,
-  AlertTriangle
+  AlertTriangle,
+  Book
 } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import JSZip from "jszip";
 import { isHtmlContent, getImageDimensions } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
-import QRCode from "qrcode"; // <--- NEW IMPORT
+import QRCode from "qrcode";
+import type { CanvasElement } from "@shared/schema";
 
 export function ExportTab() {
   const [isExporting, setIsExporting] = useState(false);
@@ -46,15 +48,18 @@ export function ExportTab() {
   const {
     exportSettings,
     setExportSettings,
-    elements,
+    elements: currentElements,
     excelData,
     canvasWidth,
     canvasHeight,
     backgroundColor,
     selectedRowIndex,
     pageCount,
+    isCatalogMode,
+    catalogSections
   } = useCanvasStore();
 
+  // --- Quality Check Effect ---
   useEffect(() => {
     const checkImageQuality = async () => {
       if (exportMode !== 'print') {
@@ -63,8 +68,8 @@ export function ExportTab() {
       }
 
       let foundIssue = false;
-
-      for (const element of elements) {
+      // In catalog mode, strictly we should check ALL sections, but checking current is a good start.
+      for (const element of currentElements) {
         if (element.type === 'image' && element.visible) {
           let url = element.imageSrc;
           if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
@@ -87,7 +92,9 @@ export function ExportTab() {
     };
 
     checkImageQuality();
-  }, [elements, excelData, selectedRowIndex, exportMode]);
+  }, [currentElements, excelData, selectedRowIndex, exportMode]);
+
+  // --- Helper Functions ---
 
   const insertVariable = (header: string) => {
     setFilenamePattern((prev) => `${prev}{{${header}}}`);
@@ -161,22 +168,27 @@ export function ExportTab() {
     });
   };
 
-  const generateHTMLForPage = async (pageIndex: number, rowData: Record<string, string> = {}) => {
+  // --- HTML Generator Engine ---
+  // Refactored to accept elements and data as arguments for Catalog Generation
+  const renderPageHTML = async (
+    targetElements: CanvasElement[], 
+    rowData: Record<string, string> = {}, 
+    bg: string = "#ffffff",
+    pageMap: Array<{ title: string, page: number, group?: string }> = [] 
+  ) => {
     const container = document.createElement("div");
     container.style.width = `${canvasWidth}px`;
     container.style.height = `${canvasHeight}px`;
-    container.style.backgroundColor = backgroundColor;
+    container.style.backgroundColor = bg;
     container.style.position = "relative";
     container.style.overflow = "hidden";
-
-    const pageElements = elements
-      .filter(el => (el.pageIndex ?? 0) === pageIndex)
-      .sort((a, b) => a.zIndex - b.zIndex);
 
     // Determine data source for interpolation
     const sourceData = Object.keys(rowData).length > 0 ? rowData : (excelData?.rows[selectedRowIndex] || {});
 
-    for (const element of pageElements) {
+    const sortedElements = [...targetElements].sort((a, b) => a.zIndex - b.zIndex);
+
+    for (const element of sortedElements) {
       if (!element.visible) continue;
 
       const elementDiv = document.createElement("div");
@@ -189,8 +201,9 @@ export function ExportTab() {
       elementDiv.style.boxSizing = "border-box";
       elementDiv.style.zIndex = String(element.zIndex ?? 0);
 
+      // --- TEXT & DATA FIELDS ---
       if (element.type === "text" || element.type === "dataField") {
-         const elementId = `el-${element.id}`; // Generate unique ID for CSS
+         const elementId = `el-${element.id}`; 
          elementDiv.id = elementId;
 
          const textStyle = element.textStyle || {};
@@ -210,20 +223,9 @@ export function ExportTab() {
          elementDiv.style.textAlign = hAlign;
 
          const vAlign = textStyle.verticalAlign || "middle";
-         const justifyMap: Record<string, string> = {
-           top: "flex-start",
-           middle: "center",
-           bottom: "flex-end"
-         };
+         const justifyMap: Record<string, string> = { top: "flex-start", middle: "center", bottom: "flex-end" };
          elementDiv.style.justifyContent = justifyMap[vAlign];
-
-         if (hAlign === "center") {
-           elementDiv.style.alignItems = "center";
-         } else if (hAlign === "right") {
-           elementDiv.style.alignItems = "flex-end";
-         } else {
-           elementDiv.style.alignItems = "flex-start";
-         }
+         elementDiv.style.alignItems = hAlign === "center" ? "center" : hAlign === "right" ? "flex-end" : "flex-start";
 
          let content = element.content || (element.dataBinding ? `{{${element.dataBinding}}}` : "");
 
@@ -234,35 +236,24 @@ export function ExportTab() {
          });
 
          content = formatContent(content, element.format);
-
          const hasHtml = isHtmlContent(content);
          elementDiv.style.whiteSpace = hasHtml ? "normal" : "pre-wrap";
 
          if (hasHtml) {
             const listStyleProp = element.format?.listStyle;
             const hasCustomListStyle = listStyleProp && listStyleProp !== 'none';
-
-            const styles = `
-              <style>
-                #${elementId} ul, #${elementId} ol { 
-                  margin: 0 !important; 
-                  padding-left: 1.5em !important; 
-                  display: block !important; 
-                  ${hasCustomListStyle ? `list-style-type: ${listStyleProp} !important;` : ''}
-                }
-                #${elementId} li { 
-                  position: relative !important; 
-                  margin: 0.2em 0 !important; 
-                  display: list-item !important;
-                }
+            const styles = `<style>
+                #${elementId} ul, #${elementId} ol { margin: 0 !important; padding-left: 1.5em !important; display: block !important; ${hasCustomListStyle ? `list-style-type: ${listStyleProp} !important;` : ''} }
+                #${elementId} li { position: relative !important; margin: 0.2em 0 !important; display: list-item !important; }
                 #${elementId} p { margin: 0.2em 0; }
-              </style>
-            `;
+              </style>`;
             elementDiv.innerHTML = styles + content;
          } else {
            elementDiv.textContent = content;
          }
-      } else if (element.type === "shape") {
+      } 
+      // --- SHAPES ---
+      else if (element.type === "shape") {
          const shapeStyle = element.shapeStyle || {};
          elementDiv.style.opacity = String(shapeStyle.opacity || 1);
 
@@ -270,21 +261,20 @@ export function ExportTab() {
             elementDiv.style.display = "flex";
             elementDiv.style.alignItems = "center";
             elementDiv.style.justifyContent = "center";
-
             const lineStroke = document.createElement("div");
             lineStroke.style.width = "100%";
             lineStroke.style.height = `${shapeStyle.strokeWidth || 1}px`;
             lineStroke.style.backgroundColor = shapeStyle.stroke || "#9ca3af";
-
             elementDiv.appendChild(lineStroke);
          } else {
             elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
             elementDiv.style.border = `${shapeStyle.strokeWidth || 1}px solid ${shapeStyle.stroke || "#9ca3af"}`;
             elementDiv.style.borderRadius = element.shapeType === "circle" ? "50%" : `${shapeStyle.borderRadius || 0}px`;
          }
-      } else if (element.type === "image") {
+      } 
+      // --- IMAGES ---
+      else if (element.type === "image") {
          let imgSrc = element.imageSrc;
-
          if (element.dataBinding && sourceData[element.dataBinding]) {
             imgSrc = sourceData[element.dataBinding];
          }
@@ -293,29 +283,21 @@ export function ExportTab() {
            const img = document.createElement("img");
            if (exportMode === "digital") {
                try {
-                 const compressedSrc = await compressImage(
-                   imgSrc, 
-                   element.dimension.width * 2,
-                   element.dimension.height * 2,
-                   0.75
-                 );
+                 const compressedSrc = await compressImage(imgSrc, element.dimension.width * 2, element.dimension.height * 2, 0.75);
                  img.src = compressedSrc;
-               } catch {
-                 img.src = imgSrc; 
-               }
+               } catch { img.src = imgSrc; }
            } else {
                img.src = imgSrc;
            }
-
            img.style.width = "100%";
            img.style.height = "100%";
            img.style.objectFit = "contain";
            elementDiv.appendChild(img);
          }
-      } else if (element.type === "qrcode") { // <--- NEW QR LOGIC
+      } 
+      // --- QR CODES ---
+      else if (element.type === "qrcode") { 
          let content = element.content || "https://doculoom.io";
-
-         // Handle Variable Replacement in QR Code Content
          content = content.replace(/{{(.*?)}}/g, (match, p1) => {
              const fieldName = p1.trim();
              const val = sourceData[fieldName];
@@ -327,30 +309,98 @@ export function ExportTab() {
                  const svgString = await QRCode.toString(content, {
                     type: 'svg',
                     errorCorrectionLevel: 'H',
-                    margin: 0, // No margin for print
-                    color: {
-                        dark: element.textStyle?.color || '#000000',
-                        light: '#00000000' // Transparent
-                    }
+                    margin: 0, 
+                    color: { dark: element.textStyle?.color || '#000000', light: '#00000000' }
                  });
                  elementDiv.innerHTML = svgString;
-
-                 // Ensure SVG scales to container
                  const svgEl = elementDiv.querySelector("svg");
-                 if (svgEl) {
-                     svgEl.style.width = "100%";
-                     svgEl.style.height = "100%";
-                 }
-             } catch (e) {
-                 console.error("Error generating QR for PDF", e);
-             }
+                 if (svgEl) { svgEl.style.width = "100%"; svgEl.style.height = "100%"; }
+             } catch (e) { console.error("Error generating QR", e); }
          }
+      }
+      // --- TABLE OF CONTENTS (TOC) ---
+      else if (element.type === "toc-list") {
+         const settings = element.tocSettings || { title: "Table of Contents", showTitle: true };
+
+         // 1. Render Title
+         if (settings.showTitle) {
+             const titleDiv = document.createElement("div");
+             titleDiv.textContent = settings.title;
+             titleDiv.style.fontFamily = `"${settings.titleStyle?.fontFamily}", sans-serif`;
+             titleDiv.style.fontSize = `${settings.titleStyle?.fontSize}px`;
+             titleDiv.style.fontWeight = String(settings.titleStyle?.fontWeight);
+             titleDiv.style.color = settings.titleStyle?.color || "#000";
+             titleDiv.style.textAlign = settings.titleStyle?.textAlign || "left";
+             titleDiv.style.marginBottom = "20px";
+             elementDiv.appendChild(titleDiv);
+         }
+
+         const ul = document.createElement("ul");
+         ul.style.listStyle = "none"; ul.style.padding = "0"; ul.style.margin = "0";
+         ul.style.width = "100%";
+
+         // Group Logic
+         const groupBy = settings.groupByField;
+         if (groupBy) {
+             const groups: Record<string, any[]> = {};
+             pageMap.forEach(item => {
+                 const key = item.group || "Uncategorized";
+                 if (!groups[key]) groups[key] = [];
+                 groups[key].push(item);
+             });
+
+             Object.keys(groups).forEach(groupTitle => {
+                 // Chapter Header
+                 const chapterLi = document.createElement("li");
+                 chapterLi.textContent = groupTitle;
+                 chapterLi.style.fontFamily = `"${settings.chapterStyle?.fontFamily}", sans-serif`;
+                 chapterLi.style.fontSize = `${settings.chapterStyle?.fontSize}px`;
+                 chapterLi.style.fontWeight = String(settings.chapterStyle?.fontWeight);
+                 chapterLi.style.color = settings.chapterStyle?.color || "#333";
+                 chapterLi.style.marginTop = "15px";
+                 chapterLi.style.marginBottom = "5px";
+                 ul.appendChild(chapterLi);
+
+                 // Items
+                 groups[groupTitle].forEach(item => {
+                     const itemLi = createTocItem(item, element.textStyle || {});
+                     ul.appendChild(itemLi);
+                 });
+             });
+         } else {
+             // Flat List
+             pageMap.forEach(item => {
+                 ul.appendChild(createTocItem(item, element.textStyle || {}));
+             });
+         }
+         elementDiv.appendChild(ul);
       }
 
       container.appendChild(elementDiv);
     }
-
     return container.outerHTML;
+  };
+
+  const createTocItem = (item: {title: string, page: number}, style: any) => {
+      const li = document.createElement("li");
+      li.style.display = "flex"; li.style.justifyContent = "space-between"; li.style.alignItems = "baseline";
+      li.style.borderBottom = "1px dotted #ccc"; li.style.marginBottom = "4px";
+      li.style.fontFamily = `"${style.fontFamily}", sans-serif`;
+      li.style.fontSize = `${style.fontSize || 14}px`;
+      li.style.color = style.color || "#000000";
+
+      const titleSpan = document.createElement("span");
+      titleSpan.textContent = item.title;
+      titleSpan.style.backgroundColor = "#fff"; // Mask dots behind text
+      titleSpan.style.paddingRight = "5px";
+
+      const pageSpan = document.createElement("span");
+      pageSpan.textContent = String(item.page);
+      pageSpan.style.backgroundColor = "#fff";
+      pageSpan.style.paddingLeft = "5px";
+
+      li.appendChild(titleSpan); li.appendChild(pageSpan);
+      return li;
   };
 
   const fetchPdfBuffer = async (html: string, pages: number, title: string) => {
@@ -359,8 +409,6 @@ export function ExportTab() {
       <html>
         <head>
           <title>${title}</title>
-          <link rel="preconnect" href="https://fonts.googleapis.com">
-          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
           <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=Oswald:wght@400;700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400&family=Lato:wght@400;700&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;700&family=Nunito:wght@400;700&family=Open+Sans:wght@400;700&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;700&family=Raleway:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
           <style>
             @font-face { font-family: 'Arial'; src: local('Arimo'); }
@@ -374,20 +422,9 @@ export function ExportTab() {
             @font-face { font-family: 'Comic Sans MS'; src: local('Comic Neue'); }
             @font-face { font-family: 'Impact'; src: local('Oswald'); }
 
-            /* CSS RESET for PDF Export */
-            body, h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd {
-              margin: 0;
-            }
-            ul, ol {
-              margin: 0;
-              padding: 0;
-              list-style: none; 
-            }
-
-            @page {
-              size: ${canvasWidth}px ${canvasHeight}px;
-              margin: 0;
-            }
+            body, h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd { margin: 0; }
+            ul, ol { margin: 0; padding: 0; list-style: none; }
+            @page { size: ${canvasWidth}px ${canvasHeight}px; margin: 0; }
             body { margin: 0; padding: 0; box-sizing: border-box; }
             * { box-sizing: inherit; }
             .page-container {
@@ -398,14 +435,10 @@ export function ExportTab() {
               position: relative;
               overflow: hidden;
             }
-            .page-container:last-child {
-              page-break-after: auto;
-            }
+            .page-container:last-child { page-break-after: auto; }
           </style>
         </head>
-        <body>
-          ${html}
-        </body>
+        <body>${html}</body>
       </html>
     `;
 
@@ -425,13 +458,107 @@ export function ExportTab() {
       }),
     });
 
-    if (!response.ok) {
-      throw new Error("Server failed to generate PDF");
-    }
-
+    if (!response.ok) throw new Error("Server failed to generate PDF");
     return await response.blob();
   };
 
+  // --- CATALOG GENERATION LOGIC ---
+  const generateFullCatalogPDF = async () => {
+    if (!excelData || excelData.rows.length === 0) {
+      toast({ title: "No Data", description: "Import Excel data to generate a catalog.", variant: "destructive" });
+      return;
+    }
+
+    setIsExporting(true);
+    setProgress(0);
+    setExportStatus("idle");
+
+    try {
+      let combinedHtml = "";
+      let currentPageNumber = 1;
+      const pageMap: Array<{ title: string, page: number, group?: string }> = [];
+
+      // 1. COVER PAGE
+      const coverSection = catalogSections.cover;
+      if (coverSection && coverSection.elements.length > 0) {
+         const coverHtml = await renderPageHTML(coverSection.elements, {}, coverSection.backgroundColor);
+         combinedHtml += `<div class="page-container">${coverHtml}</div>`;
+         currentPageNumber++;
+      }
+
+      // 2. CALCULATE PAGE NUMBERS & BUILD MAP
+      // Look for the TOC element configuration to know which field to use
+      const tocSection = catalogSections.toc;
+      let tocTitleField = "Name"; // Default fallback
+      let groupByField = undefined;
+
+      if (tocSection && tocSection.elements.length > 0) {
+         const tocEl = tocSection.elements.find(el => el.type === "toc-list");
+         if (tocEl) {
+             if (tocEl.dataBinding) tocTitleField = tocEl.dataBinding;
+             if (tocEl.tocSettings?.groupByField) groupByField = tocEl.tocSettings.groupByField;
+         }
+         currentPageNumber++; // Reserve page for TOC
+      }
+
+      // 3. PRODUCTS Loop
+      for (let i = 0; i < excelData.rows.length; i++) {
+         const row = excelData.rows[i];
+         const title = row[tocTitleField] || row["Name"] || row["Model"] || `Product ${i + 1}`;
+         const group = groupByField ? row[groupByField] : undefined;
+         pageMap.push({ title, page: currentPageNumber, group });
+         currentPageNumber++;
+      }
+
+      // 4. GENERATE TOC PAGE (Now that we have the map)
+      if (tocSection && tocSection.elements.length > 0) {
+         const tocHtml = await renderPageHTML(tocSection.elements, {}, tocSection.backgroundColor, pageMap);
+         combinedHtml += `<div class="page-container">${tocHtml}</div>`;
+      }
+
+      // 5. GENERATE PRODUCT PAGES
+      const productSection = catalogSections.product;
+      for (let i = 0; i < excelData.rows.length; i++) {
+         const row = excelData.rows[i];
+         // Pass the page index from the template, usually 0 if single page template
+         const productHtml = await renderPageHTML(productSection.elements, row, productSection.backgroundColor);
+         combinedHtml += `<div class="page-container">${productHtml}</div>`;
+
+         // Update Progress
+         setProgress(Math.round(((i + 1) / excelData.rows.length) * 80) + 10);
+      }
+
+      // 6. BACK COVER
+      const backSection = catalogSections.back;
+      if (backSection && backSection.elements.length > 0) {
+         const backHtml = await renderPageHTML(backSection.elements, {}, backSection.backgroundColor);
+         combinedHtml += `<div class="page-container">${backHtml}</div>`;
+      }
+
+      // 7. SEND TO PUPPETEER
+      const pdfBlob = await fetchPdfBuffer(combinedHtml, currentPageNumber, "Full Catalog");
+      const url = window.URL.createObjectURL(pdfBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Catalog_Full.pdf`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      setExportStatus("success");
+      toast({ title: "Catalog Exported", description: "Your full catalog PDF is ready." });
+
+    } catch (error) {
+      console.error("Catalog Generation Error", error);
+      setExportStatus("error");
+      toast({ title: "Export Failed", description: "Could not generate catalog.", variant: "destructive" });
+    } finally {
+      setIsExporting(false);
+      setProgress(100);
+      setTimeout(() => { setProgress(0); setExportStatus("idle"); }, 3000);
+    }
+  };
+
+  // --- STANDARD GENERATION (Keep existing for Basic Mode) ---
   const generatePDF = async () => {
     setIsExporting(true);
     setProgress(0);
@@ -440,13 +567,16 @@ export function ExportTab() {
     try {
       let combinedHtml = "";
       for (let i = 0; i < pageCount; i++) {
-        const pageHtml = await generateHTMLForPage(i);
+        const pageHtml = await renderPageHTML(
+            currentElements.filter(el => (el.pageIndex ?? 0) === i), 
+            excelData?.rows[selectedRowIndex], 
+            backgroundColor
+        );
         combinedHtml += `<div class="page-container">${pageHtml}</div>`;
         setProgress(Math.round(((i + 1) / pageCount) * 50)); 
       }
 
       const fileName = getConstructedFilename(selectedRowIndex);
-
       const pdfBlob = await fetchPdfBuffer(combinedHtml, pageCount, fileName);
 
       const url = window.URL.createObjectURL(pdfBlob);
@@ -457,41 +587,21 @@ export function ExportTab() {
       window.URL.revokeObjectURL(url);
 
       setExportStatus("success");
-      toast({
-        title: "PDF exported successfully",
-        description: `Downloaded as ${fileName}.pdf`,
-      });
+      toast({ title: "PDF exported successfully", description: `Downloaded as ${fileName}.pdf` });
     } catch (error) {
       console.error("Export error:", error);
       setExportStatus("error");
-      toast({
-        title: "Export failed",
-        description: "An error occurred while generating the PDF.",
-        variant: "destructive",
-      });
+      toast({ title: "Export failed", description: "An error occurred.", variant: "destructive" });
     } finally {
       setIsExporting(false);
       setProgress(100);
-      setTimeout(() => {
-        setProgress(0);
-        setExportStatus("idle");
-      }, 3000);
+      setTimeout(() => { setProgress(0); setExportStatus("idle"); }, 3000);
     }
   };
 
   const generateBulkPDFs = async () => {
-    if (!excelData || excelData.rows.length === 0) {
-      toast({
-        title: "No data loaded",
-        description: "Please import an Excel file first to generate bulk PDFs.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsExporting(true);
-    setProgress(0);
-    setExportStatus("idle");
+    if (!excelData || excelData.rows.length === 0) return;
+    setIsExporting(true); setProgress(0); setExportStatus("idle");
 
     try {
       const zip = new JSZip();
@@ -499,65 +609,52 @@ export function ExportTab() {
 
       for (let rowIndex = 0; rowIndex < excelData.rows.length; rowIndex++) {
         const rowData = excelData.rows[rowIndex];
-
         let combinedHtml = "";
         for (let i = 0; i < pageCount; i++) {
-            const pageHtml = await generateHTMLForPage(i, rowData);
+            const pageHtml = await renderPageHTML(
+                currentElements.filter(el => (el.pageIndex ?? 0) === i),
+                rowData,
+                backgroundColor
+            );
             combinedHtml += `<div class="page-container">${pageHtml}</div>`;
         }
 
         let pdfName = getConstructedFilename(rowIndex);
         let uniqueName = pdfName;
         let counter = 1;
-        while (usedFilenames.has(uniqueName)) {
-            uniqueName = `${pdfName}_${counter}`;
-            counter++;
-        }
+        while (usedFilenames.has(uniqueName)) { uniqueName = `${pdfName}_${counter}`; counter++; }
         usedFilenames.add(uniqueName);
 
         const pdfBlob = await fetchPdfBuffer(combinedHtml, pageCount, uniqueName);
-
         zip.file(`${uniqueName}.pdf`, pdfBlob);
-
         setProgress(Math.round(((rowIndex + 1) / excelData.rows.length) * 100));
       }
 
       const zipBlob = await zip.generateAsync({ type: "blob" });
-      const timestamp = new Date().toISOString().slice(0, 10);
       const url = window.URL.createObjectURL(zipBlob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `specsheets-bulk-${timestamp}.zip`;
+      a.download = `specsheets-bulk-${new Date().toISOString().slice(0, 10)}.zip`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
       setExportStatus("success");
-      toast({
-        title: "Bulk export complete",
-        description: `Downloaded ZIP containing ${excelData.rows.length} files.`,
-      });
+      toast({ title: "Bulk export complete", description: `Downloaded ZIP containing ${excelData.rows.length} files.` });
     } catch (error) {
-      console.error("Bulk export error:", error);
       setExportStatus("error");
-      toast({
-        title: "Export failed",
-        description: "An error occurred during bulk export.",
-        variant: "destructive",
-      });
+      toast({ title: "Export failed", description: "An error occurred during bulk export.", variant: "destructive" });
     } finally {
       setIsExporting(false);
-      setTimeout(() => {
-        setProgress(0);
-        setExportStatus("idle");
-      }, 3000);
+      setTimeout(() => { setProgress(0); setExportStatus("idle"); }, 3000);
     }
   };
 
   return (
     <ScrollArea className="h-full">
       <div className="p-4 space-y-4">
+        {/* File Naming Section */}
         <div>
           <h3 className="font-medium text-sm mb-3 flex items-center gap-2">
             <FileSignature className="h-4 w-4" />
@@ -582,22 +679,11 @@ export function ExportTab() {
                 <div className="space-y-1.5">
                    <Label className="text-xs text-muted-foreground">Insert Variable</Label>
                    <div className="flex flex-wrap gap-1">
-                      <Button
-                         variant="outline"
-                         size="sm"
-                         className="h-6 px-2 text-[10px] bg-muted/50 hover:bg-muted border-dashed"
-                         onClick={() => setFilenamePattern((prev) => `${prev}{{Date}}`)}
-                      >
+                      <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] bg-muted/50 hover:bg-muted border-dashed" onClick={() => setFilenamePattern((prev) => `${prev}{{Date}}`)}>
                          <Plus className="h-2 w-2 mr-1" /> Date
                       </Button>
                       {excelData.headers.map((header) => (
-                         <Button
-                            key={header}
-                            variant="outline"
-                            size="sm"
-                            className="h-6 px-2 text-[10px] bg-muted/50 hover:bg-muted border-dashed"
-                            onClick={() => insertVariable(header)}
-                         >
+                         <Button key={header} variant="outline" size="sm" className="h-6 px-2 text-[10px] bg-muted/50 hover:bg-muted border-dashed" onClick={() => insertVariable(header)}>
                             <Plus className="h-2 w-2 mr-1" /> {header}
                          </Button>
                       ))}
@@ -609,6 +695,7 @@ export function ExportTab() {
 
         <Separator />
 
+        {/* Export Settings */}
         <div>
           <h3 className="font-medium text-sm mb-3 flex items-center gap-2">
             <Settings className="h-4 w-4" />
@@ -618,15 +705,8 @@ export function ExportTab() {
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Page Size</Label>
-              <Select
-                value={exportSettings.pageSize}
-                onValueChange={(value) =>
-                  setExportSettings({ pageSize: value as typeof exportSettings.pageSize })
-                }
-              >
-                <SelectTrigger data-testid="select-export-page-size">
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={exportSettings.pageSize} onValueChange={(value) => setExportSettings({ pageSize: value as typeof exportSettings.pageSize })}>
+                <SelectTrigger data-testid="select-export-page-size"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="letter">US Letter (8.5" x 11")</SelectItem>
                   <SelectItem value="a4">A4 (210mm x 297mm)</SelectItem>
@@ -637,15 +717,8 @@ export function ExportTab() {
 
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Orientation</Label>
-              <Select
-                value={exportSettings.orientation}
-                onValueChange={(value) =>
-                  setExportSettings({ orientation: value as typeof exportSettings.orientation })
-                }
-              >
-                <SelectTrigger data-testid="select-export-orientation">
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={exportSettings.orientation} onValueChange={(value) => setExportSettings({ orientation: value as typeof exportSettings.orientation })}>
+                <SelectTrigger data-testid="select-export-orientation"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="portrait">Portrait</SelectItem>
                   <SelectItem value="landscape">Landscape</SelectItem>
@@ -656,26 +729,13 @@ export function ExportTab() {
             <div className="space-y-2 pt-2">
                <Label className="text-xs text-muted-foreground">Output Quality</Label>
                <div className="grid grid-cols-2 gap-2">
-                  <div 
-                    onClick={() => setExportMode("digital")}
-                    className={`cursor-pointer border rounded-lg p-3 flex flex-col items-center justify-center gap-2 transition-all hover:bg-muted/50 ${exportMode === "digital" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"}`}
-                  >
+                  <div onClick={() => setExportMode("digital")} className={`cursor-pointer border rounded-lg p-3 flex flex-col items-center justify-center gap-2 transition-all hover:bg-muted/50 ${exportMode === "digital" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"}`}>
                      <Monitor className={`h-5 w-5 ${exportMode === "digital" ? "text-primary" : "text-muted-foreground"}`} />
-                     <div className="text-center">
-                        <p className="text-xs font-medium">Digital Ready</p>
-                        <p className="text-[10px] text-muted-foreground">Compressed (Small)</p>
-                     </div>
+                     <div className="text-center"><p className="text-xs font-medium">Digital Ready</p><p className="text-[10px] text-muted-foreground">Compressed (Small)</p></div>
                   </div>
-
-                  <div 
-                    onClick={() => setExportMode("print")}
-                    className={`cursor-pointer border rounded-lg p-3 flex flex-col items-center justify-center gap-2 transition-all hover:bg-muted/50 ${exportMode === "print" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"}`}
-                  >
+                  <div onClick={() => setExportMode("print")} className={`cursor-pointer border rounded-lg p-3 flex flex-col items-center justify-center gap-2 transition-all hover:bg-muted/50 ${exportMode === "print" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"}`}>
                      <Printer className={`h-5 w-5 ${exportMode === "print" ? "text-primary" : "text-muted-foreground"}`} />
-                     <div className="text-center">
-                        <p className="text-xs font-medium">Print Ready</p>
-                        <p className="text-[10px] text-muted-foreground">High Quality (Big)</p>
-                     </div>
+                     <div className="text-center"><p className="text-xs font-medium">Print Ready</p><p className="text-[10px] text-muted-foreground">High Quality (Big)</p></div>
                   </div>
                </div>
             </div>
@@ -684,9 +744,7 @@ export function ExportTab() {
                <Alert variant="destructive" className="mt-2 text-xs py-2 bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-200">
                   <AlertTriangle className="h-4 w-4 !text-yellow-600 dark:!text-yellow-400" />
                   <AlertTitle className="text-xs font-semibold mb-1">Low Resolution Detected</AlertTitle>
-                  <AlertDescription className="text-[10px] leading-tight opacity-90">
-                     Some images may appear pixelated in print (effective DPI &lt; 300). Check the canvas for details.
-                  </AlertDescription>
+                  <AlertDescription className="text-[10px] leading-tight opacity-90">Some images may appear pixelated in print (effective DPI &lt; 300).</AlertDescription>
                </Alert>
             )}
           </div>
@@ -694,6 +752,7 @@ export function ExportTab() {
 
         <Separator />
 
+        {/* Progress Bar */}
         {isExporting && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm">
@@ -704,6 +763,7 @@ export function ExportTab() {
           </div>
         )}
 
+        {/* Status Messages */}
         {!isExporting && exportStatus === "success" && (
           <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950/50 p-3 rounded-lg">
             <CheckCircle2 className="h-4 w-4" />
@@ -718,36 +778,44 @@ export function ExportTab() {
           </div>
         )}
 
+        {/* Buttons */}
         <div className="space-y-2">
-          <Button
-            className="w-full gap-2"
-            onClick={generatePDF}
-            disabled={isExporting || elements.length === 0}
-            data-testid="btn-export-pdf"
-          >
-            {isExporting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="h-4 w-4" />
-            )}
-            Export as PDF (Server-Side)
-          </Button>
-
-          {excelData && excelData.rows.length > 0 && (
+          {/* CATALOG MODE BUTTON */}
+          {isCatalogMode ? (
             <Button
-              variant="outline"
-              className="w-full gap-2"
-              onClick={generateBulkPDFs}
+              className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+              onClick={generateFullCatalogPDF}
               disabled={isExporting}
-              data-testid="btn-export-bulk"
             >
-              {isExporting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <FileArchive className="h-4 w-4" />
-              )}
-              Bulk Export as ZIP ({excelData.rows.length} files)
+              {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Book className="h-4 w-4" />}
+              Generate Full Catalog PDF
             </Button>
+          ) : (
+            // BASIC MODE BUTTONS
+            <>
+              <Button
+                className="w-full gap-2"
+                onClick={generatePDF}
+                disabled={isExporting || currentElements.length === 0}
+                data-testid="btn-export-pdf"
+              >
+                {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Export as PDF (Server-Side)
+              </Button>
+
+              {excelData && excelData.rows.length > 0 && (
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={generateBulkPDFs}
+                  disabled={isExporting}
+                  data-testid="btn-export-bulk"
+                >
+                  {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileArchive className="h-4 w-4" />}
+                  Bulk Export as ZIP ({excelData.rows.length} files)
+                </Button>
+              )}
+            </>
           )}
         </div>
 

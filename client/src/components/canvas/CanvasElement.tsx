@@ -4,7 +4,7 @@ import { useCanvasStore } from "@/stores/canvas-store";
 import { useEffect, useState } from "react";
 import { isHtmlContent } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, List } from "lucide-react";
 import QRCode from "qrcode";
 
 interface CanvasElementProps {
@@ -239,7 +239,6 @@ export function CanvasElement({
           const tooltipText = `Quality: ${effectiveDpi} DPI\nFor 300 DPI print quality at this size, use an image at least ${neededWidth} x ${neededHeight} pixels.`;
 
           return (
-            // UPDATED: Added opacity style here
             <div 
               className="relative w-full h-full" 
               style={{ opacity: element.shapeStyle?.opacity ?? 1 }}
@@ -277,6 +276,92 @@ export function CanvasElement({
             className="w-full h-full"
             dangerouslySetInnerHTML={{ __html: qrSvg }}
           />
+        );
+
+      // --- TOC RENDERER ---
+      case "toc-list":
+        const settings = element.tocSettings || { title: "Table of Contents", showTitle: true };
+        const groupBy = settings.groupByField;
+
+        // Mock data generation with grouping logic
+        let renderedItems = [];
+        if (excelData && element.dataBinding) {
+            const rows = excelData.rows.slice(0, 8); // Show first 8 for preview
+            if (groupBy) {
+                // Group the data
+                const groups: Record<string, any[]> = {};
+                rows.forEach((row, i) => {
+                    const groupKey = row[groupBy] || "Uncategorized";
+                    if (!groups[groupKey]) groups[groupKey] = [];
+                    groups[groupKey].push({ title: row[element.dataBinding!] || `Item ${i+1}`, page: i + 1 });
+                });
+
+                Object.keys(groups).forEach(groupTitle => {
+                    renderedItems.push({ type: "header", text: groupTitle });
+                    groups[groupTitle].forEach(item => renderedItems.push({ type: "item", ...item }));
+                });
+            } else {
+                // Flat list
+                renderedItems = rows.map((row, i) => ({ type: "item", title: row[element.dataBinding!] || `Item ${i+1}`, page: i + 1 }));
+            }
+        } else {
+            // Default Mock
+            if (groupBy) renderedItems.push({ type: "header", text: "Category A" });
+            renderedItems.push({ type: "item", title: "Product 1", page: 1 });
+            renderedItems.push({ type: "item", title: "Product 2", page: 2 });
+            if (groupBy) renderedItems.push({ type: "header", text: "Category B" });
+            renderedItems.push({ type: "item", title: "Product 3", page: 3 });
+        }
+
+        return (
+          <div 
+            className="w-full h-full p-4 border border-dashed border-muted-foreground/20 bg-white rounded flex flex-col overflow-hidden"
+          >
+            {/* Title */}
+            {settings.showTitle && (
+                <div style={{
+                    fontFamily: settings.titleStyle?.fontFamily,
+                    fontSize: (settings.titleStyle?.fontSize || 24) * zoom,
+                    fontWeight: settings.titleStyle?.fontWeight,
+                    textAlign: settings.titleStyle?.textAlign as any,
+                    color: settings.titleStyle?.color,
+                    marginBottom: 10 * zoom
+                }}>
+                    {settings.title}
+                </div>
+            )}
+
+            {/* List */}
+            <div className="flex-1 overflow-hidden" style={{
+                fontFamily: element.textStyle?.fontFamily,
+                fontSize: (element.textStyle?.fontSize || 14) * zoom,
+                color: element.textStyle?.color,
+                lineHeight: element.textStyle?.lineHeight
+            }}>
+                {renderedItems.map((item: any, idx) => {
+                    if (item.type === "header") {
+                        return (
+                            <div key={idx} style={{
+                                fontFamily: settings.chapterStyle?.fontFamily,
+                                fontSize: (settings.chapterStyle?.fontSize || 18) * zoom,
+                                fontWeight: settings.chapterStyle?.fontWeight,
+                                color: settings.chapterStyle?.color,
+                                marginTop: 8 * zoom,
+                                marginBottom: 4 * zoom
+                            }}>
+                                {item.text}
+                            </div>
+                        );
+                    }
+                    return (
+                        <div key={idx} className="flex justify-between items-baseline" style={{ borderBottom: "1px dotted #ccc" }}>
+                            <span className="truncate pr-2 bg-white z-10">{item.title}</span>
+                            <span className="flex-shrink-0 bg-white z-10 pl-2">{item.page}</span>
+                        </div>
+                    );
+                })}
+            </div>
+          </div>
         );
 
       default:

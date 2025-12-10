@@ -2,6 +2,16 @@ import { create } from "zustand";
 import type { CanvasElement, ExcelData, Template, ExportSettings } from "@shared/schema";
 import { nanoid } from "nanoid";
 
+// --- NEW CATALOG TYPES ---
+export type CatalogSectionType = "cover" | "toc" | "chapter" | "product" | "back";
+
+export interface CatalogSection {
+  type: CatalogSectionType;
+  name: string;
+  elements: CanvasElement[];
+  backgroundColor: string;
+}
+
 // Calculate optimal grid size based on canvas dimensions
 function calculateGridSize(width: number, height: number): number {
   const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b);
@@ -68,6 +78,11 @@ interface CanvasState {
   activeTool: "select" | "text" | "shape" | "image";
   rightPanelTab: "properties" | "data" | "export" | "designs";
 
+  // --- CATALOG STATE ---
+  isCatalogMode: boolean;
+  activeSectionType: CatalogSectionType;
+  catalogSections: Record<CatalogSectionType, CatalogSection>;
+
   // Actions
   setCanvasSize: (width: number, height: number) => void;
   setBackgroundColor: (color: string) => void;
@@ -117,6 +132,10 @@ interface CanvasState {
 
   setActiveTool: (tool: "select" | "text" | "shape" | "image") => void;
   setRightPanelTab: (tab: "properties" | "data" | "export" | "designs") => void;
+
+  // --- CATALOG ACTIONS ---
+  setCatalogMode: (enabled: boolean) => void;
+  setActiveSection: (type: CatalogSectionType) => void;
 
   undo: () => void;
   redo: () => void;
@@ -176,6 +195,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   activeTool: "select",
   rightPanelTab: "properties",
+
+  // Catalog Initial State
+  isCatalogMode: false,
+  activeSectionType: "product",
+  catalogSections: {
+    cover: { type: "cover", name: "Cover Page", elements: [], backgroundColor: "#ffffff" },
+    toc: { type: "toc", name: "Table of Contents", elements: [], backgroundColor: "#ffffff" },
+    chapter: { type: "chapter", name: "Chapter Divider", elements: [], backgroundColor: "#ffffff" },
+    product: { type: "product", name: "Product Page", elements: [], backgroundColor: "#ffffff" },
+    back: { type: "back", name: "Back Cover", elements: [], backgroundColor: "#ffffff" },
+  },
 
   // Actions
   setCanvasSize: (width, height) => {
@@ -337,25 +367,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ elements, hasUnsavedChanges: true });
   },
 
-  // UPDATED: Logic to prevent negative Z-Indices
   sendToBack: (id) => {
     const allElements = get().elements;
     const currentMin = Math.min(...allElements.map((el) => el.zIndex), 0);
 
-    // If the lowest item is already safely above 0, we can just subtract.
-    // If it's 0 or less, we must shift everything else UP to make room at the bottom.
-    // This avoids creating negative Z-indices which hide behind the canvas background.
-
     let updatedElements;
 
     if (currentMin > 0) {
-        // Safe to subtract
         updatedElements = allElements.map((el) =>
             el.id === id ? { ...el, zIndex: currentMin - 1 } : el
         );
     } else {
-        // Min is already 0. We cannot go to -1.
-        // Solution: Shift everyone else UP by 1, and set target to 0.
         updatedElements = allElements.map((el) => {
             if (el.id === id) {
                 return { ...el, zIndex: 0 };
@@ -578,6 +600,38 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setActiveTool: (tool) => set({ activeTool: tool }),
 
   setRightPanelTab: (tab) => set({ rightPanelTab: tab }),
+
+  // --- CATALOG ACTIONS IMPLEMENTATION ---
+  setCatalogMode: (enabled) => set({ isCatalogMode: enabled }),
+
+  setActiveSection: (type) => {
+    const { activeSectionType, elements, backgroundColor, catalogSections } = get();
+
+    // 1. Save current canvas state into the PREVIOUS section slot
+    const updatedSections = {
+      ...catalogSections,
+      [activeSectionType]: {
+        ...catalogSections[activeSectionType],
+        elements: elements,
+        backgroundColor: backgroundColor
+      }
+    };
+
+    // 2. Load the NEW section state onto the canvas
+    const targetSection = updatedSections[type];
+
+    // Clear history when switching contexts to avoid undo-ing into a different section
+    history = [];
+    historyIndex = -1;
+
+    set({
+      activeSectionType: type,
+      catalogSections: updatedSections,
+      elements: targetSection.elements,
+      backgroundColor: targetSection.backgroundColor,
+      selectedElementIds: [],
+    });
+  },
 
   undo: () => {
     if (historyIndex > 0) {

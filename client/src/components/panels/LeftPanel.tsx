@@ -34,13 +34,15 @@ import {
   AlignCenter,
   AlignRight,
   Bold,
-  QrCode // Import QrCode icon
+  QrCode,
+  List
 } from "lucide-react";
 import {
   createTextElement,
   createShapeElement,
   createImageElement,
-  createQRCodeElement, // Import helper
+  createQRCodeElement,
+  createTOCElement // Import the new factory function
 } from "@/lib/canvas-utils";
 import { availableFonts } from "@shared/schema";
 
@@ -54,6 +56,7 @@ export function LeftPanel() {
     elements,
     selectedElementIds,
     updateElement,
+    activeSectionType // Need this to conditionally show TOC button
   } = useCanvasStore();
 
   const selectedElement =
@@ -63,7 +66,7 @@ export function LeftPanel() {
 
   const isTextElement =
     selectedElement &&
-    (selectedElement.type === "text" || selectedElement.type === "dataField") &&
+    (selectedElement.type === "text" || selectedElement.type === "dataField" || selectedElement.type === "toc-list") &&
     selectedElement.textStyle;
 
   const handleAddTextElement = () => {
@@ -89,6 +92,12 @@ export function LeftPanel() {
     const y = canvasHeight / 2 - 50;
     addElement(createQRCodeElement(x, y));
   };
+
+  const handleAddTOC = () => {
+    const x = 50;
+    const y = 100;
+    addElement(createTOCElement(x, y));
+  }
 
   const toolButtons = [
     { id: "select" as const, icon: MousePointer2, label: "Select (V)" },
@@ -132,7 +141,7 @@ export function LeftPanel() {
               Text Formatting
             </h3>
             <div className="space-y-3">
-              {/* Font settings removed for brevity, they remain same as original */}
+              {/* Font settings */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Font</Label>
                 <Select
@@ -290,7 +299,32 @@ export function LeftPanel() {
       )}
 
       <ScrollArea className="flex-1">
-        <Accordion type="multiple" defaultValue={["text", "shapes", "images", "qr"]} className="px-2">
+        <Accordion type="multiple" defaultValue={["text", "shapes", "images", "qr", "structure"]} className="px-2">
+
+          {/* New "Structure" Section for TOC - Only visible in TOC mode */}
+          {activeSectionType === "toc" && (
+            <AccordionItem value="structure" className="border-b-0">
+              <AccordionTrigger className="py-2 text-sm hover:no-underline">
+                <div className="flex items-center gap-2">
+                  <List className="h-4 w-4" />
+                  <span>Structure</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="pt-1 pb-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start gap-2 border-dashed border-primary/50 text-primary hover:text-primary"
+                  onClick={handleAddTOC}
+                  data-testid="add-toc"
+                >
+                  <List className="h-4 w-4" />
+                  <span>Add Table of Contents</span>
+                </Button>
+              </AccordionContent>
+            </AccordionItem>
+          )}
+
           <AccordionItem value="text" className="border-b-0">
             <AccordionTrigger className="py-2 text-sm hover:no-underline">
               <div className="flex items-center gap-2">
@@ -399,7 +433,7 @@ export function LeftPanel() {
 
           <Separator className="my-1" />
 
-          {/* NEW: QR Codes Section */}
+          {/* QR Codes Section */}
           <AccordionItem value="qr" className="border-b-0">
             <AccordionTrigger className="py-2 text-sm hover:no-underline">
               <div className="flex items-center gap-2">

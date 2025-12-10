@@ -7,7 +7,7 @@ import type { SavedDesign, Template } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area"; // Import ScrollArea
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -83,7 +83,8 @@ export function SavedDesignsTab() {
     selectElements,
     hasUnsavedChanges,
     excelData,
-    selectedRowIndex
+    selectedRowIndex,
+    setCatalogMode // Import the action
   } = useCanvasStore();
 
   // --- QUERIES ---
@@ -177,11 +178,21 @@ export function SavedDesignsTab() {
   // --- ACTIONS ---
 
   const handleCreateDesign = (tier: "basic" | "composite" | "catalog") => {
-    if (tier !== "basic") return;
     if (hasUnsavedChanges && !confirm("You have unsaved changes. Create a new design anyway?")) {
       return;
     }
+
     resetCanvas();
+
+    // Toggle Catalog Mode based on selection
+    if (tier === "catalog") {
+        setCatalogMode(true);
+        toast({ title: "Catalog Mode", description: "Full Catalog designer activated." });
+    } else {
+        setCatalogMode(false);
+        toast({ title: "Basic Mode", description: "Standard Spec Sheet designer activated." });
+    }
+
     setNewDesignDialogOpen(false);
   };
 
@@ -189,6 +200,7 @@ export function SavedDesignsTab() {
     if (hasUnsavedChanges && !confirm("You have unsaved changes. Load template anyway?")) {
       return;
     }
+    setCatalogMode(false); // Templates currently default to basic mode
     loadTemplate(template);
     setNewDesignDialogOpen(false);
     toast({ title: "Template Loaded", description: `Loaded "${template.name}"` });
@@ -198,6 +210,9 @@ export function SavedDesignsTab() {
     if (hasUnsavedChanges && !confirm("You have unsaved changes. Load design anyway?")) {
       return;
     }
+
+    setCatalogMode(false); // Saved designs default to basic for now (until we update schema to support saved catalogs)
+
     loadTemplate({
       id: design.id,
       name: design.name,
@@ -234,10 +249,6 @@ export function SavedDesignsTab() {
   };
 
   // --- PREVIEW GENERATION ---
-  // (generateHTMLForPage and generatePagePreviews omitted for brevity as they are unchanged)
-  // Re-include them when saving the file to ensure functionality persists.
-
-  // NOTE: Copying existing helper functions from the original file to ensure it works
   const generateHTMLForPage = async (pageIndex: number) => {
     const container = document.createElement("div");
     container.style.width = `${canvasWidth}px`;
@@ -485,7 +496,6 @@ export function SavedDesignsTab() {
                 <TabsTrigger value="templates">Templates</TabsTrigger>
               </TabsList>
 
-              {/* UPDATED: Added ScrollArea and removed overflow-y-auto */}
               <TabsContent value="blank" className="flex-1 mt-4 min-h-0">
                 <ScrollArea className="h-full">
                   <div className="grid md:grid-cols-3 gap-6 pb-2 pr-4">
@@ -517,24 +527,24 @@ export function SavedDesignsTab() {
                       <Button className="w-full mt-2" variant="ghost" disabled>Unavailable</Button>
                     </Card>
 
-                    <Card className="p-6 border flex flex-col gap-4 relative overflow-hidden bg-muted/10 opacity-75">
-                      <div className="absolute top-3 right-3">
-                        <Badge variant="secondary" className="text-[10px] font-normal tracking-wide">COMING SOON</Badge>
-                      </div>
-                      <div className="w-12 h-12 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500">
+                    {/* UPDATED: ENABLED FULL CATALOG CARD */}
+                    <Card 
+                      className="p-6 cursor-pointer border-2 hover:border-purple-500/50 transition-all flex flex-col gap-4"
+                      onClick={() => handleCreateDesign("catalog")}
+                    >
+                      <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600">
                         <BookOpen className="h-6 w-6" />
                       </div>
                       <div className="space-y-2 flex-1">
-                        <h3 className="font-semibold text-lg text-muted-foreground">Full Catalog</h3>
-                        <p className="text-sm text-muted-foreground">Advanced publishing for large catalogs.</p>
+                        <h3 className="font-semibold text-lg">Full Catalog</h3>
+                        <p className="text-sm text-muted-foreground">Advanced publishing for large catalogs with covers and TOCs.</p>
                       </div>
-                      <Button className="w-full mt-2" variant="ghost" disabled>Unavailable</Button>
+                      <Button className="w-full mt-2" variant="outline">Select Catalog</Button>
                     </Card>
                   </div>
                 </ScrollArea>
               </TabsContent>
 
-              {/* UPDATED: Added ScrollArea and removed overflow-y-auto */}
               <TabsContent value="templates" className="flex-1 mt-4 min-h-0">
                 <ScrollArea className="h-full">
                   {isLoadingTemplates ? (

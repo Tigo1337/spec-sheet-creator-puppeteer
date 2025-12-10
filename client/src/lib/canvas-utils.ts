@@ -36,6 +36,63 @@ export function createTextElement(
   };
 }
 
+// NEW: TOC Element Creator (Updated)
+export function createTOCElement(
+  x: number,
+  y: number
+): CanvasElement {
+  return {
+    id: nanoid(),
+    type: "toc-list",
+    position: { x: snapToGrid(x), y: snapToGrid(y) },
+    dimension: { width: 500, height: 600 },
+    rotation: 0,
+    locked: false,
+    visible: true,
+    zIndex: Date.now(),
+
+    // Default Styling for the Item Rows (Product Names)
+    textStyle: {
+      fontFamily: "Inter",
+      fontSize: 14,
+      fontWeight: 400,
+      color: "#000000",
+      textAlign: "left",
+      verticalAlign: "top",
+      lineHeight: 1.8,
+      letterSpacing: 0,
+    },
+
+    // Detailed Settings
+    tocSettings: {
+      title: "Table of Contents",
+      showTitle: true,
+      titleStyle: {
+        fontFamily: "Inter",
+        fontSize: 24,
+        fontWeight: 700,
+        color: "#000000",
+        textAlign: "center",
+        verticalAlign: "middle",
+        lineHeight: 1.2,
+        letterSpacing: 0
+      },
+      chapterStyle: {
+        fontFamily: "Inter",
+        fontSize: 16,
+        fontWeight: 600,
+        color: "#333333",
+        textAlign: "left",
+        verticalAlign: "middle",
+        lineHeight: 2.5, // Extra spacing for chapter headers
+        letterSpacing: 0
+      },
+      showPageNumbers: true,
+      leaderStyle: "dotted"
+    }
+  };
+}
+
 export function createShapeElement(
   x: number,
   y: number,
@@ -61,7 +118,6 @@ export function createShapeElement(
   };
 }
 
-// NEW: QR Code Creator
 export function createQRCodeElement(
   x: number,
   y: number,
@@ -77,7 +133,6 @@ export function createQRCodeElement(
     visible: true,
     zIndex: Date.now(),
     content,
-    // We use textStyle.color to control the QR code color
     textStyle: {
       fontFamily: "Inter",
       fontSize: 16,
