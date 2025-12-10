@@ -318,12 +318,19 @@ export function ExportTab() {
       else if (element.type === "toc-list") {
          const settings = element.tocSettings || { title: "Table of Contents", showTitle: true };
 
-         // SPECIAL HANDLING: Check if specific items are passed via a temporary property
-         // This allows the multi-page generator to feed chunks of items to the renderer.
+         // === STYLING UPDATES TO MATCH CANVAS ===
+         elementDiv.style.padding = "16px"; // Match p-4
+         elementDiv.style.display = "flex";
+         elementDiv.style.flexDirection = "column";
+         elementDiv.style.backgroundColor = "#ffffff"; // Default canvas bg
+         elementDiv.style.border = "1px dashed rgba(100, 100, 100, 0.2)"; // Match canvas border
+         elementDiv.style.borderRadius = "4px"; 
+         // ======================================
+
          const itemsToRender: any[] = (element as any)._renderItems || [];
          const isPaged = (element as any)._isPaged || false;
 
-         // 1. Render Title (Only if enabled, or if it's the first page of a paged set)
+         // 1. Render Title
          if (settings.showTitle && (!isPaged || (element as any)._isFirstPage)) {
              const titleDiv = document.createElement("div");
              titleDiv.textContent = settings.title;
@@ -332,16 +339,20 @@ export function ExportTab() {
              titleDiv.style.fontWeight = String(settings.titleStyle?.fontWeight);
              titleDiv.style.color = settings.titleStyle?.color || "#000";
              titleDiv.style.textAlign = settings.titleStyle?.textAlign || "left";
-             titleDiv.style.marginBottom = "20px";
+             titleDiv.style.marginBottom = "10px"; // Adjusted to match 10 * zoom
              titleDiv.style.lineHeight = String(settings.titleStyle?.lineHeight || 1.2);
+             titleDiv.style.flexShrink = "0"; 
              elementDiv.appendChild(titleDiv);
          }
 
          const ul = document.createElement("ul");
-         ul.style.listStyle = "none"; ul.style.padding = "0"; ul.style.margin = "0";
+         ul.style.listStyle = "none"; 
+         ul.style.padding = "0"; 
+         ul.style.margin = "0";
          ul.style.width = "100%";
+         ul.style.flex = "1";
+         ul.style.overflow = "hidden";
 
-         // If we have pre-calculated items (from pagination), use them directly
          if (itemsToRender.length > 0) {
              itemsToRender.forEach(item => {
                  if (item.type === "header") {
@@ -352,9 +363,7 @@ export function ExportTab() {
                      ul.appendChild(itemLi);
                  }
              });
-         } 
-         // Fallback: Generate full list (Single Page Mode)
-         else {
+         } else {
              const groupBy = settings.groupByField;
              if (groupBy) {
                  const groups: Record<string, any[]> = {};
@@ -392,19 +401,22 @@ export function ExportTab() {
       li.style.fontWeight = String(settings.chapterStyle?.fontWeight);
       li.style.color = settings.chapterStyle?.color || "#333";
       li.style.textAlign = settings.chapterStyle?.textAlign || "left";
-      li.style.marginTop = "15px";
-      li.style.marginBottom = "5px";
-      // No border bottom
+      // Match Canvas Margins
+      li.style.marginTop = "8px"; 
+      li.style.marginBottom = "4px";
       return li;
   };
 
   const createTocItem = (item: {title: string, page: number}, style: any) => {
       const li = document.createElement("li");
       li.style.display = "flex"; li.style.justifyContent = "space-between"; li.style.alignItems = "baseline";
-      li.style.borderBottom = "1px dotted #ccc"; li.style.marginBottom = "4px";
+      li.style.borderBottom = "1px dotted #ccc"; 
+      li.style.marginBottom = "0px"; // Remove extra margin to match block flow
+      li.style.paddingBottom = "2px"; // Slight padding for border visibility
       li.style.fontFamily = `"${style.fontFamily}", sans-serif`;
       li.style.fontSize = `${style.fontSize || 14}px`;
       li.style.color = style.color || "#000000";
+      li.style.lineHeight = String(style.lineHeight || 1.5);
 
       const titleSpan = document.createElement("span");
       titleSpan.textContent = item.title;
@@ -412,6 +424,9 @@ export function ExportTab() {
       titleSpan.style.paddingRight = "5px";
       titleSpan.style.position = "relative";
       titleSpan.style.zIndex = "10";
+      titleSpan.style.overflow = "hidden";
+      titleSpan.style.textOverflow = "ellipsis";
+      titleSpan.style.whiteSpace = "nowrap";
 
       const pageSpan = document.createElement("span");
       pageSpan.textContent = String(item.page);
@@ -471,20 +486,22 @@ export function ExportTab() {
     return await response.blob();
   };
 
-  // --- TOC PAGINATION LOGIC ---
-  const paginateTOC = (tocElement: CanvasElement, pageMap: any[], canvasHeight: number) => {
+  // --- TOC PAGINATION LOGIC (UPDATED) ---
+  const paginateTOC = (tocElement: CanvasElement, pageMap: any[], elementHeight: number) => {
       const settings = tocElement.tocSettings || { title: "Table of Contents", showTitle: true };
-      const padding = 32; // 8 * 4px padding in renderer
-      const availableHeight = canvasHeight - (padding * 2);
+
+      // Matched Padding: 16px top + 16px bottom = 32px
+      const padding = 32; 
+      const availableHeight = elementHeight - padding;
 
       const pages: any[][] = [];
       let currentPage: any[] = [];
       let currentHeight = 0;
 
-      // Calculate Heights (Estimated)
-      const titleHeight = settings.showTitle ? ((settings.titleStyle?.fontSize || 24) * (settings.titleStyle?.lineHeight || 1.2)) + 20 : 0;
-      const headerHeight = ((settings.chapterStyle?.fontSize || 18) * 1.5) + 20; // 15px top + 5px bottom margins
-      const itemHeight = ((tocElement.textStyle?.fontSize || 14) * (tocElement.textStyle?.lineHeight || 1.8)) + 4; // 4px margin
+      // Estimated Heights (Updated to match styles)
+      const titleHeight = settings.showTitle ? ((settings.titleStyle?.fontSize || 24) * (settings.titleStyle?.lineHeight || 1.2)) + 10 : 0; // +10px margin
+      const headerHeight = ((settings.chapterStyle?.fontSize || 18) * 1.5) + 12; // 8+4 margin
+      const itemHeight = ((tocElement.textStyle?.fontSize || 14) * (tocElement.textStyle?.lineHeight || 1.5)) + 2; // ~ line height + border padding
 
       // Start first page with Title
       currentHeight += titleHeight;
@@ -513,7 +530,6 @@ export function ExportTab() {
                       pages.push(currentPage);
                       currentPage = [];
                       currentHeight = 0;
-                      // Don't repeat header on new page for now (simplification)
                   }
                   currentPage.push({ type: "item", ...item });
                   currentHeight += itemHeight;
@@ -560,13 +576,6 @@ export function ExportTab() {
       }
 
       // 2. PRE-CALCULATE PAGE NUMBERS & BUILD MAP
-      // We need to know how many pages the TOC will take BEFORE we assign page numbers to products.
-      // But wait, the TOC lists page numbers... circular dependency?
-      // Solution: Assume TOC starts at currentPageNumber. 
-      // We need to count TOC pages. To count TOC pages, we need the list items.
-      // The list items depend on the Product Pages... which shift if TOC grows?
-      // Standard Catalog: TOC lists *Product Page Numbers*. Products usually start AFTER TOC.
-
       const tocSection = catalogSections.toc;
       let tocTitleField = "Name";
       let groupByField = undefined;
@@ -580,30 +589,25 @@ export function ExportTab() {
          }
       }
 
-      // First pass: Build map assuming products start at "X".
-      // But we don't know "X" until we paginate TOC.
-      // And TOC needs map to paginate. 
-      // Hack: Build a dummy map to calculate TOC length (just names/groups).
       const dummyMap: any[] = [];
       for (let i = 0; i < excelData.rows.length; i++) {
          const row = excelData.rows[i];
          const title = row[tocTitleField] || `Product ${i + 1}`;
          const group = groupByField ? row[groupByField] : undefined;
-         dummyMap.push({ title, page: 0, group }); // Page 0 placeholder
+         dummyMap.push({ title, page: 0, group }); 
       }
 
       let tocPageCount = 0;
       let tocChunks: any[][] = [];
 
       if (tocElement) {
-          tocChunks = paginateTOC(tocElement, dummyMap, canvasHeight);
+          // FIX: Pass the ToC Element Height, not Canvas Height
+          tocChunks = paginateTOC(tocElement, dummyMap, tocElement.dimension.height);
           tocPageCount = tocChunks.length;
       }
 
-      // Now we know TOC takes `tocPageCount` pages.
       const productStartPage = currentPageNumber + tocPageCount;
 
-      // Real Map Build
       let productPageCounter = productStartPage;
       for (let i = 0; i < excelData.rows.length; i++) {
          const row = excelData.rows[i];
@@ -616,9 +620,7 @@ export function ExportTab() {
       // 3. GENERATE TOC PAGES (Multi-Page)
       if (tocSection && tocSection.elements.length > 0 && tocElement) {
          for (let i = 0; i < tocChunks.length; i++) {
-             // Clone elements to avoid mutation
              const pageElements = JSON.parse(JSON.stringify(tocSection.elements));
-             // Find the TOC element in clone and inject data
              const clonedToc = pageElements.find((el: any) => el.id === tocElement!.id);
              if (clonedToc) {
                  (clonedToc as any)._renderItems = tocChunks[i];
@@ -672,7 +674,8 @@ export function ExportTab() {
     }
   };
 
-  // --- STANDARD GENERATION (Basic Mode) ---
+  // ... (generatePDF and generateBulkPDFs remain largely unchanged but can use updated renderPageHTML) ...
+
   const generatePDF = async () => {
     setIsExporting(true);
     setProgress(0);
