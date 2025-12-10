@@ -348,7 +348,8 @@ export function CanvasElement({
                 color: element.textStyle?.color,
                 lineHeight: element.textStyle?.lineHeight,
                 columnCount: columnCount,
-                columnGap: 24 * zoom
+                columnGap: 24 * zoom,
+                columnFill: "auto" // <--- Added this to ensure first column fills before second
             }}>
                 {renderedItems.map((item: any, idx) => {
                     if (item.type === "header") {
@@ -360,7 +361,7 @@ export function CanvasElement({
                                 color: settings.chapterStyle?.color,
                                 marginTop: 8 * zoom,
                                 marginBottom: 4 * zoom,
-                                breakInside: "avoid" // Prevent header splitting
+                                breakInside: "avoid"
                             }}>
                                 {item.text}
                             </div>

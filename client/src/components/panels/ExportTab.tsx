@@ -358,6 +358,8 @@ export function ExportTab() {
          if (columnCount > 1) {
              ul.style.columnCount = String(columnCount);
              ul.style.columnGap = "24px"; 
+             // Updated: Use column-fill: auto to fill the first column first
+             ul.style.setProperty("column-fill", "auto");
          }
 
          if (itemsToRender.length > 0) {
