@@ -288,13 +288,14 @@ export function CanvasElement({
 
       // --- TOC RENDERER ---
       case "toc-list":
-        const settings = element.tocSettings || { title: "Table of Contents", showTitle: true };
+        const settings = element.tocSettings || { title: "Table of Contents", showTitle: true, columnCount: 1 };
         const groupBy = settings.groupByField;
+        const columnCount = settings.columnCount || 1;
 
         // Mock data generation with grouping logic
         let renderedItems = [];
         if (excelData && element.dataBinding) {
-            const rows = excelData.rows.slice(0, 50); // Show first 8 for preview
+            const rows = excelData.rows.slice(0); // Show first 8 for preview
             if (groupBy) {
                 // Group the data
                 const groups: Record<string, any[]> = {};
@@ -333,7 +334,8 @@ export function CanvasElement({
                     fontWeight: settings.titleStyle?.fontWeight,
                     textAlign: settings.titleStyle?.textAlign as any,
                     color: settings.titleStyle?.color,
-                    marginBottom: 10 * zoom
+                    marginBottom: 10 * zoom,
+                    flexShrink: 0
                 }}>
                     {settings.title}
                 </div>
@@ -344,7 +346,9 @@ export function CanvasElement({
                 fontFamily: element.textStyle?.fontFamily,
                 fontSize: (element.textStyle?.fontSize || 14) * zoom,
                 color: element.textStyle?.color,
-                lineHeight: element.textStyle?.lineHeight
+                lineHeight: element.textStyle?.lineHeight,
+                columnCount: columnCount,
+                columnGap: 24 * zoom
             }}>
                 {renderedItems.map((item: any, idx) => {
                     if (item.type === "header") {
@@ -355,14 +359,15 @@ export function CanvasElement({
                                 fontWeight: settings.chapterStyle?.fontWeight,
                                 color: settings.chapterStyle?.color,
                                 marginTop: 8 * zoom,
-                                marginBottom: 4 * zoom
+                                marginBottom: 4 * zoom,
+                                breakInside: "avoid" // Prevent header splitting
                             }}>
                                 {item.text}
                             </div>
                         );
                     }
                     return (
-                        <div key={idx} className="flex justify-between items-baseline" style={{ borderBottom: "1px dotted #ccc" }}>
+                        <div key={idx} className="flex justify-between items-baseline" style={{ breakInside: "avoid" }}>
                             <span className="truncate pr-2 bg-white z-10">{item.title}</span>
                             <span className="flex-shrink-0 bg-white z-10 pl-2">{item.page}</span>
                         </div>

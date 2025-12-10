@@ -71,6 +71,10 @@ export const tocSettingsSchema = z.object({
     lineHeight: 1.2,
     letterSpacing: 0
   }),
+
+  // New: Column Count
+  columnCount: z.number().min(1).max(2).default(1),
+
   groupByField: z.string().optional(),
   chapterStyle: textStyleSchema.default({
     fontFamily: "Inter",
@@ -99,7 +103,6 @@ export const canvasElementSchema = z.object({
   visible: z.boolean().default(true),
   zIndex: z.number().default(0),
 
-  // New Aspect Ratio Fields
   aspectRatio: z.number().optional(),
   aspectRatioLocked: z.boolean().default(false),
 
