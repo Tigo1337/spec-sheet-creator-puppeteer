@@ -82,11 +82,8 @@ interface CanvasState {
   isCatalogMode: boolean;
   activeSectionType: CatalogSectionType;
   catalogSections: Record<CatalogSectionType, CatalogSection>;
-
-  // NEW: Store unique designs for each chapter group
-  // Key = Group Name (e.g., "Accessories"), Value = { elements, backgroundColor }
   chapterDesigns: Record<string, { elements: CanvasElement[]; backgroundColor: string }>;
-  activeChapterGroup: string | null; // Tracks which specific chapter we are editing
+  activeChapterGroup: string | null; 
 
   // Actions
   setCanvasSize: (width: number, height: number) => void;
@@ -133,6 +130,7 @@ interface CanvasState {
   setCurrentTemplate: (template: Template | null) => void;
   saveAsTemplate: (name: string, description?: string, previewImages?: string[]) => Template;
   loadTemplate: (template: Template) => void;
+  loadCatalogDesign: (data: { sections: Record<CatalogSectionType, CatalogSection>, chapterDesigns: any, canvasWidth: number, canvasHeight: number }) => void; // NEW
 
   setExportSettings: (settings: Partial<ExportSettings>) => void;
 
@@ -142,7 +140,7 @@ interface CanvasState {
   // --- CATALOG ACTIONS ---
   setCatalogMode: (enabled: boolean) => void;
   setActiveSection: (type: CatalogSectionType) => void;
-  setActiveChapterGroup: (groupName: string) => void; // NEW ACTION
+  setActiveChapterGroup: (groupName: string) => void;
 
   undo: () => void;
   redo: () => void;
@@ -267,7 +265,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   addElement: (element) => {
     const { elements, activePageIndex } = get();
-    // Default new elements to maxZ + 1 so they appear on top
     const maxZ = Math.max(...elements.map(el => el.zIndex), 0);
     const newElement = { ...element, pageIndex: activePageIndex, zIndex: maxZ + 1 };
 
@@ -630,6 +627,28 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(template.elements);
   },
 
+  // NEW: Action to load a saved catalog design
+  loadCatalogDesign: (data) => {
+      history = [];
+      historyIndex = -1;
+
+      set({
+          isCatalogMode: true,
+          catalogSections: data.sections,
+          chapterDesigns: data.chapterDesigns,
+          activeSectionType: "cover",
+          activeChapterGroup: null,
+          elements: data.sections.cover.elements,
+          backgroundColor: data.sections.cover.backgroundColor,
+          canvasWidth: data.canvasWidth,
+          canvasHeight: data.canvasHeight,
+          gridSize: calculateGridSize(data.canvasWidth, data.canvasHeight),
+          hasUnsavedChanges: false,
+          pageCount: 1,
+          activePageIndex: 0
+      });
+  },
+
   setExportSettings: (settings) => {
     const state = get();
     const newState: any = {
@@ -672,10 +691,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     let updatedChapterDesigns = { ...chapterDesigns };
 
     if (activeSectionType === 'chapter' && activeChapterGroup) {
-        // We are leaving a specific chapter design, save it there
         updatedChapterDesigns[activeChapterGroup] = { elements, backgroundColor };
     } else {
-        // We are leaving a standard section, save it there
         updatedSections[activeSectionType] = {
             ...updatedSections[activeSectionType],
             elements: elements,
@@ -684,8 +701,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }
 
     // 2. LOAD NEW STATE
-    // Note: switching generally to 'chapter' via this method implies Default/Base template if used directly,
-    // or resetting the activeChapterGroup if moving away.
     const targetSection = updatedSections[type];
 
     history = [];
@@ -693,7 +708,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     set({
       activeSectionType: type,
-      activeChapterGroup: null, // Reset specific chapter when switching main tabs
+      activeChapterGroup: null, 
       catalogSections: updatedSections,
       chapterDesigns: updatedChapterDesigns,
       elements: targetSection.elements,
@@ -702,7 +717,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     });
   },
 
-  // NEW: Switch to a specific chapter group
   setActiveChapterGroup: (groupName) => {
     const { activeSectionType, activeChapterGroup, elements, backgroundColor, catalogSections, chapterDesigns } = get();
 
@@ -725,15 +739,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     let nextBg = "#ffffff";
 
     if (updatedChapterDesigns[groupName]) {
-        // Load existing design
         nextElements = updatedChapterDesigns[groupName].elements;
         nextBg = updatedChapterDesigns[groupName].backgroundColor;
     } else {
-        // Initialize from Default 'chapter' template
         nextElements = JSON.parse(JSON.stringify(updatedSections.chapter.elements));
         nextBg = updatedSections.chapter.backgroundColor;
-
-        // Save this immediately so we have a record
         updatedChapterDesigns[groupName] = { elements: nextElements, backgroundColor: nextBg };
     }
 
@@ -784,8 +794,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       zoom: 1,
       pageCount: 1,
       activePageIndex: 0,
+      isCatalogMode: false,
       chapterDesigns: {},
-      activeChapterGroup: null
+      activeChapterGroup: null,
+      catalogSections: {
+        cover: { type: "cover", name: "Cover Page", elements: [], backgroundColor: "#ffffff" },
+        toc: { type: "toc", name: "Table of Contents", elements: [], backgroundColor: "#ffffff" },
+        chapter: { type: "chapter", name: "Chapter Divider", elements: [], backgroundColor: "#ffffff" },
+        product: { type: "product", name: "Product Page", elements: [], backgroundColor: "#ffffff" },
+        back: { type: "back", name: "Back Cover", elements: [], backgroundColor: "#ffffff" },
+      }
     });
   },
 }));

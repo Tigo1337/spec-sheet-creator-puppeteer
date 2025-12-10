@@ -43,7 +43,8 @@ import {
   Layers, 
   BookOpen, 
   ChevronLeft, 
-  ChevronRight 
+  ChevronRight,
+  BookTemplate
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { isHtmlContent } from "@/lib/canvas-utils";
@@ -84,7 +85,14 @@ export function SavedDesignsTab() {
     hasUnsavedChanges,
     excelData,
     selectedRowIndex,
-    setCatalogMode // Import the action
+    // Catalog State & Actions
+    setCatalogMode,
+    isCatalogMode,
+    catalogSections,
+    chapterDesigns,
+    activeSectionType,
+    activeChapterGroup,
+    loadCatalogDesign
   } = useCanvasStore();
 
   // --- QUERIES ---
@@ -106,20 +114,13 @@ export function SavedDesignsTab() {
   // --- MUTATIONS ---
 
   const saveDesignMutation = useMutation({
-    mutationFn: async (data: { name: string; description?: string }) => {
+    // Modified to accept a flexible object so we can pass type='catalog' and catalogData
+    mutationFn: async (designData: any) => {
       const response = await fetch("/api/designs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          name: data.name,
-          description: data.description,
-          canvasWidth,
-          canvasHeight,
-          pageCount,
-          backgroundColor,
-          elements,
-        }),
+        body: JSON.stringify(designData),
       });
       if (!response.ok) throw new Error("Failed to save design");
       return response.json();
@@ -131,8 +132,8 @@ export function SavedDesignsTab() {
       setDesignName("");
       setDesignDescription("");
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to save design.", variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Error", description: `Failed to save design: ${error.message}`, variant: "destructive" });
     },
   });
 
@@ -211,30 +212,42 @@ export function SavedDesignsTab() {
       return;
     }
 
-    setCatalogMode(false); // Saved designs default to basic for now (until we update schema to support saved catalogs)
+    if (design.type === 'catalog' && design.catalogData) {
+        // Load as Catalog
+        loadCatalogDesign({
+           sections: design.catalogData.sections,
+           chapterDesigns: design.catalogData.chapterDesigns,
+           canvasWidth: design.canvasWidth,
+           canvasHeight: design.canvasHeight
+        });
+        toast({ title: "Catalog Loaded", description: `"${design.name}" loaded in Catalog Mode.` });
+    } else {
+        // Load as Single Page / Basic
+        setCatalogMode(false); 
+        loadTemplate({
+          id: design.id,
+          name: design.name,
+          description: design.description,
+          canvasWidth: design.canvasWidth,
+          canvasHeight: design.canvasHeight,
+          pageCount: design.pageCount,
+          backgroundColor: design.backgroundColor,
+          elements: design.elements,
+          createdAt: design.createdAt,
+          updatedAt: design.updatedAt,
+          previewImages: [],
+        });
 
-    loadTemplate({
-      id: design.id,
-      name: design.name,
-      description: design.description,
-      canvasWidth: design.canvasWidth,
-      canvasHeight: design.canvasHeight,
-      pageCount: design.pageCount,
-      backgroundColor: design.backgroundColor,
-      elements: design.elements,
-      createdAt: design.createdAt,
-      updatedAt: design.updatedAt,
-    });
+        // Restore image field bindings
+        const imageFields = new Set(
+          design.elements
+            .filter((el) => el.isImageField && el.dataBinding)
+            .map((el) => el.dataBinding as string)
+        );
+        imageFields.forEach((field) => useCanvasStore.getState().toggleImageField(field));
 
-    // Restore image field bindings
-    const imageFields = new Set(
-      design.elements
-        .filter((el) => el.isImageField && el.dataBinding)
-        .map((el) => el.dataBinding as string)
-    );
-    imageFields.forEach((field) => useCanvasStore.getState().toggleImageField(field));
-
-    toast({ title: "Design loaded", description: `"${design.name}" has been loaded.` });
+        toast({ title: "Design loaded", description: `"${design.name}" has been loaded.` });
+    }
   };
 
   const handleSaveDesign = () => {
@@ -242,10 +255,55 @@ export function SavedDesignsTab() {
       toast({ title: "Name required", description: "Please enter a name.", variant: "destructive" });
       return;
     }
-    saveDesignMutation.mutate({
-      name: designName.trim(),
-      description: designDescription.trim() || undefined,
-    });
+
+    if (isCatalogMode) {
+        // === CATALOG SAVE LOGIC ===
+        // We need to capture the *current* state of the canvas into the catalog objects before saving
+        // because the 'elements' state is transient (it represents the active section).
+
+        const finalSections = { ...catalogSections };
+        const finalChapterDesigns = { ...chapterDesigns };
+
+        if (activeSectionType === 'chapter' && activeChapterGroup) {
+            // Save active chapter
+            finalChapterDesigns[activeChapterGroup] = { elements, backgroundColor };
+        } else {
+            // Save active section (cover, toc, etc)
+            finalSections[activeSectionType] = {
+                ...finalSections[activeSectionType],
+                elements,
+                backgroundColor
+            };
+        }
+
+        saveDesignMutation.mutate({
+            name: designName.trim(),
+            description: designDescription.trim() || undefined,
+            type: "catalog",
+            canvasWidth,
+            canvasHeight,
+            pageCount,
+            backgroundColor, // This stores the current active BG, but catalogData has specific BGs
+            elements: [],    // Empty elements for top-level, data is in catalogData
+            catalogData: {
+                sections: finalSections,
+                chapterDesigns: finalChapterDesigns
+            }
+        });
+
+    } else {
+        // === SINGLE PAGE SAVE LOGIC ===
+        saveDesignMutation.mutate({
+            name: designName.trim(),
+            description: designDescription.trim() || undefined,
+            type: "single",
+            canvasWidth,
+            canvasHeight,
+            pageCount,
+            backgroundColor,
+            elements,
+        });
+    }
   };
 
   // --- PREVIEW GENERATION ---
@@ -527,7 +585,6 @@ export function SavedDesignsTab() {
                       <Button className="w-full mt-2" variant="ghost" disabled>Unavailable</Button>
                     </Card>
 
-                    {/* UPDATED: ENABLED FULL CATALOG CARD */}
                     <Card 
                       className="p-6 cursor-pointer border-2 hover:border-purple-500/50 transition-all flex flex-col gap-4"
                       onClick={() => handleCreateDesign("catalog")}
@@ -687,16 +744,28 @@ export function SavedDesignsTab() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <h4 className="font-medium text-sm break-words leading-tight">{design.name}</h4>
+
+                    {/* TYPE BADGE */}
+                    <div className="flex items-center gap-2 mt-1">
+                        {design.type === 'catalog' ? (
+                            <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                <BookTemplate className="h-3 w-3" /> Catalog
+                            </span>
+                        ) : (
+                            <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                <LayoutTemplate className="h-3 w-3" /> Single
+                            </span>
+                        )}
+                        <span className="text-[10px] text-muted-foreground">
+                            {formatDistanceToNow(new Date(design.updatedAt), { addSuffix: true })}
+                        </span>
+                    </div>
+
                     {design.description && (
                       <p className="text-xs text-muted-foreground truncate mt-0.5">
                         {design.description}
                       </p>
                     )}
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {formatDistanceToNow(new Date(design.updatedAt), {
-                        addSuffix: true,
-                      })}
-                    </p>
                   </div>
                   <div className="flex items-center gap-1">
                     <Button
