@@ -107,6 +107,7 @@ interface CanvasState {
 
   moveElement: (id: string, x: number, y: number) => void;
   resizeElement: (id: string, width: number, height: number) => void;
+  toggleAspectRatioLock: (id: string) => void; // New Action
 
   bringToFront: (id: string) => void;
   sendToBack: (id: string) => void;
@@ -308,7 +309,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         y: element.position.y + 20,
       },
       pageIndex: element.pageIndex,
-      zIndex: maxZ + 1, // Ensure new items are on top
+      zIndex: maxZ + 1,
     };
 
     const elements = [...get().elements, newElement];
@@ -350,11 +351,61 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   resizeElement: (id, width, height) => {
-    const elements = get().elements.map((el) =>
-      el.id === id
-        ? { ...el, dimension: { width: Math.max(10, width), height: Math.max(10, height) } }
-        : el
-    );
+    const elements = get().elements.map((el) => {
+      if (el.id !== id) return el;
+
+      const newWidth = Math.max(10, width);
+      const newHeight = Math.max(10, height);
+
+      let finalWidth = newWidth;
+      let finalHeight = newHeight;
+
+      // Aspect Ratio Enforcement Logic
+      if (el.aspectRatioLocked && el.aspectRatio) {
+        // Determine which dimension changed relative to its current state
+        const currentWidth = el.dimension.width;
+        const currentHeight = el.dimension.height;
+
+        const widthChange = Math.abs(newWidth - currentWidth);
+        const heightChange = Math.abs(newHeight - currentHeight);
+
+        // If width changed more or equal, drive height. Else drive width.
+        // Also handle the edge case where dimensions are small to prevent stuck resizing
+        if (widthChange >= heightChange) {
+           finalWidth = newWidth;
+           finalHeight = Math.max(10, Math.round(newWidth / el.aspectRatio));
+        } else {
+           finalHeight = newHeight;
+           finalWidth = Math.max(10, Math.round(newHeight * el.aspectRatio));
+        }
+      }
+
+      return {
+        ...el,
+        dimension: { 
+          width: finalWidth, 
+          height: finalHeight 
+        } 
+      };
+    });
+    set({ elements, hasUnsavedChanges: true });
+  },
+
+  toggleAspectRatioLock: (id) => {
+    const elements = get().elements.map((el) => {
+      if (el.id !== id) return el;
+
+      const newLockedState = !el.aspectRatioLocked;
+      let updates: Partial<CanvasElement> = { aspectRatioLocked: newLockedState };
+
+      // If locking, and we don't have a ratio yet, calculate it from current dimensions
+      if (newLockedState && !el.aspectRatio) {
+        updates.aspectRatio = el.dimension.width / el.dimension.height;
+      }
+
+      return { ...el, ...updates };
+    });
+    saveToHistory(elements);
     set({ elements, hasUnsavedChanges: true });
   },
 
@@ -370,7 +421,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   sendToBack: (id) => {
     const allElements = get().elements;
     const currentMin = Math.min(...allElements.map((el) => el.zIndex), 0);
-
     let updatedElements;
 
     if (currentMin > 0) {
@@ -510,15 +560,24 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   toggleImageField: (fieldName) => {
     set((state) => {
       const newSet = new Set(state.imageFieldNames);
-      if (newSet.has(fieldName)) {
-        newSet.delete(fieldName);
-      } else {
+      const isImage = !newSet.has(fieldName);
+
+      if (isImage) {
         newSet.add(fieldName);
+      } else {
+        newSet.delete(fieldName);
       }
 
       const elements = state.elements.map((el) =>
         el.dataBinding === fieldName
-          ? { ...el, isImageField: !newSet.has(fieldName) ? false : true }
+          ? { 
+              ...el, 
+              isImageField: isImage,
+              // When converting to image field, default to locked aspect ratio
+              aspectRatioLocked: isImage ? true : false,
+              // If we have dimensions, set initial ratio
+              aspectRatio: isImage ? el.dimension.width / el.dimension.height : undefined
+            }
           : el
       );
 

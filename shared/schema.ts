@@ -57,9 +57,8 @@ export const formatSchema = z.object({
 
 export type ElementFormat = z.infer<typeof formatSchema>;
 
-// --- NEW: TOC Settings Schema ---
+// --- TOC Settings Schema ---
 export const tocSettingsSchema = z.object({
-  // Main Title Settings
   title: z.string().default("Table of Contents"),
   showTitle: z.boolean().default(true),
   titleStyle: textStyleSchema.default({
@@ -72,9 +71,7 @@ export const tocSettingsSchema = z.object({
     lineHeight: 1.2,
     letterSpacing: 0
   }),
-
-  // Chapter (Category) Settings
-  groupByField: z.string().optional(), // The Excel Header to group by (e.g. "Category")
+  groupByField: z.string().optional(),
   chapterStyle: textStyleSchema.default({
     fontFamily: "Inter",
     fontSize: 18,
@@ -85,9 +82,6 @@ export const tocSettingsSchema = z.object({
     lineHeight: 2,
     letterSpacing: 0
   }),
-
-  // Item (Row) Settings
-  // We use the element's main 'textStyle' for the actual items (Product Names)
   showPageNumbers: z.boolean().default(true),
   leaderStyle: z.enum(["dotted", "solid", "none"]).default("dotted"),
 });
@@ -105,8 +99,12 @@ export const canvasElementSchema = z.object({
   visible: z.boolean().default(true),
   zIndex: z.number().default(0),
 
+  // New Aspect Ratio Fields
+  aspectRatio: z.number().optional(),
+  aspectRatioLocked: z.boolean().default(false),
+
   content: z.string().optional(),
-  dataBinding: z.string().optional(), // For TOC, this is the "Product Title" field
+  dataBinding: z.string().optional(), 
 
   pageIndex: z.number().default(0),
 
@@ -114,7 +112,6 @@ export const canvasElementSchema = z.object({
   shapeStyle: shapeStyleSchema.optional(),
   format: formatSchema.optional(),
 
-  // New TOC Specific field
   tocSettings: tocSettingsSchema.optional(),
 
   shapeType: z.enum(["rectangle", "circle", "line"]).optional(),

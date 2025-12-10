@@ -20,7 +20,7 @@ export function CanvasElement({
   zoom,
   onSelect,
 }: CanvasElementProps) {
-  const { excelData, selectedRowIndex, updateElement, canvasWidth, canvasHeight } = useCanvasStore();
+  const { excelData, selectedRowIndex, updateElement } = useCanvasStore();
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
@@ -34,12 +34,9 @@ export function CanvasElement({
   // Generate a safe unique ID for CSS scoping
   const elementScopeId = `el-${element.id}`;
 
-  // Check if this is a TOC element
-  const isToc = element.type === "toc-list";
-
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: element.id,
-    disabled: element.locked || isToc, // Disable dragging for TOC
+    disabled: element.locked,
   });
 
   const handleClick = (e: React.MouseEvent) => {
@@ -95,11 +92,19 @@ export function CanvasElement({
         const naturalHeight = img.naturalHeight;
         setImageDimensions({ width: naturalWidth, height: naturalHeight });
 
-        if (!element.dataBinding) { 
-             const aspectRatio = naturalWidth / naturalHeight;
-             const newHeight = Math.round(element.dimension.width / aspectRatio);
+        const naturalRatio = naturalWidth / naturalHeight;
+
+        // Requirement: Import with original aspect ratio.
+        // If the element doesn't have an aspect ratio set yet (newly added or first load),
+        // we update its height to match the natural aspect ratio based on its current width.
+        // We also lock the aspect ratio by default.
+        if (!element.aspectRatio) {
+             const newHeight = Math.round(element.dimension.width / naturalRatio);
+
              updateElement(element.id, {
-                dimension: { width: element.dimension.width, height: newHeight }
+                dimension: { width: element.dimension.width, height: newHeight },
+                aspectRatio: naturalRatio,
+                aspectRatioLocked: true // Default lock ON
              });
         }
       };
@@ -109,7 +114,7 @@ export function CanvasElement({
       img.crossOrigin = "anonymous";
       img.src = url;
     }
-  }, [element.dataBinding, selectedRowIndex, element.type, excelData, element.id, element.dimension.width, imageUrl, updateElement]);
+  }, [element.dataBinding, selectedRowIndex, element.type, excelData, element.id, element.dimension.width, imageUrl, updateElement, element.aspectRatio]);
 
   // QR Code Generation Effect
   useEffect(() => {
@@ -142,18 +147,15 @@ export function CanvasElement({
     }
   }, [imageDimensions, element.dimension.width]);
 
-  // Style Construction - Override position/size for TOC
   const style: React.CSSProperties = {
     position: "absolute",
-    // Force TOC to top-left and full canvas size
-    left: (isToc ? 0 : element.position.x) * zoom,
-    top: (isToc ? 0 : element.position.y) * zoom,
-    width: (isToc ? canvasWidth : element.dimension.width) * zoom,
-    height: (isToc ? canvasHeight : element.dimension.height) * zoom,
+    left: element.position.x * zoom,
+    top: element.position.y * zoom,
+    width: element.dimension.width * zoom,
+    height: element.dimension.height * zoom,
     transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined,
     opacity: isDragging ? 0.7 : element.visible ? 1 : 0.3,
-    // Disable move cursor for TOC
-    cursor: (element.locked || isToc) ? "default" : "move",
+    cursor: element.locked ? "not-allowed" : "move",
     userSelect: "none",
     zIndex: element.zIndex,
   };
@@ -289,13 +291,12 @@ export function CanvasElement({
         const settings = element.tocSettings || { title: "Table of Contents", showTitle: true };
         const groupBy = settings.groupByField;
 
+        // Mock data generation with grouping logic
         let renderedItems = [];
         if (excelData && element.dataBinding) {
-            // FIXED: Removed the slice logic so it renders everything in the editor
-            const rows = excelData.rows; 
-
+            const rows = excelData.rows.slice(0, 50); // Show first 8 for preview
             if (groupBy) {
-                // Grouping Logic
+                // Group the data
                 const groups: Record<string, any[]> = {};
                 rows.forEach((row, i) => {
                     const groupKey = row[groupBy] || "Uncategorized";
@@ -312,16 +313,18 @@ export function CanvasElement({
                 renderedItems = rows.map((row, i) => ({ type: "item", title: row[element.dataBinding!] || `Item ${i+1}`, page: i + 1 }));
             }
         } else {
-            // Placeholder Data
-            if (groupBy) renderedItems.push({ type: "header", text: "Electronics" });
-            renderedItems.push({ type: "item", title: "Smartphone X1", page: 1 });
-            renderedItems.push({ type: "item", title: "Laptop Pro", page: 2 });
-            if (groupBy) renderedItems.push({ type: "header", text: "Furniture" });
-            renderedItems.push({ type: "item", title: "Office Chair", page: 3 });
+            // Default Mock
+            if (groupBy) renderedItems.push({ type: "header", text: "Category A" });
+            renderedItems.push({ type: "item", title: "Product 1", page: 1 });
+            renderedItems.push({ type: "item", title: "Product 2", page: 2 });
+            if (groupBy) renderedItems.push({ type: "header", text: "Category B" });
+            renderedItems.push({ type: "item", title: "Product 3", page: 3 });
         }
 
         return (
-          <div className="w-full h-full p-8 bg-white flex flex-col overflow-hidden">
+          <div 
+            className="w-full h-full p-4 border border-dashed border-muted-foreground/20 bg-white rounded flex flex-col overflow-hidden"
+          >
             {/* Title */}
             {settings.showTitle && (
                 <div style={{
@@ -330,8 +333,7 @@ export function CanvasElement({
                     fontWeight: settings.titleStyle?.fontWeight,
                     textAlign: settings.titleStyle?.textAlign as any,
                     color: settings.titleStyle?.color,
-                    marginBottom: 20 * zoom,
-                    lineHeight: settings.titleStyle?.lineHeight || 1.2
+                    marginBottom: 10 * zoom
                 }}>
                     {settings.title}
                 </div>
@@ -352,25 +354,20 @@ export function CanvasElement({
                                 fontSize: (settings.chapterStyle?.fontSize || 18) * zoom,
                                 fontWeight: settings.chapterStyle?.fontWeight,
                                 color: settings.chapterStyle?.color,
-                                textAlign: settings.chapterStyle?.textAlign as any,
-                                marginTop: 15 * zoom,
-                                marginBottom: 5 * zoom,
-                                paddingBottom: 2 * zoom
-                                // FIXED: Removed borderBottom style
+                                marginTop: 8 * zoom,
+                                marginBottom: 4 * zoom
                             }}>
                                 {item.text}
                             </div>
                         );
                     }
                     return (
-                        <div key={idx} className="flex justify-between items-baseline w-full">
-                            <span className="bg-white z-10 pr-2">{item.title}</span>
-                            <span className="flex-1 border-b border-dotted border-gray-300 mx-1 relative top-[-4px]"></span>
-                            <span className="bg-white z-10 pl-2">{item.page}</span>
+                        <div key={idx} className="flex justify-between items-baseline" style={{ borderBottom: "1px dotted #ccc" }}>
+                            <span className="truncate pr-2 bg-white z-10">{item.title}</span>
+                            <span className="flex-shrink-0 bg-white z-10 pl-2">{item.page}</span>
                         </div>
                     );
                 })}
-                {!excelData && <div className="text-center mt-8 text-muted-foreground italic text-sm">(Import data to preview real content)</div>}
             </div>
           </div>
         );
@@ -379,13 +376,6 @@ export function CanvasElement({
         return null;
     }
   };
-
-  // Only apply selection outline if NOT a TOC element
-  const outlineStyle = (isSelected && !isToc) ? {
-    outline: "2px solid #3b82f6", 
-    outlineOffset: "0px",
-    backgroundColor: "transparent",
-  } : {};
 
   return (
     <div
@@ -396,7 +386,11 @@ export function CanvasElement({
       className={`absolute transition-shadow duration-100 canvas-element-wrapper`}
       style={{
         ...style,
-        ...outlineStyle,
+        ...(isSelected && {
+          outline: "2px solid #3b82f6", 
+          outlineOffset: "0px",
+          backgroundColor: "transparent",
+        }),
       }}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
