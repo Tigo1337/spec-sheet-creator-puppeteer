@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import JSZip from "jszip";
-import { isHtmlContent, getImageDimensions } from "@/lib/canvas-utils";
+import { isHtmlContent, getImageDimensions, paginateTOC } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
 import QRCode from "qrcode";
 import type { CanvasElement } from "@shared/schema";
@@ -346,30 +346,30 @@ export function ExportTab() {
              elementDiv.appendChild(titleDiv);
          }
 
-         const ul = document.createElement("ul");
-         ul.style.listStyle = "none"; 
-         ul.style.padding = "0"; 
-         ul.style.margin = "0";
-         ul.style.width = "100%";
-         ul.style.flex = "1";
-         ul.style.overflow = "hidden";
+         const listDiv = document.createElement("div");
+         listDiv.style.flex = "1";
+         listDiv.style.overflow = "hidden";
+         // Apply default text styles to the container like Canvas does
+         listDiv.style.fontFamily = `"${element.textStyle?.fontFamily}", sans-serif`;
+         listDiv.style.fontSize = `${element.textStyle?.fontSize || 14}px`;
+         listDiv.style.color = element.textStyle?.color || "#000000";
+         listDiv.style.lineHeight = String(element.textStyle?.lineHeight || 1.5);
 
          // Apply Columns
          if (columnCount > 1) {
-             ul.style.columnCount = String(columnCount);
-             ul.style.columnGap = "24px"; 
-             // Updated: Use column-fill: auto to fill the first column first
-             ul.style.setProperty("column-fill", "auto");
+             listDiv.style.columnCount = String(columnCount);
+             listDiv.style.columnGap = "24px"; 
+             listDiv.style.setProperty("column-fill", "auto");
          }
 
          if (itemsToRender.length > 0) {
              itemsToRender.forEach(item => {
                  if (item.type === "header") {
-                     const chapterLi = createTocHeader(item.text, settings);
-                     ul.appendChild(chapterLi);
+                     const chapterDiv = createTocHeaderDiv(item.text, settings);
+                     listDiv.appendChild(chapterDiv);
                  } else {
-                     const itemLi = createTocItem(item, element.textStyle || {});
-                     ul.appendChild(itemLi);
+                     const itemDiv = createTocItemDiv(item, element.textStyle || {});
+                     listDiv.appendChild(itemDiv);
                  }
              });
          } else {
@@ -383,18 +383,18 @@ export function ExportTab() {
                  });
 
                  Object.keys(groups).forEach(groupTitle => {
-                     ul.appendChild(createTocHeader(groupTitle, settings));
+                     listDiv.appendChild(createTocHeaderDiv(groupTitle, settings));
                      groups[groupTitle].forEach(item => {
-                         ul.appendChild(createTocItem(item, element.textStyle || {}));
+                         listDiv.appendChild(createTocItemDiv(item, element.textStyle || {}));
                      });
                  });
              } else {
                  pageMap.forEach(item => {
-                     ul.appendChild(createTocItem(item, element.textStyle || {}));
+                     listDiv.appendChild(createTocItemDiv(item, element.textStyle || {}));
                  });
              }
          }
-         elementDiv.appendChild(ul);
+         elementDiv.appendChild(listDiv);
       }
 
       container.appendChild(elementDiv);
@@ -402,33 +402,36 @@ export function ExportTab() {
     return container.outerHTML;
   };
 
-  const createTocHeader = (text: string, settings: any) => {
-      const li = document.createElement("li");
-      li.textContent = text;
-      li.style.fontFamily = `"${settings.chapterStyle?.fontFamily}", sans-serif`;
-      li.style.fontSize = `${settings.chapterStyle?.fontSize}px`;
-      li.style.fontWeight = String(settings.chapterStyle?.fontWeight);
-      li.style.color = settings.chapterStyle?.color || "#333";
-      li.style.textAlign = settings.chapterStyle?.textAlign || "left";
+  const createTocHeaderDiv = (text: string, settings: any) => {
+      const div = document.createElement("div");
+      div.textContent = text;
+      div.style.fontFamily = `"${settings.chapterStyle?.fontFamily}", sans-serif`;
+      div.style.fontSize = `${settings.chapterStyle?.fontSize || 18}px`; // Explicit fallback
+      div.style.fontWeight = String(settings.chapterStyle?.fontWeight || 600);
+      div.style.color = settings.chapterStyle?.color || "#333";
+      div.style.textAlign = settings.chapterStyle?.textAlign || "left";
+      div.style.lineHeight = String(settings.chapterStyle?.lineHeight || 1.5); 
+
       // Match Canvas Margins
-      li.style.marginTop = "8px"; 
-      li.style.marginBottom = "4px";
-      li.style.breakInside = "avoid"; // Keep header with content if possible
-      return li;
+      div.style.marginTop = "8px"; 
+      div.style.marginBottom = "4px";
+      div.style.breakInside = "avoid"; 
+      return div;
   };
 
-  const createTocItem = (item: {title: string, page: number}, style: any) => {
-      const li = document.createElement("li");
-      li.style.display = "flex"; li.style.justifyContent = "space-between"; li.style.alignItems = "baseline";
-      // Removed border bottom as requested
-      // li.style.borderBottom = "1px dotted #ccc"; 
-      li.style.marginBottom = "0px"; 
-      li.style.paddingBottom = "2px"; 
-      li.style.fontFamily = `"${style.fontFamily}", sans-serif`;
-      li.style.fontSize = `${style.fontSize || 14}px`;
-      li.style.color = style.color || "#000000";
-      li.style.lineHeight = String(style.lineHeight || 1.5);
-      li.style.breakInside = "avoid"; // Prevent row splitting
+  const createTocItemDiv = (item: {title: string, page: number}, style: any) => {
+      const div = document.createElement("div");
+      div.style.display = "flex"; 
+      div.style.justifyContent = "space-between"; 
+      div.style.alignItems = "baseline";
+      div.style.marginBottom = "0px"; 
+      div.style.paddingBottom = "2px"; 
+      // Explicit fallbacks to match Canvas defaults
+      div.style.fontFamily = `"${style.fontFamily}", sans-serif`;
+      div.style.fontSize = `${style.fontSize || 14}px`;
+      div.style.color = style.color || "#000000";
+      div.style.lineHeight = String(style.lineHeight || 1.5);
+      div.style.breakInside = "avoid"; 
 
       const titleSpan = document.createElement("span");
       titleSpan.textContent = item.title;
@@ -447,8 +450,8 @@ export function ExportTab() {
       pageSpan.style.position = "relative";
       pageSpan.style.zIndex = "10";
 
-      li.appendChild(titleSpan); li.appendChild(pageSpan);
-      return li;
+      div.appendChild(titleSpan); div.appendChild(pageSpan);
+      return div;
   };
 
   const fetchPdfBuffer = async (html: string, pages: number, title: string) => {
@@ -496,80 +499,6 @@ export function ExportTab() {
 
     if (!response.ok) throw new Error("Server failed to generate PDF");
     return await response.blob();
-  };
-
-  // --- TOC PAGINATION LOGIC ---
-  const paginateTOC = (tocElement: CanvasElement, pageMap: any[], elementHeight: number) => {
-      const settings = tocElement.tocSettings || { title: "Table of Contents", showTitle: true, columnCount: 1 };
-      const columnCount = settings.columnCount || 1;
-
-      const padding = 32; 
-      const availableHeight = elementHeight - padding;
-
-      const pages: any[][] = [];
-      let currentPage: any[] = [];
-
-      // Estimated Heights
-      const titleHeight = settings.showTitle ? ((settings.titleStyle?.fontSize || 24) * (settings.titleStyle?.lineHeight || 1.2)) + 10 : 0; 
-      const headerHeight = ((settings.chapterStyle?.fontSize || 18) * 1.5) + 12; 
-      const itemHeight = ((tocElement.textStyle?.fontSize || 14) * (tocElement.textStyle?.lineHeight || 1.5)) + 2; 
-
-      // Effective Capacity Logic
-      // Page 1 Capacity = (Available Height - Title) * Columns
-      // Subsequent Pages = Available Height * Columns
-      const page1Capacity = (availableHeight - titleHeight) * columnCount;
-      const pageNextCapacity = availableHeight * columnCount;
-
-      let currentCapacity = page1Capacity;
-      let currentUsedHeight = 0;
-
-      const groupBy = settings.groupByField;
-      if (groupBy) {
-          const groups: Record<string, any[]> = {};
-          pageMap.forEach(item => {
-              const key = item.group || "Uncategorized";
-              if (!groups[key]) groups[key] = [];
-              groups[key].push(item);
-          });
-
-          Object.keys(groups).forEach(groupTitle => {
-              // Add Header
-              if (currentUsedHeight + headerHeight > currentCapacity) {
-                  pages.push(currentPage);
-                  currentPage = [];
-                  currentUsedHeight = 0;
-                  currentCapacity = pageNextCapacity;
-              }
-              currentPage.push({ type: "header", text: groupTitle });
-              currentUsedHeight += headerHeight;
-
-              // Add Items
-              groups[groupTitle].forEach((item) => {
-                  if (currentUsedHeight + itemHeight > currentCapacity) {
-                      pages.push(currentPage);
-                      currentPage = [];
-                      currentUsedHeight = 0;
-                      currentCapacity = pageNextCapacity;
-                  }
-                  currentPage.push({ type: "item", ...item });
-                  currentUsedHeight += itemHeight;
-              });
-          });
-      } else {
-          pageMap.forEach(item => {
-              if (currentUsedHeight + itemHeight > currentCapacity) {
-                  pages.push(currentPage);
-                  currentPage = [];
-                  currentUsedHeight = 0;
-                  currentCapacity = pageNextCapacity;
-              }
-              currentPage.push({ type: "item", ...item });
-              currentUsedHeight += itemHeight;
-          });
-      }
-
-      if (currentPage.length > 0) pages.push(currentPage);
-      return pages;
   };
 
   // --- CATALOG GENERATION LOGIC ---
@@ -622,6 +551,7 @@ export function ExportTab() {
       let tocChunks: any[][] = [];
 
       if (tocElement) {
+          // Use Shared Logic
           tocChunks = paginateTOC(tocElement, dummyMap, tocElement.dimension.height);
           tocPageCount = tocChunks.length;
       }

@@ -1,11 +1,12 @@
 import { useDraggable } from "@dnd-kit/core";
 import type { CanvasElement as CanvasElementType } from "@shared/schema";
 import { useCanvasStore } from "@/stores/canvas-store";
-import { useEffect, useState } from "react";
-import { isHtmlContent } from "@/lib/canvas-utils";
+import { useEffect, useState, useMemo } from "react";
+import { isHtmlContent, paginateTOC } from "@/lib/canvas-utils"; 
 import { formatContent } from "@/lib/formatter";
-import { AlertTriangle, List } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import QRCode from "qrcode";
+import { Button } from "@/components/ui/button"; 
 
 interface CanvasElementProps {
   element: CanvasElementType;
@@ -23,6 +24,9 @@ export function CanvasElement({
   const { excelData, selectedRowIndex, updateElement } = useCanvasStore();
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  // ToC State
+  const [previewPage, setPreviewPage] = useState(0);
 
   // QR Code State
   const [qrSvg, setQrSvg] = useState<string>("");
@@ -94,17 +98,13 @@ export function CanvasElement({
 
         const naturalRatio = naturalWidth / naturalHeight;
 
-        // Requirement: Import with original aspect ratio.
-        // If the element doesn't have an aspect ratio set yet (newly added or first load),
-        // we update its height to match the natural aspect ratio based on its current width.
-        // We also lock the aspect ratio by default.
         if (!element.aspectRatio) {
              const newHeight = Math.round(element.dimension.width / naturalRatio);
 
              updateElement(element.id, {
                 dimension: { width: element.dimension.width, height: newHeight },
                 aspectRatio: naturalRatio,
-                aspectRatioLocked: true // Default lock ON
+                aspectRatioLocked: true 
              });
         }
       };
@@ -146,6 +146,43 @@ export function CanvasElement({
       setEffectiveDpi(0);
     }
   }, [imageDimensions, element.dimension.width]);
+
+  // --- TOC CALCULATION MEMO ---
+  const tocData = useMemo(() => {
+    if (element.type !== "toc-list") return null;
+
+    // Create dummy map similar to Export logic
+    const settings = element.tocSettings || { title: "Table of Contents", showTitle: true };
+    const groupBy = settings.groupByField;
+    const dummyMap: any[] = [];
+
+    // Use excel data if available, otherwise mock data
+    if (excelData && excelData.rows.length > 0) {
+        for (let i = 0; i < excelData.rows.length; i++) {
+            const row = excelData.rows[i];
+            const title = row[element.dataBinding || "Name"] || `Product ${i + 1}`;
+            const group = groupBy ? row[groupBy] : undefined;
+            // Use placeholder page numbers since we can't know final pages in canvas preview easily
+            dummyMap.push({ title, page: i + 2, group }); 
+        }
+    } else {
+        // Mock for empty state
+        if (groupBy) dummyMap.push({ title: "Product 1", page: 2, group: "Category A" });
+        dummyMap.push({ title: "Product 2", page: 3, group: groupBy ? "Category A" : undefined });
+        if (groupBy) dummyMap.push({ title: "Product 3", page: 4, group: "Category B" });
+    }
+
+    const chunks = paginateTOC(element, dummyMap, element.dimension.height);
+    return chunks;
+  }, [element, excelData, element.dimension.height, element.tocSettings, element.dataBinding]);
+
+  // Reset to page 0 if config changes
+  useEffect(() => {
+    if (previewPage >= (tocData?.length || 1)) {
+        setPreviewPage(0);
+    }
+  }, [tocData, previewPage]);
+
 
   const style: React.CSSProperties = {
     position: "absolute",
@@ -286,96 +323,116 @@ export function CanvasElement({
           />
         );
 
-      // --- TOC RENDERER ---
+      // --- TOC RENDERER (UPDATED) ---
       case "toc-list":
         const settings = element.tocSettings || { title: "Table of Contents", showTitle: true, columnCount: 1 };
-        const groupBy = settings.groupByField;
         const columnCount = settings.columnCount || 1;
 
-        // Mock data generation with grouping logic
-        let renderedItems = [];
-        if (excelData && element.dataBinding) {
-            const rows = excelData.rows.slice(0); // Show first 8 for preview
-            if (groupBy) {
-                // Group the data
-                const groups: Record<string, any[]> = {};
-                rows.forEach((row, i) => {
-                    const groupKey = row[groupBy] || "Uncategorized";
-                    if (!groups[groupKey]) groups[groupKey] = [];
-                    groups[groupKey].push({ title: row[element.dataBinding!] || `Item ${i+1}`, page: i + 1 });
-                });
-
-                Object.keys(groups).forEach(groupTitle => {
-                    renderedItems.push({ type: "header", text: groupTitle });
-                    groups[groupTitle].forEach(item => renderedItems.push({ type: "item", ...item }));
-                });
-            } else {
-                // Flat list
-                renderedItems = rows.map((row, i) => ({ type: "item", title: row[element.dataBinding!] || `Item ${i+1}`, page: i + 1 }));
-            }
-        } else {
-            // Default Mock
-            if (groupBy) renderedItems.push({ type: "header", text: "Category A" });
-            renderedItems.push({ type: "item", title: "Product 1", page: 1 });
-            renderedItems.push({ type: "item", title: "Product 2", page: 2 });
-            if (groupBy) renderedItems.push({ type: "header", text: "Category B" });
-            renderedItems.push({ type: "item", title: "Product 3", page: 3 });
-        }
+        // Use the calculated chunk for the current preview page
+        const currentItems = tocData ? tocData[previewPage] || [] : [];
+        const isMultiPage = (tocData?.length || 0) > 1;
+        const isFirstPage = previewPage === 0;
 
         return (
-          <div 
-            className="w-full h-full p-4 border border-dashed border-muted-foreground/20 bg-white rounded flex flex-col overflow-hidden"
-          >
-            {/* Title */}
-            {settings.showTitle && (
-                <div style={{
-                    fontFamily: settings.titleStyle?.fontFamily,
-                    fontSize: (settings.titleStyle?.fontSize || 24) * zoom,
-                    fontWeight: settings.titleStyle?.fontWeight,
-                    textAlign: settings.titleStyle?.textAlign as any,
-                    color: settings.titleStyle?.color,
-                    marginBottom: 10 * zoom,
-                    flexShrink: 0
-                }}>
-                    {settings.title}
-                </div>
-            )}
+          <>
+            <div 
+              className="w-full h-full p-4 border border-dashed border-muted-foreground/20 bg-white rounded flex flex-col overflow-hidden relative group"
+            >
+              {/* Title (Only shown on First Page) */}
+              {settings.showTitle && isFirstPage && (
+                  <div style={{
+                      fontFamily: settings.titleStyle?.fontFamily,
+                      fontSize: (settings.titleStyle?.fontSize || 24) * zoom,
+                      fontWeight: settings.titleStyle?.fontWeight,
+                      textAlign: settings.titleStyle?.textAlign as any,
+                      color: settings.titleStyle?.color,
+                      marginBottom: 10 * zoom,
+                      lineHeight: settings.titleStyle?.lineHeight || 1.2,
+                      flexShrink: 0
+                  }}>
+                      {settings.title}
+                  </div>
+              )}
 
-            {/* List */}
-            <div className="flex-1 overflow-hidden" style={{
-                fontFamily: element.textStyle?.fontFamily,
-                fontSize: (element.textStyle?.fontSize || 14) * zoom,
-                color: element.textStyle?.color,
-                lineHeight: element.textStyle?.lineHeight,
-                columnCount: columnCount,
-                columnGap: 24 * zoom,
-                columnFill: "auto" // <--- Added this to ensure first column fills before second
-            }}>
-                {renderedItems.map((item: any, idx) => {
-                    if (item.type === "header") {
-                        return (
-                            <div key={idx} style={{
-                                fontFamily: settings.chapterStyle?.fontFamily,
-                                fontSize: (settings.chapterStyle?.fontSize || 18) * zoom,
-                                fontWeight: settings.chapterStyle?.fontWeight,
-                                color: settings.chapterStyle?.color,
-                                marginTop: 8 * zoom,
-                                marginBottom: 4 * zoom,
-                                breakInside: "avoid"
-                            }}>
-                                {item.text}
-                            </div>
-                        );
-                    }
-                    return (
-                        <div key={idx} className="flex justify-between items-baseline" style={{ breakInside: "avoid" }}>
-                            <span className="truncate pr-2 bg-white z-10">{item.title}</span>
-                            <span className="flex-shrink-0 bg-white z-10 pl-2">{item.page}</span>
-                        </div>
-                    );
-                })}
+              {/* List */}
+              <div className="flex-1 overflow-hidden" style={{
+                  fontFamily: element.textStyle?.fontFamily,
+                  fontSize: (element.textStyle?.fontSize || 14) * zoom,
+                  color: element.textStyle?.color,
+                  lineHeight: element.textStyle?.lineHeight,
+                  columnCount: columnCount,
+                  columnGap: 24 * zoom,
+                  columnFill: "auto"
+              }}>
+                  {currentItems.map((item: any, idx: number) => {
+                      if (item.type === "header") {
+                          return (
+                              <div key={idx} style={{
+                                  fontFamily: settings.chapterStyle?.fontFamily,
+                                  fontSize: (settings.chapterStyle?.fontSize || 18) * zoom,
+                                  fontWeight: settings.chapterStyle?.fontWeight,
+                                  color: settings.chapterStyle?.color,
+                                  marginTop: 8 * zoom,
+                                  marginBottom: 4 * zoom,
+                                  lineHeight: settings.chapterStyle?.lineHeight || 1.5,
+                                  breakInside: "avoid"
+                              }}>
+                                  {item.text}
+                              </div>
+                          );
+                      }
+                      return (
+                          <div key={idx} className="flex justify-between items-baseline" style={{ breakInside: "avoid" }}>
+                              <span className="truncate pr-2 bg-white z-10">{item.title}</span>
+                              <span className="flex-shrink-0 bg-white z-10 pl-2">{item.page}</span>
+                          </div>
+                      );
+                  })}
+              </div>
             </div>
-          </div>
+
+            {/* Pagination Controls - OUTSIDE THE ELEMENT */}
+            {isSelected && isMultiPage && (
+                <>
+                    {/* Left Arrow */}
+                    <div 
+                        className="absolute left-[-50px] top-1/2 -translate-y-1/2 z-50"
+                        onMouseDown={(e) => e.stopPropagation()} // Prevent drag start
+                    >
+                        <Button 
+                            size="icon" 
+                            variant="outline" 
+                            className="h-10 w-10 rounded-full shadow-md bg-white hover:bg-gray-50 border-gray-300" 
+                            disabled={previewPage === 0}
+                            onClick={(e) => { e.stopPropagation(); setPreviewPage(p => p - 1); }}
+                        >
+                            <ChevronLeft className="h-6 w-6 text-gray-700" />
+                        </Button>
+                    </div>
+
+                    {/* Right Arrow */}
+                    <div 
+                        className="absolute right-[-50px] top-1/2 -translate-y-1/2 z-50"
+                        onMouseDown={(e) => e.stopPropagation()} 
+                    >
+                        <Button 
+                            size="icon" 
+                            variant="outline" 
+                            className="h-10 w-10 rounded-full shadow-md bg-white hover:bg-gray-50 border-gray-300" 
+                            disabled={previewPage === (tocData?.length || 1) - 1}
+                            onClick={(e) => { e.stopPropagation(); setPreviewPage(p => p + 1); }}
+                        >
+                            <ChevronRight className="h-6 w-6 text-gray-700" />
+                        </Button>
+                    </div>
+
+                    {/* Page Indicator */}
+                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm border shadow-sm rounded-full px-3 py-1 text-xs font-medium text-gray-600 whitespace-nowrap z-50">
+                        Page {previewPage + 1} of {tocData?.length}
+                    </div>
+                </>
+            )}
+          </>
         );
 
       default:

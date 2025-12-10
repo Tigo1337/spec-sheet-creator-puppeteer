@@ -1,5 +1,11 @@
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
 import type { CanvasElement, TextStyle, ShapeStyle } from "@shared/schema";
 import { nanoid } from "nanoid";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
 export const GRID_SIZE = 10;
 export const SNAP_THRESHOLD = 8;
@@ -84,11 +90,12 @@ export function createTOCElement(
         color: "#333333",
         textAlign: "left",
         verticalAlign: "middle",
-        lineHeight: 2.5, // Extra spacing for chapter headers
+        lineHeight: 1.5, // Standardized line height
         letterSpacing: 0
       },
       showPageNumbers: true,
-      leaderStyle: "dotted"
+      leaderStyle: "dotted",
+      columnCount: 1
     }
   };
 }
@@ -190,6 +197,7 @@ export function createImageFieldElement(
     visible: true,
     zIndex: Date.now(),
     dataBinding: columnName,
+    aspectRatioLocked: true,
   };
 }
 
@@ -304,3 +312,91 @@ export function isHtmlContent(content: string): boolean {
   if (!content || typeof content !== "string") return false;
   return /<[a-z][\s\S]*>/i.test(content);
 }
+
+// --- NEW: Shared ToC Pagination Logic (Updated for precision) ---
+export const paginateTOC = (tocElement: CanvasElement, pageMap: any[], elementHeight: number) => {
+  const settings = tocElement.tocSettings || { title: "Table of Contents", showTitle: true, columnCount: 1 };
+  const columnCount = settings.columnCount || 1;
+
+  // Padding must match the renderer (16px top + 16px bottom = 32px)
+  const padding = 32; 
+  const availableHeight = elementHeight - padding;
+
+  const pages: any[][] = [];
+  let currentPage: any[] = [];
+
+  // Heights based on styles
+  const titleHeight = settings.showTitle 
+    ? ((settings.titleStyle?.fontSize || 24) * (settings.titleStyle?.lineHeight || 1.2)) + 10 
+    : 0; 
+
+  // Use actual configured line height for headers, default to 1.5
+  const headerFontSize = settings.chapterStyle?.fontSize || 18;
+  const headerLineHeight = settings.chapterStyle?.lineHeight || 1.5;
+  const headerHeight = (headerFontSize * headerLineHeight) + 12; // 8px top + 4px bottom margin
+
+  // Use actual configured line height for items, default to 1.5
+  const itemFontSize = tocElement.textStyle?.fontSize || 14;
+  const itemLineHeight = tocElement.textStyle?.lineHeight || 1.5;
+  const itemHeight = (itemFontSize * itemLineHeight) + 2; // +2 for safety/padding
+
+  // --- Capacity Logic ---
+  const page1ColumnHeight = availableHeight - titleHeight;
+  const page1TotalCapacity = page1ColumnHeight * columnCount;
+  const pageNextTotalCapacity = availableHeight * columnCount;
+
+  let currentCapacity = page1TotalCapacity;
+  let currentUsedHeight = 0;
+
+  const groupBy = settings.groupByField;
+
+  const flushPage = () => {
+    if (currentPage.length > 0) {
+      pages.push(currentPage);
+      currentPage = [];
+      currentUsedHeight = 0;
+      currentCapacity = pageNextTotalCapacity; 
+    }
+  };
+
+  if (groupBy) {
+      const groups: Record<string, any[]> = {};
+      pageMap.forEach(item => {
+          const key = item.group || "Uncategorized";
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(item);
+      });
+
+      Object.keys(groups).forEach(groupTitle => {
+          if (currentUsedHeight + headerHeight > currentCapacity) {
+              flushPage();
+          }
+          currentPage.push({ type: "header", text: groupTitle });
+          currentUsedHeight += headerHeight;
+
+          groups[groupTitle].forEach((item) => {
+              if (currentUsedHeight + itemHeight > currentCapacity) {
+                  flushPage();
+              }
+              currentPage.push({ type: "item", ...item });
+              currentUsedHeight += itemHeight;
+          });
+      });
+  } else {
+      pageMap.forEach(item => {
+          if (currentUsedHeight + itemHeight > currentCapacity) {
+              flushPage();
+          }
+          currentPage.push({ type: "item", ...item });
+          currentUsedHeight += itemHeight;
+      });
+  }
+
+  if (currentPage.length > 0) {
+    pages.push(currentPage);
+  }
+
+  if (pages.length === 0) return [[]];
+
+  return pages;
+};
