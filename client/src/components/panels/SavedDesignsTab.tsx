@@ -114,7 +114,7 @@ export function SavedDesignsTab() {
   // --- MUTATIONS ---
 
   const saveDesignMutation = useMutation({
-    // Modified to accept a flexible object so we can pass type='catalog' and catalogData
+    // Updated to accept any design data structure (Single or Catalog)
     mutationFn: async (designData: any) => {
       const response = await fetch("/api/designs", {
         method: "POST",
@@ -235,7 +235,7 @@ export function SavedDesignsTab() {
           elements: design.elements,
           createdAt: design.createdAt,
           updatedAt: design.updatedAt,
-          previewImages: [],
+          previewImages: []
         });
 
         // Restore image field bindings
@@ -282,7 +282,7 @@ export function SavedDesignsTab() {
             type: "catalog",
             canvasWidth,
             canvasHeight,
-            pageCount,
+            pageCount, // Current page count (informational)
             backgroundColor, // This stores the current active BG, but catalogData has specific BGs
             elements: [],    // Empty elements for top-level, data is in catalogData
             catalogData: {
@@ -290,7 +290,6 @@ export function SavedDesignsTab() {
                 chapterDesigns: finalChapterDesigns
             }
         });
-
     } else {
         // === SINGLE PAGE SAVE LOGIC ===
         saveDesignMutation.mutate({
@@ -659,7 +658,7 @@ export function SavedDesignsTab() {
           <DialogTrigger asChild>
             <Button 
               className="w-full" 
-              disabled={elements.length === 0}
+              disabled={elements.length === 0 && !isCatalogMode}
               data-testid="button-save-design"
             >
               <Save className="h-4 w-4 mr-2" />
@@ -745,7 +744,7 @@ export function SavedDesignsTab() {
                   <div className="flex-1 min-w-0">
                     <h4 className="font-medium text-sm break-words leading-tight">{design.name}</h4>
 
-                    {/* TYPE BADGE */}
+                    {/* NEW: Display Design Type Badge */}
                     <div className="flex items-center gap-2 mt-1">
                         {design.type === 'catalog' ? (
                             <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded flex items-center gap-1">

@@ -25,17 +25,11 @@ export function CanvasElement({
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
-  // ToC State
   const [previewPage, setPreviewPage] = useState(0);
-
-  // QR Code State
   const [qrSvg, setQrSvg] = useState<string>("");
-
-  // Quality Check States
   const [isLowQuality, setIsLowQuality] = useState(false);
   const [effectiveDpi, setEffectiveDpi] = useState(0);
 
-  // Generate a safe unique ID for CSS scoping
   const elementScopeId = `el-${element.id}`;
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -83,7 +77,6 @@ export function CanvasElement({
     return null;
   };
 
-  // Update image dimensions when URL changes
   useEffect(() => {
     if (element.type !== "image") return;
 
@@ -116,7 +109,6 @@ export function CanvasElement({
     }
   }, [element.dataBinding, selectedRowIndex, element.type, excelData, element.id, element.dimension.width, imageUrl, updateElement, element.aspectRatio]);
 
-  // QR Code Generation Effect
   useEffect(() => {
     if (element.type === "qrcode") { 
        const content = getDisplayContent();
@@ -135,7 +127,6 @@ export function CanvasElement({
     }
   }, [element.content, element.type, element.dataBinding, excelData, selectedRowIndex, element.textStyle?.color]);
 
-  // Calculate Effective DPI
   useEffect(() => {
     if (imageDimensions && element.dimension.width > 0) {
       const dpi = (imageDimensions.width / element.dimension.width) * 96;
@@ -147,36 +138,39 @@ export function CanvasElement({
     }
   }, [imageDimensions, element.dimension.width]);
 
-  // --- TOC CALCULATION MEMO ---
+  // --- OPTIMIZED TOC CALCULATION ---
+  // Using specific dependencies to avoid infinite loops on generic 'element' updates
   const tocData = useMemo(() => {
     if (element.type !== "toc-list") return null;
 
-    // Create dummy map similar to Export logic
     const settings = element.tocSettings || { title: "Table of Contents", showTitle: true };
     const groupBy = settings.groupByField;
     const dummyMap: any[] = [];
 
-    // Use excel data if available, otherwise mock data
     if (excelData && excelData.rows.length > 0) {
         for (let i = 0; i < excelData.rows.length; i++) {
             const row = excelData.rows[i];
             const title = row[element.dataBinding || "Name"] || `Product ${i + 1}`;
             const group = groupBy ? row[groupBy] : undefined;
-            // Use placeholder page numbers since we can't know final pages in canvas preview easily
             dummyMap.push({ title, page: i + 2, group }); 
         }
     } else {
-        // Mock for empty state
         if (groupBy) dummyMap.push({ title: "Product 1", page: 2, group: "Category A" });
         dummyMap.push({ title: "Product 2", page: 3, group: groupBy ? "Category A" : undefined });
         if (groupBy) dummyMap.push({ title: "Product 3", page: 4, group: "Category B" });
     }
 
-    const chunks = paginateTOC(element, dummyMap, element.dimension.height);
-    return chunks;
-  }, [element, excelData, element.dimension.height, element.tocSettings, element.dataBinding]);
+    // Only recalculate when dimension height, settings, or data changes
+    return paginateTOC(element, dummyMap, element.dimension.height);
+  }, [
+      element.type, 
+      element.dimension.height, 
+      element.tocSettings, 
+      element.dataBinding, 
+      element.textStyle,
+      excelData
+  ]);
 
-  // Reset to page 0 if config changes
   useEffect(() => {
     if (previewPage >= (tocData?.length || 1)) {
         setPreviewPage(0);
@@ -323,12 +317,10 @@ export function CanvasElement({
           />
         );
 
-      // --- TOC RENDERER (UPDATED) ---
       case "toc-list":
         const settings = element.tocSettings || { title: "Table of Contents", showTitle: true, columnCount: 1 };
         const columnCount = settings.columnCount || 1;
 
-        // Use the calculated chunk for the current preview page
         const currentItems = tocData ? tocData[previewPage] || [] : [];
         const isMultiPage = (tocData?.length || 0) > 1;
         const isFirstPage = previewPage === 0;
@@ -338,7 +330,6 @@ export function CanvasElement({
             <div 
               className="w-full h-full p-4 border border-dashed border-muted-foreground/20 bg-white rounded flex flex-col overflow-hidden relative group"
             >
-              {/* Title (Only shown on First Page) */}
               {settings.showTitle && isFirstPage && (
                   <div style={{
                       fontFamily: settings.titleStyle?.fontFamily,
@@ -354,7 +345,6 @@ export function CanvasElement({
                   </div>
               )}
 
-              {/* List */}
               <div className="flex-1 overflow-hidden" style={{
                   fontFamily: element.textStyle?.fontFamily,
                   fontSize: (element.textStyle?.fontSize || 14) * zoom,
@@ -391,13 +381,11 @@ export function CanvasElement({
               </div>
             </div>
 
-            {/* Pagination Controls - OUTSIDE THE ELEMENT */}
             {isSelected && isMultiPage && (
                 <>
-                    {/* Left Arrow */}
                     <div 
                         className="absolute left-[-50px] top-1/2 -translate-y-1/2 z-50"
-                        onMouseDown={(e) => e.stopPropagation()} // Prevent drag start
+                        onMouseDown={(e) => e.stopPropagation()} 
                     >
                         <Button 
                             size="icon" 
@@ -410,7 +398,6 @@ export function CanvasElement({
                         </Button>
                     </div>
 
-                    {/* Right Arrow */}
                     <div 
                         className="absolute right-[-50px] top-1/2 -translate-y-1/2 z-50"
                         onMouseDown={(e) => e.stopPropagation()} 
@@ -426,7 +413,6 @@ export function CanvasElement({
                         </Button>
                     </div>
 
-                    {/* Page Indicator */}
                     <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm border shadow-sm rounded-full px-3 py-1 text-xs font-medium text-gray-600 whitespace-nowrap z-50">
                         Page {previewPage + 1} of {tocData?.length}
                     </div>

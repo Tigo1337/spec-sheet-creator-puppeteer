@@ -73,11 +73,8 @@ export const tocSettingsSchema = z.object({
   }),
 
   columnCount: z.number().min(1).max(2).default(1),
-
   groupByField: z.string().optional(),
-
   chapterCoversEnabled: z.boolean().default(false),
-
   chapterStyle: textStyleSchema.default({
     fontFamily: "Inter",
     fontSize: 18,
@@ -201,9 +198,9 @@ export const savedDesignSchema = z.object({
   backgroundColor: z.string().default("#ffffff"),
   elements: z.array(canvasElementSchema),
 
-  // NEW FIELDS
+  // New Fields for Catalog Support
   type: z.enum(["single", "catalog"]).default("single"),
-  catalogData: z.any().optional(), // Flexible JSON store for catalog sections & designs
+  catalogData: z.any().optional(),
 
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -275,9 +272,9 @@ export const savedDesignsTable = pgTable("saved_designs", {
   backgroundColor: varchar("background_color", { length: 50 }).notNull().default("#ffffff"),
   elements: jsonb("elements").notNull().default([]),
 
-  // NEW COLUMNS
-  type: varchar("type", { length: 20 }).notNull().default("single"), // 'single' or 'catalog'
-  catalogData: jsonb("catalog_data"), // Stores catalogSections and chapterDesigns
+  // NEW COLUMNS - Ensure your DB has these!
+  type: varchar("type", { length: 20 }).notNull().default("single"),
+  catalogData: jsonb("catalog_data"), 
 
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

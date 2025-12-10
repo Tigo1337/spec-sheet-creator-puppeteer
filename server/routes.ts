@@ -11,16 +11,13 @@ import { stripeService } from "./stripeService";
 import { getStripePublishableKey } from "./stripeClient";
 import puppeteer from "puppeteer";
 import path from "path";
-import { nanoid } from "nanoid"; // Ensure nanoid is available in server context
+import { nanoid } from "nanoid"; 
 
-// --- REQUIRED FIXES FOR GHOSTSCRIPT ---
 import fs from "fs";
 import { exec } from "child_process";
 import { promisify } from "util";
 
-// Convert exec to a promise-based function to use with await
 const execAsync = promisify(exec);
-// --------------------------------------
 
 export async function registerRoutes(
   httpServer: Server,
@@ -292,6 +289,33 @@ export async function registerRoutes(
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete template" });
+    }
+  });
+
+  app.post("/api/designs", async (req, res) => {
+    try {
+      const auth = getAuth(req);
+      if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
+
+      const parseResult = insertSavedDesignSchema.safeParse({
+        ...req.body,
+        userId: auth.userId,
+      });
+
+      if (!parseResult.success) {
+          console.error("Design Validation Failed:", parseResult.error.message);
+          return res.status(400).json({ error: parseResult.error.message });
+      }
+
+      const design = await storage.createDesign(parseResult.data);
+      res.status(201).json(design);
+    } catch (error: any) {
+      console.error("Database Insert Error:", error); // UPDATED LOGGING
+      // Check for specific column missing error
+      if (error.message?.includes("column") && error.message?.includes("does not exist")) {
+         return res.status(500).json({ error: "Database schema mismatch. Please run migrations." });
+      }
+      res.status(500).json({ error: "Failed to create design" });
     }
   });
 
