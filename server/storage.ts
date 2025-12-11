@@ -51,6 +51,9 @@ export class DatabaseStorage implements IStorage {
       pageCount: row.pageCount,
       backgroundColor: row.backgroundColor,
       elements: row.elements as CanvasElement[],
+      // FIX: Map the type and catalogData correctly
+      type: (row.type as "single" | "catalog") || "single",
+      catalogData: row.catalogData,
       createdAt: new Date(row.createdAt).toISOString(),
       updatedAt: new Date(row.updatedAt).toISOString(),
     };
@@ -64,7 +67,6 @@ export class DatabaseStorage implements IStorage {
       canvasWidth: row.canvasWidth,
       canvasHeight: row.canvasHeight,
       pageCount: row.pageCount,
-      // NEW: Map previewImages
       previewImages: (row.previewImages as string[]) ?? [], 
       backgroundColor: row.backgroundColor,
       elements: row.elements as CanvasElement[],
@@ -102,7 +104,6 @@ export class DatabaseStorage implements IStorage {
         canvasWidth: insertTemplate.canvasWidth,
         canvasHeight: insertTemplate.canvasHeight,
         pageCount: insertTemplate.pageCount,
-        // NEW: Save previewImages
         previewImages: insertTemplate.previewImages, 
         backgroundColor: insertTemplate.backgroundColor,
         elements: insertTemplate.elements,
@@ -139,7 +140,7 @@ export class DatabaseStorage implements IStorage {
       .from(savedDesignsTable)
       .where(eq(savedDesignsTable.userId, userId))
       .orderBy(desc(savedDesignsTable.updatedAt));
-    return rows.map(this.toSavedDesign);
+    return rows.map((row) => this.toSavedDesign(row));
   }
 
   async getDesign(id: string, userId: string): Promise<SavedDesign | undefined> {
@@ -169,6 +170,9 @@ export class DatabaseStorage implements IStorage {
         pageCount: insertDesign.pageCount,
         backgroundColor: insertDesign.backgroundColor,
         elements: insertDesign.elements,
+        // FIX: Ensure type and catalogData are actually inserted
+        type: insertDesign.type,
+        catalogData: insertDesign.catalogData,
         createdAt: now,
         updatedAt: now,
       })
@@ -382,7 +386,6 @@ export class MemStorage implements IStorage {
     const template: Template = {
       ...insertTemplate,
       id,
-      // NEW: Fallback for MemStorage
       previewImages: insertTemplate.previewImages || [], 
       createdAt: now,
       updatedAt: now,

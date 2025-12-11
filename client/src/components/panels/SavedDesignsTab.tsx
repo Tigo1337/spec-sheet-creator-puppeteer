@@ -218,7 +218,9 @@ export function SavedDesignsTab() {
            sections: design.catalogData.sections,
            chapterDesigns: design.catalogData.chapterDesigns,
            canvasWidth: design.canvasWidth,
-           canvasHeight: design.canvasHeight
+           canvasHeight: design.canvasHeight,
+           // FIX: Pass restored excelData
+           excelData: design.catalogData.excelData
         });
         toast({ title: "Catalog Loaded", description: `"${design.name}" loaded in Catalog Mode.` });
     } else {
@@ -287,7 +289,9 @@ export function SavedDesignsTab() {
             elements: [],    // Empty elements for top-level, data is in catalogData
             catalogData: {
                 sections: finalSections,
-                chapterDesigns: finalChapterDesigns
+                chapterDesigns: finalChapterDesigns,
+                // FIX: Save the Excel Data
+                excelData: excelData
             }
         });
     } else {

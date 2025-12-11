@@ -130,7 +130,15 @@ interface CanvasState {
   setCurrentTemplate: (template: Template | null) => void;
   saveAsTemplate: (name: string, description?: string, previewImages?: string[]) => Template;
   loadTemplate: (template: Template) => void;
-  loadCatalogDesign: (data: { sections: Record<CatalogSectionType, CatalogSection>, chapterDesigns: any, canvasWidth: number, canvasHeight: number }) => void; // NEW
+
+  // FIX: Updated to accept excelData
+  loadCatalogDesign: (data: { 
+    sections: Record<CatalogSectionType, CatalogSection>, 
+    chapterDesigns: any, 
+    canvasWidth: number, 
+    canvasHeight: number,
+    excelData?: ExcelData | null
+  }) => void;
 
   setExportSettings: (settings: Partial<ExportSettings>) => void;
 
@@ -643,6 +651,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           canvasWidth: data.canvasWidth,
           canvasHeight: data.canvasHeight,
           gridSize: calculateGridSize(data.canvasWidth, data.canvasHeight),
+          // FIX: Restore Excel data so navigator works
+          excelData: data.excelData || null,
           hasUnsavedChanges: false,
           pageCount: 1,
           activePageIndex: 0
