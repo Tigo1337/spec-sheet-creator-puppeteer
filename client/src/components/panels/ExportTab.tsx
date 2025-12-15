@@ -33,7 +33,7 @@ import JSZip from "jszip";
 import { isHtmlContent, getImageDimensions, paginateTOC } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
 import QRCode from "qrcode";
-import { type CanvasElement, availableFonts, openSourceFontMap } from "@shared/schema"; // UPDATED IMPORT
+import { type CanvasElement, availableFonts, openSourceFontMap } from "@shared/schema";
 
 export function ExportTab() {
   const [isExporting, setIsExporting] = useState(false);
@@ -57,7 +57,9 @@ export function ExportTab() {
     pageCount,
     isCatalogMode,
     catalogSections,
-    chapterDesigns 
+    chapterDesigns,
+    activeSectionType, // ADDED: Needed to sync state
+    activeChapterGroup // ADDED: Needed to sync state
   } = useCanvasStore();
 
   useEffect(() => {
@@ -204,7 +206,7 @@ export function ExportTab() {
          elementDiv.id = elementId;
 
          const textStyle = element.textStyle || {};
-         // UPDATED: Map font name to Google Font name if applicable (e.g. Arial -> Arimo)
+         // Map font name to Google Font name if applicable (e.g. Arial -> Arimo)
          const rawFont = textStyle.fontFamily || "Inter";
          const mappedFont = openSourceFontMap[rawFont] || rawFont;
          elementDiv.style.fontFamily = `"${mappedFont}", sans-serif`;
@@ -484,7 +486,7 @@ export function ExportTab() {
   };
 
   const fetchPdfBuffer = async (html: string, pages: number, title: string) => {
-    // UPDATED: Dynamically generate Google Fonts URL from the shared schema
+    // Dynamically generate Google Fonts URL from the shared schema
     const fontFamilies = availableFonts.map(font => {
         // Use the Google Font equivalent if it exists (e.g. Arial -> Arimo)
         const googleFont = openSourceFontMap[font] || font;
@@ -550,13 +552,38 @@ export function ExportTab() {
     setProgress(0);
     setExportStatus("idle");
 
+    // --- SYNC CURRENT STATE ---
+    // Create a local copy of sections/chapters that includes the CURRENT active editing session
+    // This ensures that if the user edits the font and hits "Export" without switching tabs,
+    // the export uses the new font.
+    const sectionsForExport = { ...catalogSections };
+    const chaptersForExport = { ...chapterDesigns };
+
+    if (isCatalogMode) {
+        const currentData = {
+            elements: currentElements,
+            backgroundColor: backgroundColor
+        };
+
+        if (activeSectionType === 'chapter' && activeChapterGroup) {
+            chaptersForExport[activeChapterGroup] = currentData;
+        } else {
+            sectionsForExport[activeSectionType] = {
+                ...sectionsForExport[activeSectionType],
+                elements: currentElements,
+                backgroundColor: backgroundColor
+            };
+        }
+    }
+    // --------------------------
+
     try {
       let combinedHtml = "";
       let currentPageNumber = 1;
       const pageMap: Array<{ title: string, page: number, group?: string }> = [];
 
       // 1. COVER PAGE
-      const coverSection = catalogSections.cover;
+      const coverSection = sectionsForExport.cover;
       if (coverSection && coverSection.elements.length > 0) {
          const coverHtml = await renderPageHTML(coverSection.elements, {}, coverSection.backgroundColor);
          combinedHtml += `<div class="page-container">${coverHtml}</div>`;
@@ -564,7 +591,7 @@ export function ExportTab() {
       }
 
       // 2. PRE-CALCULATE PAGE NUMBERS & BUILD MAP
-      const tocSection = catalogSections.toc;
+      const tocSection = sectionsForExport.toc;
       let tocTitleField = "Name";
       let groupByField = undefined;
       let tocElement: CanvasElement | undefined;
@@ -636,8 +663,8 @@ export function ExportTab() {
       }
 
       // 4. GENERATE CONTENT PAGES (Chapters + Products)
-      const productSection = catalogSections.product;
-      const chapterSection = catalogSections.chapter;
+      const productSection = sectionsForExport.product;
+      const chapterSection = sectionsForExport.chapter;
       currentGroup = undefined; // Reset for generation loop
 
       for (let i = 0; i < excelData.rows.length; i++) {
@@ -652,9 +679,9 @@ export function ExportTab() {
              let chapterElements = chapterSection?.elements || [];
              let chapterBg = chapterSection?.backgroundColor || "#ffffff";
 
-             if (group && chapterDesigns[group]) {
-                 chapterElements = chapterDesigns[group].elements;
-                 chapterBg = chapterDesigns[group].backgroundColor;
+             if (group && chaptersForExport[group]) {
+                 chapterElements = chaptersForExport[group].elements;
+                 chapterBg = chaptersForExport[group].backgroundColor;
              }
 
              if (chapterElements.length > 0) {
@@ -673,7 +700,7 @@ export function ExportTab() {
       }
 
       // 5. BACK COVER
-      const backSection = catalogSections.back;
+      const backSection = sectionsForExport.back;
       if (backSection && backSection.elements.length > 0) {
          const backHtml = await renderPageHTML(backSection.elements, {}, backSection.backgroundColor);
          combinedHtml += `<div class="page-container">${backHtml}</div>`;
