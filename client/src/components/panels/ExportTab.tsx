@@ -292,7 +292,7 @@ export function ExportTab() {
            elementDiv.appendChild(img);
          }
       } 
-      // --- QR CODES ---
+      // --- QR CODES (FIXED) ---
       else if (element.type === "qrcode") { 
          let content = element.content || "https://doculoom.io";
          content = content.replace(/{{(.*?)}}/g, (match, p1) => {
@@ -303,16 +303,26 @@ export function ExportTab() {
 
          if (content) {
              try {
-                 const svgString = await QRCode.toString(content, {
-                    type: 'svg',
+                 // Use toDataURL (Image) instead of toString (SVG) for robust PDF generation
+                 const dataUrl = await QRCode.toDataURL(content, {
                     errorCorrectionLevel: 'H',
                     margin: 0, 
-                    color: { dark: element.textStyle?.color || '#000000', light: '#00000000' }
+                    color: { 
+                        dark: element.textStyle?.color || '#000000', 
+                        light: '#00000000' 
+                    }
                  });
-                 elementDiv.innerHTML = svgString;
-                 const svgEl = elementDiv.querySelector("svg");
-                 if (svgEl) { svgEl.style.width = "100%"; svgEl.style.height = "100%"; }
-             } catch (e) { console.error("Error generating QR", e); }
+
+                 const img = document.createElement("img");
+                 img.src = dataUrl;
+                 img.style.width = "100%";
+                 img.style.height = "100%";
+                 img.style.objectFit = "contain";
+                 elementDiv.appendChild(img);
+
+             } catch (e) { 
+                 console.error("Error generating QR", e); 
+             }
          }
       }
       // --- TABLE OF CONTENTS (TOC) ---
