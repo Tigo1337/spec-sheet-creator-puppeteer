@@ -33,7 +33,7 @@ import JSZip from "jszip";
 import { isHtmlContent, getImageDimensions, paginateTOC } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
 import QRCode from "qrcode";
-import type { CanvasElement } from "@shared/schema";
+import { type CanvasElement, availableFonts, openSourceFontMap } from "@shared/schema"; // UPDATED IMPORT
 
 export function ExportTab() {
   const [isExporting, setIsExporting] = useState(false);
@@ -204,7 +204,11 @@ export function ExportTab() {
          elementDiv.id = elementId;
 
          const textStyle = element.textStyle || {};
-         elementDiv.style.fontFamily = `"${textStyle.fontFamily}", sans-serif`;
+         // UPDATED: Map font name to Google Font name if applicable (e.g. Arial -> Arimo)
+         const rawFont = textStyle.fontFamily || "Inter";
+         const mappedFont = openSourceFontMap[rawFont] || rawFont;
+         elementDiv.style.fontFamily = `"${mappedFont}", sans-serif`;
+
          elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
          elementDiv.style.fontWeight = String(textStyle.fontWeight || 400);
          elementDiv.style.color = textStyle.color || "#000000";
@@ -292,7 +296,7 @@ export function ExportTab() {
            elementDiv.appendChild(img);
          }
       } 
-      // --- QR CODES (FIXED) ---
+      // --- QR CODES ---
       else if (element.type === "qrcode") { 
          let content = element.content || "https://doculoom.io";
          content = content.replace(/{{(.*?)}}/g, (match, p1) => {
@@ -303,26 +307,16 @@ export function ExportTab() {
 
          if (content) {
              try {
-                 // Use toDataURL (Image) instead of toString (SVG) for robust PDF generation
-                 const dataUrl = await QRCode.toDataURL(content, {
+                 const svgString = await QRCode.toString(content, {
+                    type: 'svg',
                     errorCorrectionLevel: 'H',
                     margin: 0, 
-                    color: { 
-                        dark: element.textStyle?.color || '#000000', 
-                        light: '#00000000' 
-                    }
+                    color: { dark: element.textStyle?.color || '#000000', light: '#00000000' }
                  });
-
-                 const img = document.createElement("img");
-                 img.src = dataUrl;
-                 img.style.width = "100%";
-                 img.style.height = "100%";
-                 img.style.objectFit = "contain";
-                 elementDiv.appendChild(img);
-
-             } catch (e) { 
-                 console.error("Error generating QR", e); 
-             }
+                 elementDiv.innerHTML = svgString;
+                 const svgEl = elementDiv.querySelector("svg");
+                 if (svgEl) { svgEl.style.width = "100%"; svgEl.style.height = "100%"; }
+             } catch (e) { console.error("Error generating QR", e); }
          }
       }
       // --- TABLE OF CONTENTS (TOC) ---
@@ -346,7 +340,12 @@ export function ExportTab() {
          if (settings.showTitle && (!isPaged || (element as any)._isFirstPage)) {
              const titleDiv = document.createElement("div");
              titleDiv.textContent = settings.title;
-             titleDiv.style.fontFamily = `"${settings.titleStyle?.fontFamily}", sans-serif`;
+
+             // MAP TITLE FONT
+             const tRaw = settings.titleStyle?.fontFamily || "Inter";
+             const tMapped = openSourceFontMap[tRaw] || tRaw;
+             titleDiv.style.fontFamily = `"${tMapped}", sans-serif`;
+
              titleDiv.style.fontSize = `${settings.titleStyle?.fontSize}px`;
              titleDiv.style.fontWeight = String(settings.titleStyle?.fontWeight);
              titleDiv.style.color = settings.titleStyle?.color || "#000";
@@ -362,7 +361,11 @@ export function ExportTab() {
          listDiv.style.overflow = "hidden";
 
          // Apply default styles to the container
-         listDiv.style.fontFamily = `"${element.textStyle?.fontFamily}", sans-serif`;
+         // MAP BODY FONT
+         const bRaw = element.textStyle?.fontFamily || "Inter";
+         const bMapped = openSourceFontMap[bRaw] || bRaw;
+         listDiv.style.fontFamily = `"${bMapped}", sans-serif`;
+
          listDiv.style.fontSize = `${element.textStyle?.fontSize || 14}px`;
          listDiv.style.color = element.textStyle?.color || "#000000";
          listDiv.style.lineHeight = String(element.textStyle?.lineHeight || 1.5);
@@ -419,7 +422,12 @@ export function ExportTab() {
   const createTocHeaderDiv = (text: string, settings: any) => {
       const div = document.createElement("div");
       div.textContent = text;
-      div.style.fontFamily = `"${settings.chapterStyle?.fontFamily}", sans-serif`;
+
+      // MAP CHAPTER FONT
+      const cRaw = settings.chapterStyle?.fontFamily || "Inter";
+      const cMapped = openSourceFontMap[cRaw] || cRaw;
+      div.style.fontFamily = `"${cMapped}", sans-serif`;
+
       div.style.fontSize = `${settings.chapterStyle?.fontSize || 18}px`; // Explicit fallback
       div.style.fontWeight = String(settings.chapterStyle?.fontWeight || 600);
       div.style.color = settings.chapterStyle?.color || "#333";
@@ -442,7 +450,10 @@ export function ExportTab() {
       div.style.paddingBottom = "2px"; 
 
       // Apply styles explicitly to the item div
-      div.style.fontFamily = `"${style.fontFamily}", sans-serif`;
+      const raw = style.fontFamily || "Inter";
+      const mapped = openSourceFontMap[raw] || raw;
+      div.style.fontFamily = `"${mapped}", sans-serif`;
+
       div.style.fontSize = `${style.fontSize || 14}px`;
       div.style.color = style.color || "#000000";
       div.style.lineHeight = String(style.lineHeight || 1.5);
@@ -473,14 +484,23 @@ export function ExportTab() {
   };
 
   const fetchPdfBuffer = async (html: string, pages: number, title: string) => {
+    // UPDATED: Dynamically generate Google Fonts URL from the shared schema
+    const fontFamilies = availableFonts.map(font => {
+        // Use the Google Font equivalent if it exists (e.g. Arial -> Arimo)
+        const googleFont = openSourceFontMap[font] || font;
+        // Check if it looks like a valid Google Font (not a system font like Verdana/DejaVu)
+        // For simplicity, we assume anything in availableFonts maps to a Google Font unless excluded.
+        // We replace spaces with + for the URL.
+        return `family=${googleFont.replace(/\s+/g, '+')}:wght@400;700`;
+    }).join('&');
+
     const fullHtml = `
       <!DOCTYPE html>
       <html>
         <head>
           <title>${title}</title>
-          <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=Oswald:wght@400;700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400&family=Lato:wght@400;700&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;700&family=Nunito:wght@400;700&family=Open+Sans:wght@400;700&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;700&family=Raleway:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
+          <link href="https://fonts.googleapis.com/css2?${fontFamilies}&display=swap" rel="stylesheet">
           <style>
-            @font-face { font-family: 'Arial'; src: local('Arimo'); }
             @page { size: ${canvasWidth}px ${canvasHeight}px; margin: 0; }
             body { margin: 0; padding: 0; box-sizing: border-box; }
             * { box-sizing: inherit; }

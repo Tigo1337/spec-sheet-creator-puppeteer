@@ -90,6 +90,11 @@ export async function registerRoutes(
         timeout: 60000,
       });
 
+      // UPDATED: Explicitly wait for fonts to be fully loaded
+      await page.evaluate(async () => {
+        await document.fonts.ready;
+      });
+
       const pdfData = await page.pdf({
         printBackground: true,
         preferCSSPageSize: true,
@@ -190,6 +195,11 @@ export async function registerRoutes(
       await page.setContent(html, {
         waitUntil: ["load", "networkidle0"],
         timeout: 30000,
+      });
+
+      // UPDATED: Wait for fonts here too for accurate previews
+      await page.evaluate(async () => {
+        await document.fonts.ready;
       });
 
       // Take Screenshot as Base64 String

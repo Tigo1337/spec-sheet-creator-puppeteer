@@ -7,6 +7,7 @@ import { formatContent } from "@/lib/formatter";
 import { AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import QRCode from "qrcode";
 import { Button } from "@/components/ui/button"; 
+import { loadFont } from "@/lib/font-loader"; 
 
 interface CanvasElementProps {
   element: CanvasElementType;
@@ -36,6 +37,26 @@ export function CanvasElement({
     id: element.id,
     disabled: element.locked,
   });
+
+  // Load Fonts for this element on mount/update
+  useEffect(() => {
+    // 1. Text elements
+    if (element.textStyle?.fontFamily) {
+        loadFont(element.textStyle.fontFamily);
+    }
+
+    // 2. TOC elements
+    if (element.tocSettings?.titleStyle?.fontFamily) {
+        loadFont(element.tocSettings.titleStyle.fontFamily);
+    }
+    if (element.tocSettings?.chapterStyle?.fontFamily) {
+        loadFont(element.tocSettings.chapterStyle.fontFamily);
+    }
+  }, [
+      element.textStyle?.fontFamily, 
+      element.tocSettings?.titleStyle?.fontFamily,
+      element.tocSettings?.chapterStyle?.fontFamily
+  ]);
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -219,6 +240,10 @@ export function CanvasElement({
         const displayContent = formatContent(rawTextContent, element.format);
         const hasHtml = isHtmlContent(displayContent);
 
+        // FIX: Ensure fontFamily is quoted to handle spaces (e.g. "Libre Baskerville")
+        const activeFont = element.textStyle?.fontFamily || (isDataField ? "JetBrains Mono" : "Inter");
+        const fontValue = activeFont.includes(" ") ? `"${activeFont}"` : activeFont;
+
         return (
           <div
             id={elementScopeId}
@@ -227,7 +252,7 @@ export function CanvasElement({
               display: "flex",
               flexDirection: "column",
               justifyContent: verticalAlignMap[element.textStyle?.verticalAlign || "middle"] as any,
-              fontFamily: element.textStyle?.fontFamily || (isDataField ? "JetBrains Mono" : "Inter"),
+              fontFamily: fontValue, // Uses quoted version
               fontSize: (element.textStyle?.fontSize || (isDataField ? 14 : 16)) * zoom,
               fontWeight: element.textStyle?.fontWeight || (isDataField ? 500 : 400),
               color: element.textStyle?.color || "#000000",
@@ -337,6 +362,18 @@ export function CanvasElement({
         const isMultiPage = (tocData?.length || 0) > 1;
         const isFirstPage = previewPage === 0;
 
+        // FIX: Handle Title Style Quotes
+        const titleFont = settings.titleStyle?.fontFamily || "Inter";
+        const titleFontValue = titleFont.includes(" ") ? `"${titleFont}"` : titleFont;
+
+        // FIX: Handle Chapter Style Quotes
+        const chapterFont = settings.chapterStyle?.fontFamily || "Inter";
+        const chapterFontValue = chapterFont.includes(" ") ? `"${chapterFont}"` : chapterFont;
+
+        // FIX: Handle Item Style Quotes
+        const itemFont = element.textStyle?.fontFamily || "Inter";
+        const itemFontValue = itemFont.includes(" ") ? `"${itemFont}"` : itemFont;
+
         return (
           <>
             <div 
@@ -344,7 +381,7 @@ export function CanvasElement({
             >
               {settings.showTitle && isFirstPage && (
                   <div style={{
-                      fontFamily: settings.titleStyle?.fontFamily,
+                      fontFamily: titleFontValue,
                       fontSize: (settings.titleStyle?.fontSize || 24) * zoom,
                       fontWeight: settings.titleStyle?.fontWeight,
                       textAlign: settings.titleStyle?.textAlign as any,
@@ -358,7 +395,7 @@ export function CanvasElement({
               )}
 
               <div className="flex-1 overflow-hidden" style={{
-                  fontFamily: element.textStyle?.fontFamily,
+                  fontFamily: itemFontValue,
                   fontSize: (element.textStyle?.fontSize || 14) * zoom,
                   color: element.textStyle?.color,
                   // ADDED: Apply weight to the container list
@@ -372,7 +409,7 @@ export function CanvasElement({
                       if (item.type === "header") {
                           return (
                               <div key={idx} style={{
-                                  fontFamily: settings.chapterStyle?.fontFamily,
+                                  fontFamily: chapterFontValue,
                                   fontSize: (settings.chapterStyle?.fontSize || 18) * zoom,
                                   fontWeight: settings.chapterStyle?.fontWeight,
                                   color: settings.chapterStyle?.color,

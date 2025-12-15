@@ -9,6 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { getImageDimensions } from "@/lib/canvas-utils";
 import { Switch } from "@/components/ui/switch"; 
+import { loadFont } from "@/lib/font-loader"; 
 import {
   Select,
   SelectContent,
@@ -148,10 +149,16 @@ export function PropertiesTab() {
     );
   }
 
-  const handleTextStyleChange = (
+  // UPDATED: Now async to handle font loading wait
+  const handleTextStyleChange = async (
     key: keyof NonNullable<CanvasElement["textStyle"]>,
     value: string | number
   ) => {
+    // If we are changing the font, we wait for it to load FIRST
+    if (key === 'fontFamily' && typeof value === 'string') {
+        await loadFont(value);
+    }
+
     updateElement(selectedElement.id, {
       textStyle: {
         ...selectedElement.textStyle,
@@ -160,13 +167,18 @@ export function PropertiesTab() {
     });
   };
 
-  // Helper for deep updates on tocSettings
-  const handleTocSettingChange = (
+  // UPDATED: Helper for deep updates on tocSettings
+  const handleTocSettingChange = async (
     section: "titleStyle" | "chapterStyle",
     key: keyof NonNullable<CanvasElement["textStyle"]>,
     value: string | number
   ) => {
     if (!selectedElement.tocSettings) return;
+
+    // If we are changing the font, we wait for it to load FIRST
+    if (key === 'fontFamily' && typeof value === 'string') {
+        await loadFont(value);
+    }
 
     updateElement(selectedElement.id, {
       tocSettings: {
@@ -1438,7 +1450,6 @@ export function PropertiesTab() {
                     size="sm"
                     className="flex-1"
                     onClick={() => {
-                      // Use store method now to handle negative index prevention
                       sendToBack(selectedElement.id);
                     }}
                     data-testid="btn-send-to-back"
@@ -1481,7 +1492,6 @@ export function PropertiesTab() {
                 />
               </div>
 
-              {/* UPDATED: Added Opacity Control for Images */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">
                   Opacity: {Math.round((selectedElement.shapeStyle?.opacity ?? 1) * 100)}%
@@ -1498,7 +1508,6 @@ export function PropertiesTab() {
                 />
               </div>
 
-              {/* UPDATED: Added Layer Controls for Images */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Layer</Label>
                 <div className="flex gap-2">
