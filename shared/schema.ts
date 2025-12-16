@@ -317,7 +317,16 @@ export const usersTable = pgTable("users", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export type DbUser = typeof usersTable.$inferSelect;
+export type DbUser = {
+  id: string;
+  email: string;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  plan: string;
+  planStatus: string;
+  createdAt: string;
+  updatedAt: string;
+};
 export type InsertDbUser = typeof usersTable.$inferInsert;
 
 export const dbUserSchema = z.object({

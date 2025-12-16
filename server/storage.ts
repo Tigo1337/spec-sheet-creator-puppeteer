@@ -272,7 +272,7 @@ export class DatabaseStorage implements IStorage {
       .set({
         ...updates,
         updatedAt: new Date(),
-      })
+      } as any)
       .where(eq(usersTable.id, id))
       .returning();
     return rows[0] ? this.toDbUser(rows[0]) : undefined;
