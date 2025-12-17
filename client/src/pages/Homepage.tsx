@@ -278,9 +278,11 @@ export default function Homepage() {
               price="$0"
               features={[
                 '50 PDFs / month', 
-                'Standard RGB Export', 
+                'Digital Ready Export', 
                 'CSV & Excel Import', 
-                'Basic QR Codes'
+                'Basic QR Codes',
+                'Multi-page Product Templates',
+                'Watermarked Exports'
               ]}
               cta="Start Free"
               variant="outline"
@@ -293,10 +295,11 @@ export default function Homepage() {
               period="/mo"
               features={[
                 'Unlimited PDFs', 
-                'CMYK Print Export', 
-                'Dynamic QR Analytics', 
-                'Multi-page Templates', 
-                'Priority Rendering Queue'
+                'Print Ready Exports', 
+                'Manageable QR Codes', 
+                'Full Catalog Assembly', 
+                'Priority Rendering Queue',
+                'Watermark Removal'
               ]}
               cta="Get Pro"
               variant="filled"
