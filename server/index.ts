@@ -97,23 +97,33 @@ async function checkGhostscript() {
   }
 }
 
-// 2. Puppeteer Launch Check
-async function checkPuppeteer() {
-  try {
-    console.log("Testing Puppeteer launch...");
-    const browser = await puppeteer.launch({
-      headless: true,
-      executablePath: process.env.NIX_CHROMIUM_WRAPPER || puppeteer.executablePath(),
-      args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--single-process']
-    });
-    const version = await browser.version();
-    await browser.close();
-    console.log(`✅ Puppeteer functional: ${version}`);
-  } catch (error) {
-    console.error("❌ CRITICAL: Puppeteer failed to launch!");
-    console.error(error);
-    Sentry.captureException(error);
-  }
+// 2. Puppeteer Launch Check (non-blocking with timeout)
+function checkPuppeteer() {
+  const timeoutMs = 10000;
+  const checkPromise = (async () => {
+    try {
+      console.log("Testing Puppeteer launch...");
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--disable-setuid-sandbox']
+      });
+      const version = await browser.version();
+      await browser.close();
+      console.log(`✅ Puppeteer functional: ${version}`);
+    } catch (error) {
+      console.error("❌ Puppeteer failed to launch:", error);
+      Sentry.captureException(error);
+    }
+  })();
+  
+  const timeoutPromise = new Promise<void>((resolve) => {
+    setTimeout(() => {
+      console.log("⚠️  Puppeteer check timed out (will retry on first PDF export)");
+      resolve();
+    }, timeoutMs);
+  });
+  
+  return Promise.race([checkPromise, timeoutPromise]);
 }
 
 // 3. Database Connection Check
