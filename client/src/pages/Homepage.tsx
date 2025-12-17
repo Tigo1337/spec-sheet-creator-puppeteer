@@ -1,4 +1,5 @@
 import React from 'react';
+import { Helmet } from 'react-helmet-async'; // 1. Import Helmet
 import { 
   FileSpreadsheet, 
   Palette, 
@@ -20,8 +21,41 @@ export default function Homepage() {
   const accentColor = "text-[#2A9D90]";
   const accentBg = "bg-[#2A9D90]";
 
+  // 2. Structured Data for Google (Rich Snippets)
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Doculoom",
+    "applicationCategory": "DesignApplication",
+    "operatingSystem": "Web",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Create stunning spec sheets by combining your design with Excel data. No InDesign required."
+  };
+
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#2A9D90]/20">
+      {/* 3. SEO Head Block */}
+      <Helmet>
+        <title>Doculoom | Free Spec Sheet & Catalog Maker</title>
+        <meta name="description" content="Generate data-driven PDF catalogs, price lists, and spec sheets from Excel. Professional CMYK export supported. Try for free." />
+        <link rel="canonical" href="https://doculoom.io/" />
+
+        {/* Open Graph for Social Media (LinkedIn/Twitter/Facebook) */}
+        <meta property="og:title" content="Automate Your Spec Sheets with Doculoom" />
+        <meta property="og:description" content="Stop copy-pasting into InDesign. Connect your Excel file and batch generate PDFs instantly." />
+        <meta property="og:url" content="https://doculoom.io/" />
+        <meta property="og:image" content="https://doculoom.io/og-image.jpg" />
+
+        {/* Inject Structured Data */}
+        <script type="application/ld+json">
+          {JSON.stringify(structuredData)}
+        </script>
+      </Helmet>
+
       <PublicHeader />
 
       {/* Hero Section */}
@@ -33,10 +67,11 @@ export default function Homepage() {
               New: CMYK Print Export & Dynamic QRs
             </div>
 
-            <h2 className="text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900">
+            {/* 4. Changed h2 to h1 for SEO Hierarchy */}
+            <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900">
               Data-Driven Design for <br className="hidden md:block" />
               <span className={accentColor}>Professional Spec Sheets</span>
-            </h2>
+            </h1>
 
             <p className="text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
               Batch generate multi-page PDF catalogs, price lists, and technical sheets directly from Excel. Includes professional CMYK color support.

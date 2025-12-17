@@ -6,6 +6,7 @@ import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { ClerkProvider } from "@clerk/clerk-react";
 import * as Sentry from "@sentry/react";
+import { HelmetProvider } from "react-helmet-async";
 
 // --- Configuration Checks ---
 
@@ -33,11 +34,14 @@ createRoot(document.getElementById("root")!).render(
   // ClerkProvider must wrap the App so useClerk works inside App.tsx
   <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
     <QueryClientProvider client={queryClient}>
-      {/* Sentry Error Boundary catches crashes in the App */}
-      <Sentry.ErrorBoundary fallback={<div className="p-4 text-red-500 font-bold">An unexpected error has occurred.</div>}>
-        <App />
-        <Toaster />
-      </Sentry.ErrorBoundary>
+      {/* 2. Wrap App in HelmetProvider for SEO management */}
+      <HelmetProvider>
+        {/* Sentry Error Boundary catches crashes in the App */}
+        <Sentry.ErrorBoundary fallback={<div className="p-4 text-red-500 font-bold">An unexpected error has occurred.</div>}>
+          <App />
+          <Toaster />
+        </Sentry.ErrorBoundary>
+      </HelmetProvider>
     </QueryClientProvider>
   </ClerkProvider>
 );

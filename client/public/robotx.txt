@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /editor
+Disallow: /checkout
+Disallow: /api/
+
+Sitemap: https://doculoom.io/sitemap.xml
