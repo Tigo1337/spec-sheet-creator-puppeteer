@@ -233,7 +233,7 @@ app.use((req, res, next) => {
     const message = err.message || "Internal Server Error";
 
     res.status(status).json({ message });
-    throw err;
+    // throw err; // <-- REMOVED THIS to prevent duplicate header sending/crashing
   });
 
   if (process.env.NODE_ENV === "production") {

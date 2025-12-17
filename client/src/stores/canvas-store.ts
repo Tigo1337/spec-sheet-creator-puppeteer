@@ -160,7 +160,8 @@ interface HistoryState {
   elements: CanvasElement[];
 }
 
-const MAX_HISTORY = 50;
+// REDUCED FROM 50 TO 20
+const MAX_HISTORY = 20;
 let history: HistoryState[] = [];
 let historyIndex = -1;
 

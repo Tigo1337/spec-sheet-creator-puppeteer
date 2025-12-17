@@ -110,6 +110,12 @@ export async function registerRoutes(
   // 1. PDF Export Route (STRICT QUEUE + FRESH BROWSER)
   // ============================================
   app.post("/api/export/pdf", async (req, res) => {
+    // 1. AUTH CHECK
+    const auth = getAuth(req);
+    if (!auth.userId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
     const { html, width, height, scale = 2, colorModel = 'rgb' } = req.body;
 
     if (!html || !width || !height) {
@@ -117,11 +123,11 @@ export async function registerRoutes(
     }
 
     try {
-      // 1. Enter the Queue (Wait for turn)
+      // 2. Enter the Queue (Wait for turn)
       const pdfBuffer = await pdfQueue.add(async () => {
         console.log(`-> Processing PDF. Queue waiting: ${pdfQueue.queue.length}`);
 
-        // 2. Launch a FRESH browser for this specific request
+        // 3. Launch a FRESH browser for this specific request
         const browser = await puppeteer.launch({
           headless: true,
           executablePath: process.env.NIX_CHROMIUM_WRAPPER || puppeteer.executablePath(),
@@ -164,7 +170,7 @@ export async function registerRoutes(
           return Buffer.from(data);
 
         } finally {
-          // 3. KILL the browser immediately after use
+          // 4. KILL the browser immediately after use
           await browser.close().catch(e => console.error("Error closing browser:", e));
         }
       });
@@ -215,6 +221,12 @@ export async function registerRoutes(
   // 2. Preview Generation Route
   // ============================================
   app.post("/api/export/preview", async (req, res) => {
+    // 1. AUTH CHECK
+    const auth = getAuth(req);
+    if (!auth.userId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
     const { html, width, height } = req.body;
 
     if (!html || !width || !height) {
