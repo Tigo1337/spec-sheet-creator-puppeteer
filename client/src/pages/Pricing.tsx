@@ -2,6 +2,7 @@ import { PublicHeader } from "@/components/layout/PublicHeader";
 import { Button } from "@/components/ui/button";
 import { Check, ArrowRight } from "lucide-react";
 import { useLocation } from "wouter";
+import { Helmet } from "react-helmet-async"; // Import Helmet
 
 const PRICE_IDS = {
   proMonthly: "price_1SZtioEFufdmlbEL2SX2yEof",
@@ -24,18 +25,27 @@ export default function Pricing() {
 
   return (
     <div className="min-h-screen bg-background font-sans">
+      {/* SEO BLOCK */}
+      <Helmet>
+        <title>Pricing - Start for Free | Doculoom</title>
+        <meta name="description" content="Simple pricing for automation. Start for free with 50 PDFs/mo. Upgrade to Pro for unlimited exports and CMYK print support." />
+        <link rel="canonical" href="https://doculoom.io/pricing" />
+      </Helmet>
+
       <PublicHeader />
 
       <section className="max-w-7xl mx-auto px-4 py-20">
         <div className="space-y-8">
           <div className="text-center space-y-4">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900">Simple, Transparent Pricing</h2>
+            {/* H1 for SEO Hierarchy */}
+            <h1 className="text-3xl md:text-4xl font-bold text-slate-900">Simple, Transparent Pricing</h1>
             <p className="text-lg text-slate-600">Choose the plan that fits your needs</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 mt-12 max-w-6xl mx-auto">
-
-            {/* STARTER (Previously Free) */}
+             {/* ... existing pricing cards ... */}
+             {/* (Keep the rest of your file exactly the same) */}
+             {/* STARTER */}
             <div className="p-8 border border-slate-200 rounded-2xl bg-white shadow-sm hover:shadow-md transition-shadow">
               <h3 className="font-semibold text-xl mb-2 text-slate-900">Starter</h3>
               <p className="text-slate-500 mb-6">For getting started</p>
@@ -136,7 +146,7 @@ export default function Pricing() {
             </div>
           </div>
 
-          {/* Enterprise Section (Added to match Homepage) */}
+          {/* Enterprise Section */}
           <div className="mt-16 max-w-4xl mx-auto bg-slate-50 rounded-2xl p-8 border border-slate-200 text-center">
             <h3 className="text-2xl font-bold text-slate-900 mb-4">Need Enterprise Features?</h3>
             <p className="text-slate-600 mb-8 max-w-2xl mx-auto">

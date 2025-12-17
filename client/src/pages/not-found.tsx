@@ -1,9 +1,16 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
+import { Helmet } from "react-helmet-async"; // Import Helmet
 
 export default function NotFound() {
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
+      {/* TELL GOOGLE TO IGNORE THIS PAGE */}
+      <Helmet>
+        <title>404 Not Found | Doculoom</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
+
       <Card className="w-full max-w-md mx-4">
         <CardContent className="pt-6">
           <div className="flex mb-4 gap-2">
