@@ -1,9 +1,10 @@
-import type { Template, InsertTemplate, SavedDesign, InsertSavedDesign, CanvasElement, DbUser, InsertDbUser } from "@shared/schema";
-import { savedDesignsTable, templatesTable, usersTable } from "@shared/schema";
+import type { Template, InsertTemplate, SavedDesign, InsertSavedDesign, CanvasElement, DbUser, InsertDbUser, QrCode, InsertQrCode } from "@shared/schema";
+import { savedDesignsTable, templatesTable, usersTable, qrCodesTable } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
 import { eq, and, desc, sql } from "drizzle-orm";
+import { nanoid } from "nanoid";
 
 export interface IStorage {
   getTemplates(): Promise<Template[]>;
@@ -27,6 +28,14 @@ export interface IStorage {
     plan?: string;
     planStatus?: string;
   }): Promise<DbUser | undefined>;
+
+  // QR Codes
+  createQRCode(userId: string, destinationUrl: string, designId?: string): Promise<QrCode>;
+  getQRCode(id: string): Promise<QrCode | undefined>;
+  incrementQRCodeScan(id: string): Promise<void>;
+  // NEW: QR Dashboard Methods
+  getQRCodesByUser(userId: string): Promise<QrCode[]>;
+  updateQRCode(id: string, userId: string, destinationUrl: string): Promise<QrCode | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -51,7 +60,6 @@ export class DatabaseStorage implements IStorage {
       pageCount: row.pageCount,
       backgroundColor: row.backgroundColor,
       elements: row.elements as CanvasElement[],
-      // FIX: Map the type and catalogData correctly
       type: (row.type as "single" | "catalog") || "single",
       catalogData: row.catalogData,
       createdAt: new Date(row.createdAt).toISOString(),
@@ -170,7 +178,6 @@ export class DatabaseStorage implements IStorage {
         pageCount: insertDesign.pageCount,
         backgroundColor: insertDesign.backgroundColor,
         elements: insertDesign.elements,
-        // FIX: Ensure type and catalogData are actually inserted
         type: insertDesign.type,
         catalogData: insertDesign.catalogData,
         createdAt: now,
@@ -272,7 +279,7 @@ export class DatabaseStorage implements IStorage {
       .set({
         ...updates,
         updatedAt: new Date(),
-      } as any)
+      })
       .where(eq(usersTable.id, id))
       .returning();
     return rows[0] ? this.toDbUser(rows[0]) : undefined;
@@ -287,7 +294,61 @@ export class DatabaseStorage implements IStorage {
     return this.updateUser(userId, stripeInfo);
   }
 
-  // Stripe data queries (from stripe schema managed by stripe-replit-sync)
+  // QR Code Methods
+  async createQRCode(userId: string, destinationUrl: string, designId?: string): Promise<QrCode> {
+    const id = nanoid(8); // Generate short ID
+    const [row] = await this.db
+      .insert(qrCodesTable)
+      .values({
+        id,
+        userId,
+        destinationUrl,
+        designId,
+        scanCount: 0,
+      })
+      .returning();
+    return row;
+  }
+
+  async getQRCode(id: string): Promise<QrCode | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(qrCodesTable)
+      .where(eq(qrCodesTable.id, id));
+    return row;
+  }
+
+  async incrementQRCodeScan(id: string): Promise<void> {
+    await this.db
+      .update(qrCodesTable)
+      .set({ scanCount: sql`${qrCodesTable.scanCount} + 1` })
+      .where(eq(qrCodesTable.id, id));
+  }
+
+  // NEW: Get all codes for dashboard
+  async getQRCodesByUser(userId: string): Promise<QrCode[]> {
+    const rows = await this.db
+      .select()
+      .from(qrCodesTable)
+      .where(eq(qrCodesTable.userId, userId))
+      .orderBy(desc(qrCodesTable.createdAt));
+    return rows;
+  }
+
+  // NEW: Update destination URL
+  async updateQRCode(id: string, userId: string, destinationUrl: string): Promise<QrCode | undefined> {
+    const [row] = await this.db
+      .update(qrCodesTable)
+      .set({
+        destinationUrl,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(qrCodesTable.id, id), eq(qrCodesTable.userId, userId)))
+      .returning();
+    return row;
+  }
+
+  // Stripe data queries
   async getProduct(productId: string) {
     const result = await this.db.execute(
       sql`SELECT * FROM stripe.products WHERE id = ${productId}`
@@ -364,10 +425,12 @@ export class DatabaseStorage implements IStorage {
 export class MemStorage implements IStorage {
   private templates: Map<string, Template>;
   private designs: Map<string, SavedDesign>;
+  private qrCodes: Map<string, QrCode>; 
 
   constructor() {
     this.templates = new Map();
     this.designs = new Map();
+    this.qrCodes = new Map();
   }
 
   async getTemplates(): Promise<Template[]> {
@@ -456,7 +519,6 @@ export class MemStorage implements IStorage {
     return this.designs.delete(id);
   }
 
-  // User methods
   private users: Map<string, DbUser> = new Map();
 
   async getUser(id: string): Promise<DbUser | undefined> {
@@ -502,6 +564,50 @@ export class MemStorage implements IStorage {
     planStatus?: string;
   }): Promise<DbUser | undefined> {
     return this.updateUser(userId, stripeInfo);
+  }
+
+  // QR Methods
+  async createQRCode(userId: string, destinationUrl: string, designId?: string): Promise<QrCode> {
+    const id = nanoid(8);
+    const now = new Date();
+    const qr: QrCode = {
+      id,
+      userId,
+      destinationUrl,
+      designId: designId ?? null,
+      scanCount: 0,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.qrCodes.set(id, qr);
+    return qr;
+  }
+
+  async getQRCode(id: string): Promise<QrCode | undefined> {
+    return this.qrCodes.get(id);
+  }
+
+  async incrementQRCodeScan(id: string): Promise<void> {
+    const qr = this.qrCodes.get(id);
+    if(qr) {
+      qr.scanCount = (qr.scanCount || 0) + 1;
+      this.qrCodes.set(id, qr);
+    }
+  }
+
+  async getQRCodesByUser(userId: string): Promise<QrCode[]> {
+    return Array.from(this.qrCodes.values())
+      .filter((qr) => qr.userId === userId)
+      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+
+  async updateQRCode(id: string, userId: string, destinationUrl: string): Promise<QrCode | undefined> {
+    const qr = this.qrCodes.get(id);
+    if (!qr || qr.userId !== userId) return undefined;
+
+    const updated = { ...qr, destinationUrl, updatedAt: new Date() };
+    this.qrCodes.set(id, updated);
+    return updated;
   }
 }
 

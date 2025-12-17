@@ -6,13 +6,11 @@ import {
   ObjectStorageService,
   ObjectNotFoundError,
 } from "./objectStorage";
-import { insertTemplateSchema, insertSavedDesignSchema } from "@shared/schema";
+import { insertTemplateSchema, insertSavedDesignSchema, insertQrCodeSchema } from "@shared/schema";
 import { stripeService } from "./stripeService";
 import { getStripePublishableKey } from "./stripeClient";
 import puppeteer from "puppeteer";
 import path from "path";
-import { nanoid } from "nanoid"; 
-
 import fs from "fs";
 import { exec } from "child_process";
 import { promisify } from "util";
@@ -32,15 +30,13 @@ export async function registerRoutes(
     const shortId = req.params.id;
 
     try {
-      // NOTE: For MVP, we mock the DB lookup. 
-      // To fully implement, you must add `getQRCode(id)` to your `server/storage.ts`
-      // const qrRecord = await storage.getQRCode(shortId);
-
-      const qrRecord = { destinationUrl: "https://doculoom.io" }; // Default fallback for testing
+      const qrRecord = await storage.getQRCode(shortId);
 
       if (qrRecord) {
-         // 301 Redirect: Browser will cache this redirect. 
-         // Use 302 if you want to track analytics on every scan.
+         // Increment Scan Count Asynchronously (fire and forget)
+         storage.incrementQRCodeScan(shortId).catch(console.error);
+
+         // 302 Redirect for analytics tracking
          return res.redirect(302, qrRecord.destinationUrl);
       }
 
@@ -226,25 +222,54 @@ export async function registerRoutes(
   // ============================================
   // QR Code CRUD API
   // ============================================
+
   app.post("/api/qrcodes", async (req, res) => {
     try {
       const auth = getAuth(req);
       if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
 
-      const { destinationUrl } = req.body;
-      if (!destinationUrl) return res.status(400).json({ error: "Destination URL is required" });
+      const parseResult = insertQrCodeSchema.safeParse(req.body);
 
-      const shortId = nanoid(8); // Generate short ID like "x8k29a"
+      if (!parseResult.success) {
+        return res.status(400).json({ error: parseResult.error.message });
+      }
 
-      // TODO: Call storage.createQRCode(...) here to persist to DB
-      // const newQR = await storage.createQRCode({ id: shortId, ... });
+      const { destinationUrl, designId } = parseResult.data;
 
-      // Mock response for now
-      const newQR = { id: shortId, destinationUrl };
+      const newQR = await storage.createQRCode(auth.userId, destinationUrl, designId);
 
       res.status(201).json(newQR);
     } catch (error) {
+      console.error("Failed to create QR code:", error);
       res.status(500).json({ error: "Failed to create QR code" });
+    }
+  });
+
+  // NEW: List QR Codes for Dashboard
+  app.get("/api/qrcodes", async (req, res) => {
+    try {
+      const auth = getAuth(req);
+      if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
+      const codes = await storage.getQRCodesByUser(auth.userId);
+      res.json(codes);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch QR codes" });
+    }
+  });
+
+  // NEW: Update QR Code Destination
+  app.put("/api/qrcodes/:id", async (req, res) => {
+    try {
+      const auth = getAuth(req);
+      if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
+      const { destinationUrl } = req.body;
+
+      const updated = await storage.updateQRCode(req.params.id, auth.userId, destinationUrl);
+      if (!updated) return res.status(404).json({ error: "QR Code not found" });
+
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update QR code" });
     }
   });
 
@@ -273,6 +298,7 @@ export async function registerRoutes(
 
   app.post("/api/templates", async (req, res) => {
     try {
+      // TODO: Add admin check here
       const parseResult = insertTemplateSchema.safeParse(req.body);
       if (!parseResult.success) return res.status(400).json({ error: parseResult.error.message });
       const template = await storage.createTemplate(parseResult.data);
@@ -284,6 +310,7 @@ export async function registerRoutes(
 
   app.put("/api/templates/:id", async (req, res) => {
     try {
+      // TODO: Add admin check here
       const template = await storage.updateTemplate(req.params.id, req.body);
       if (!template) return res.status(404).json({ error: "Template not found" });
       res.json(template);
@@ -294,6 +321,7 @@ export async function registerRoutes(
 
   app.delete("/api/templates/:id", async (req, res) => {
     try {
+      // TODO: Add admin check here
       const deleted = await storage.deleteTemplate(req.params.id);
       if (!deleted) return res.status(404).json({ error: "Template not found" });
       res.status(204).send();
@@ -349,22 +377,6 @@ export async function registerRoutes(
       res.json(design);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch design" });
-    }
-  });
-
-  app.post("/api/designs", async (req, res) => {
-    try {
-      const auth = getAuth(req);
-      if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
-      const parseResult = insertSavedDesignSchema.safeParse({
-        ...req.body,
-        userId: auth.userId,
-      });
-      if (!parseResult.success) return res.status(400).json({ error: parseResult.error.message });
-      const design = await storage.createDesign(parseResult.data);
-      res.status(201).json(design);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to create design" });
     }
   });
 

@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useUser, UserButton } from "@clerk/clerk-react";
+// Import the new Dialog
+import { QRManagerDialog } from "@/components/dialogs/QRManagerDialog";
 
 export function Header() {
   const { user } = useUser();
@@ -143,6 +145,11 @@ export function Header() {
 
       {/* Right Section */}
       <div className="flex items-center gap-2">
+        {/* NEW QR MANAGER BUTTON */}
+        <QRManagerDialog />
+
+        <Separator orientation="vertical" className="h-6" />
+
         <Button size="icon" variant="ghost" onClick={toggleTheme}>
           {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
         </Button>

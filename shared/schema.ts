@@ -317,16 +317,7 @@ export const usersTable = pgTable("users", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export type DbUser = {
-  id: string;
-  email: string;
-  stripeCustomerId: string | null;
-  stripeSubscriptionId: string | null;
-  plan: string;
-  planStatus: string;
-  createdAt: string;
-  updatedAt: string;
-};
+export type DbUser = typeof usersTable.$inferSelect;
 export type InsertDbUser = typeof usersTable.$inferInsert;
 
 export const dbUserSchema = z.object({
@@ -350,4 +341,13 @@ export const qrCodesTable = pgTable("qr_codes", {
   scanCount: integer("scan_count").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Added Types for QR Codes
+export type QrCode = typeof qrCodesTable.$inferSelect;
+export type InsertQrCode = typeof qrCodesTable.$inferInsert;
+
+export const insertQrCodeSchema = z.object({
+  destinationUrl: z.string().url(),
+  designId: z.string().optional(),
 });

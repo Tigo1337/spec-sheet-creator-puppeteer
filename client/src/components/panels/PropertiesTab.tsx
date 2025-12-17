@@ -10,6 +10,8 @@ import { Separator } from "@/components/ui/separator";
 import { getImageDimensions } from "@/lib/canvas-utils";
 import { Switch } from "@/components/ui/switch"; 
 import { loadFont } from "@/lib/font-loader"; 
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@clerk/clerk-react"; // <--- ADDED IMPORT
 import {
   Select,
   SelectContent,
@@ -48,15 +50,19 @@ import {
   Calendar,
   CheckSquare,
   Check,
-  List,
   Link,
   Unlink,
-  Columns
+  Columns,
+  Loader2,
+  Activity
 } from "lucide-react";
 import { availableFonts, openSourceFontMap, type CanvasElement } from "@shared/schema";
 
 export function PropertiesTab() {
   const [imageLoadingId, setImageLoadingId] = useState<string | null>(null);
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+  const { toast } = useToast();
+  const { getToken } = useAuth(); // <--- GET TOKEN FUNCTION
 
   const {
     elements,
@@ -111,6 +117,50 @@ export function PropertiesTab() {
       ? elements.find((el) => el.id === selectedElementIds[0])
       : null;
 
+  // --- UPDATED FUNCTION: Generate Tracked Link ---
+  const handleGenerateShortLink = async () => {
+    if (!selectedElement || !selectedElement.content) {
+      toast({ title: "Error", description: "Please enter a URL first.", variant: "destructive" });
+      return;
+    }
+
+    setIsGeneratingLink(true);
+    try {
+      const token = await getToken(); // <--- FETCH TOKEN
+
+      const response = await fetch("/api/qrcodes", {
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}` // <--- ATTACH TOKEN
+        },
+        body: JSON.stringify({ 
+          destinationUrl: selectedElement.content 
+        })
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Failed to create link");
+      }
+
+      const data = await response.json();
+
+      // Use the Prod URL from env if available, otherwise current window
+      const baseUrl = import.meta.env.VITE_APP_BASE_URL || window.location.origin;
+      const shortUrl = `${baseUrl}/q/${data.id}`;
+
+      updateElement(selectedElement.id, { content: shortUrl });
+      toast({ title: "Success", description: "QR Code is now trackable!" });
+    } catch (error: any) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Error", description: error.message || "Could not generate link" });
+    } finally {
+      setIsGeneratingLink(false);
+    }
+  };
+  // ---------------------------------------------
+
   if (!selectedElement) {
     return (
       <ScrollArea className="h-full">
@@ -149,12 +199,10 @@ export function PropertiesTab() {
     );
   }
 
-  // UPDATED: Now async to handle font loading wait
   const handleTextStyleChange = async (
     key: keyof NonNullable<CanvasElement["textStyle"]>,
     value: string | number
   ) => {
-    // If we are changing the font, we wait for it to load FIRST
     if (key === 'fontFamily' && typeof value === 'string') {
         await loadFont(value);
     }
@@ -167,7 +215,6 @@ export function PropertiesTab() {
     });
   };
 
-  // UPDATED: Helper for deep updates on tocSettings
   const handleTocSettingChange = async (
     section: "titleStyle" | "chapterStyle",
     key: keyof NonNullable<CanvasElement["textStyle"]>,
@@ -175,7 +222,6 @@ export function PropertiesTab() {
   ) => {
     if (!selectedElement.tocSettings) return;
 
-    // If we are changing the font, we wait for it to load FIRST
     if (key === 'fontFamily' && typeof value === 'string') {
         await loadFont(value);
     }
@@ -849,7 +895,7 @@ export function PropertiesTab() {
           </div>
         )}
 
-        {/* ... (QR Code section remains identical) ... */}
+        {/* --- QR Code Settings (UPDATED) --- */}
         {selectedElement.type === "qrcode" && (
           <div>
             <h3 className="font-medium text-sm mb-3">QR Code Settings</h3>
@@ -896,8 +942,24 @@ export function PropertiesTab() {
                   placeholder="https://example.com"
                   className="font-mono text-sm min-h-[80px]"
                 />
-                <p className="text-[10px] text-muted-foreground">
-                  You can use data fields like {'{{SKU}}'} to generate dynamic QR codes for each row.
+
+                {/* --- NEW TRACKABLE BUTTON --- */}
+                <div className="pt-2">
+                   <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full gap-2 text-xs border-dashed border-primary/40 hover:border-primary bg-primary/5 hover:bg-primary/10"
+                      onClick={handleGenerateShortLink}
+                      disabled={isGeneratingLink || !selectedElement.content}
+                   >
+                       {isGeneratingLink ? <Loader2 className="h-3 w-3 animate-spin"/> : <Link className="h-3 w-3" />}
+                       Convert to Dynamic URL
+                   </Button>
+                </div>
+                {/* --------------------------- */}
+
+                <p className="text-[10px] text-muted-foreground mt-2">
+                  <strong>Dynamic URL:</strong> Allows you to edit the destination link later (even after printing) and track scan statistics.
                 </p>
               </div>
 
