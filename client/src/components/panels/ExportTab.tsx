@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useCanvasStore } from "@/stores/canvas-store";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,8 @@ import {
   Monitor,
   Printer,
   AlertTriangle,
-  Book
+  Book,
+  XCircle // Added for Cancel button
 } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import JSZip from "jszip";
@@ -38,10 +39,15 @@ import { type CanvasElement, availableFonts, openSourceFontMap } from "@shared/s
 export function ExportTab() {
   const [isExporting, setIsExporting] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [exportStatus, setExportStatus] = useState<"idle" | "success" | "error">("idle");
+  const [exportStatus, setExportStatus] = useState<"idle" | "success" | "error" | "cancelled">("idle");
   const [filenamePattern, setFilenamePattern] = useState("");
   const [exportMode, setExportMode] = useState<"digital" | "print">("digital");
   const [hasLowQualityImages, setHasLowQualityImages] = useState(false);
+
+  // UX State for Bulk Export
+  const [currentAction, setCurrentAction] = useState(""); 
+  const [timeRemaining, setTimeRemaining] = useState("");
+  const abortRef = useRef(false); // To handle cancellation
 
   const { toast } = useToast();
 
@@ -58,8 +64,8 @@ export function ExportTab() {
     isCatalogMode,
     catalogSections,
     chapterDesigns,
-    activeSectionType, // ADDED: Needed to sync state
-    activeChapterGroup // ADDED: Needed to sync state
+    activeSectionType, 
+    activeChapterGroup 
   } = useCanvasStore();
 
   useEffect(() => {
@@ -323,31 +329,26 @@ export function ExportTab() {
       }
       // --- TABLE OF CONTENTS (TOC) ---
       else if (element.type === "toc-list") {
+         // ... existing toc logic ...
          const settings = element.tocSettings || { title: "Table of Contents", showTitle: true, columnCount: 1 };
          const columnCount = settings.columnCount || 1;
 
-         // === STYLING UPDATES ===
          elementDiv.style.padding = "16px"; 
          elementDiv.style.display = "flex";
          elementDiv.style.flexDirection = "column";
          elementDiv.style.backgroundColor = "#ffffff"; 
          elementDiv.style.border = "1px dashed rgba(100, 100, 100, 0.2)"; 
          elementDiv.style.borderRadius = "4px"; 
-         // ======================================
 
          const itemsToRender: any[] = (element as any)._renderItems || [];
          const isPaged = (element as any)._isPaged || false;
 
-         // 1. Render Title (Only on First Page if paged)
          if (settings.showTitle && (!isPaged || (element as any)._isFirstPage)) {
              const titleDiv = document.createElement("div");
              titleDiv.textContent = settings.title;
-
-             // MAP TITLE FONT
              const tRaw = settings.titleStyle?.fontFamily || "Inter";
              const tMapped = openSourceFontMap[tRaw] || tRaw;
              titleDiv.style.fontFamily = `"${tMapped}", sans-serif`;
-
              titleDiv.style.fontSize = `${settings.titleStyle?.fontSize}px`;
              titleDiv.style.fontWeight = String(settings.titleStyle?.fontWeight);
              titleDiv.style.color = settings.titleStyle?.color || "#000";
@@ -361,20 +362,14 @@ export function ExportTab() {
          const listDiv = document.createElement("div");
          listDiv.style.flex = "1";
          listDiv.style.overflow = "hidden";
-
-         // Apply default styles to the container
-         // MAP BODY FONT
          const bRaw = element.textStyle?.fontFamily || "Inter";
          const bMapped = openSourceFontMap[bRaw] || bRaw;
          listDiv.style.fontFamily = `"${bMapped}", sans-serif`;
-
          listDiv.style.fontSize = `${element.textStyle?.fontSize || 14}px`;
          listDiv.style.color = element.textStyle?.color || "#000000";
          listDiv.style.lineHeight = String(element.textStyle?.lineHeight || 1.5);
-         // ADDED: Apply weight to the container
          listDiv.style.fontWeight = String(element.textStyle?.fontWeight || 400);
 
-         // Apply Columns
          if (columnCount > 1) {
              listDiv.style.columnCount = String(columnCount);
              listDiv.style.columnGap = "24px"; 
@@ -424,19 +419,14 @@ export function ExportTab() {
   const createTocHeaderDiv = (text: string, settings: any) => {
       const div = document.createElement("div");
       div.textContent = text;
-
-      // MAP CHAPTER FONT
       const cRaw = settings.chapterStyle?.fontFamily || "Inter";
       const cMapped = openSourceFontMap[cRaw] || cRaw;
       div.style.fontFamily = `"${cMapped}", sans-serif`;
-
-      div.style.fontSize = `${settings.chapterStyle?.fontSize || 18}px`; // Explicit fallback
+      div.style.fontSize = `${settings.chapterStyle?.fontSize || 18}px`; 
       div.style.fontWeight = String(settings.chapterStyle?.fontWeight || 600);
       div.style.color = settings.chapterStyle?.color || "#333";
       div.style.textAlign = settings.chapterStyle?.textAlign || "left";
       div.style.lineHeight = String(settings.chapterStyle?.lineHeight || 1.1); 
-
-      // UPDATED: No Margins
       div.style.marginTop = "0px"; 
       div.style.marginBottom = "0px";
       div.style.breakInside = "avoid"; 
@@ -450,20 +440,14 @@ export function ExportTab() {
       div.style.alignItems = "baseline";
       div.style.marginBottom = "0px"; 
       div.style.paddingBottom = "2px"; 
-
-      // Apply styles explicitly to the item div
       const raw = style.fontFamily || "Inter";
       const mapped = openSourceFontMap[raw] || raw;
       div.style.fontFamily = `"${mapped}", sans-serif`;
-
       div.style.fontSize = `${style.fontSize || 14}px`;
       div.style.color = style.color || "#000000";
       div.style.lineHeight = String(style.lineHeight || 1.5);
-      // ADDED: Explicit weight for items
       div.style.fontWeight = String(style.fontWeight || 400);
-
       div.style.breakInside = "avoid"; 
-
       const titleSpan = document.createElement("span");
       titleSpan.textContent = item.title;
       titleSpan.style.backgroundColor = "#fff"; 
@@ -473,26 +457,20 @@ export function ExportTab() {
       titleSpan.style.overflow = "hidden";
       titleSpan.style.textOverflow = "ellipsis";
       titleSpan.style.whiteSpace = "nowrap";
-
       const pageSpan = document.createElement("span");
       pageSpan.textContent = String(item.page);
       pageSpan.style.backgroundColor = "#fff";
       pageSpan.style.paddingLeft = "5px";
       pageSpan.style.position = "relative";
       pageSpan.style.zIndex = "10";
-
       div.appendChild(titleSpan); div.appendChild(pageSpan);
       return div;
   };
 
   const fetchPdfBuffer = async (html: string, pages: number, title: string) => {
-    // Dynamically generate Google Fonts URL from the shared schema
+    // ... existing fetchPdfBuffer code ...
     const fontFamilies = availableFonts.map(font => {
-        // Use the Google Font equivalent if it exists (e.g. Arial -> Arimo)
         const googleFont = openSourceFontMap[font] || font;
-        // Check if it looks like a valid Google Font (not a system font like Verdana/DejaVu)
-        // For simplicity, we assume anything in availableFonts maps to a Google Font unless excluded.
-        // We replace spaces with + for the URL.
         return `family=${googleFont.replace(/\s+/g, '+')}:wght@400;700`;
     }).join('&');
 
@@ -541,8 +519,8 @@ export function ExportTab() {
     return await response.blob();
   };
 
-  // --- CATALOG GENERATION LOGIC ---
   const generateFullCatalogPDF = async () => {
+    // ... existing catalog generation logic ...
     if (!excelData || excelData.rows.length === 0) {
       toast({ title: "No Data", description: "Import Excel data to generate a catalog.", variant: "destructive" });
       return;
@@ -551,11 +529,9 @@ export function ExportTab() {
     setIsExporting(true);
     setProgress(0);
     setExportStatus("idle");
+    setCurrentAction("Preparing Catalog...");
 
-    // --- SYNC CURRENT STATE ---
-    // Create a local copy of sections/chapters that includes the CURRENT active editing session
-    // This ensures that if the user edits the font and hits "Export" without switching tabs,
-    // the export uses the new font.
+    // ... (same as before, just omitting for brevity unless asked) ...
     const sectionsForExport = { ...catalogSections };
     const chaptersForExport = { ...chapterDesigns };
 
@@ -575,7 +551,6 @@ export function ExportTab() {
             };
         }
     }
-    // --------------------------
 
     try {
       let combinedHtml = "";
@@ -585,12 +560,13 @@ export function ExportTab() {
       // 1. COVER PAGE
       const coverSection = sectionsForExport.cover;
       if (coverSection && coverSection.elements.length > 0) {
+         setCurrentAction("Generating Cover Page...");
          const coverHtml = await renderPageHTML(coverSection.elements, {}, coverSection.backgroundColor);
          combinedHtml += `<div class="page-container">${coverHtml}</div>`;
          currentPageNumber++;
       }
 
-      // 2. PRE-CALCULATE PAGE NUMBERS & BUILD MAP
+      // ... TOC Logic ...
       const tocSection = sectionsForExport.toc;
       let tocTitleField = "Name";
       let groupByField = undefined;
@@ -623,7 +599,6 @@ export function ExportTab() {
       }
 
       const productStartPage = currentPageNumber + tocPageCount;
-
       let productPageCounter = productStartPage;
       let currentGroup: string | undefined = undefined;
 
@@ -632,19 +607,18 @@ export function ExportTab() {
          const title = row[tocTitleField] || `Product ${i + 1}`;
          const group = groupByField ? row[groupByField] : undefined;
 
-         // Handle Chapter Page Numbering
          if (chapterCoversEnabled && group !== currentGroup) {
              currentGroup = group;
-             productPageCounter++; // Skip a page number for the chapter cover
+             productPageCounter++; 
          }
 
          pageMap.push({ title, page: productPageCounter, group });
          productPageCounter++;
       }
 
-      // 3. GENERATE TOC PAGES (Multi-Page)
+      // TOC PAGES
       if (tocSection && tocSection.elements.length > 0 && tocElement) {
-         // Re-paginate with real page numbers
+         setCurrentAction("Generating Table of Contents...");
          tocChunks = paginateTOC(tocElement, pageMap, tocElement.dimension.height);
 
          for (let i = 0; i < tocChunks.length; i++) {
@@ -662,20 +636,20 @@ export function ExportTab() {
          }
       }
 
-      // 4. GENERATE CONTENT PAGES (Chapters + Products)
+      // PRODUCT PAGES
       const productSection = sectionsForExport.product;
       const chapterSection = sectionsForExport.chapter;
-      currentGroup = undefined; // Reset for generation loop
+      currentGroup = undefined; 
 
       for (let i = 0; i < excelData.rows.length; i++) {
          const row = excelData.rows[i];
          const group = groupByField ? row[groupByField] : undefined;
+         const productName = row[tocTitleField] || `Item ${i+1}`;
 
-         // Inject Chapter Cover if enabled and group changes
+         setCurrentAction(`Rendering: ${productName} (${i+1}/${excelData.rows.length})`);
+
          if (chapterCoversEnabled && group !== currentGroup) {
              currentGroup = group;
-
-             // === RESOLVE CHAPTER ELEMENTS ===
              let chapterElements = chapterSection?.elements || [];
              let chapterBg = chapterSection?.backgroundColor || "#ffffff";
 
@@ -685,28 +659,27 @@ export function ExportTab() {
              }
 
              if (chapterElements.length > 0) {
-                 // Render Chapter Page using current row data
                  const chapterHtml = await renderPageHTML(chapterElements, row, chapterBg);
                  combinedHtml += `<div class="page-container">${chapterHtml}</div>`;
                  currentPageNumber++;
              }
          }
 
-         // Render Product Page
          const productHtml = await renderPageHTML(productSection.elements, row, productSection.backgroundColor);
          combinedHtml += `<div class="page-container">${productHtml}</div>`;
          setProgress(Math.round(((i + 1) / excelData.rows.length) * 80) + 10);
          currentPageNumber++;
       }
 
-      // 5. BACK COVER
+      // BACK COVER
       const backSection = sectionsForExport.back;
       if (backSection && backSection.elements.length > 0) {
+         setCurrentAction("Generating Back Cover...");
          const backHtml = await renderPageHTML(backSection.elements, {}, backSection.backgroundColor);
          combinedHtml += `<div class="page-container">${backHtml}</div>`;
       }
 
-      // 6. SEND TO PUPPETEER
+      setCurrentAction("Finalizing PDF (Server)...");
       const pdfBlob = await fetchPdfBuffer(combinedHtml, currentPageNumber, "Full Catalog");
       const url = window.URL.createObjectURL(pdfBlob);
       const link = document.createElement("a");
@@ -725,6 +698,7 @@ export function ExportTab() {
     } finally {
       setIsExporting(false);
       setProgress(100);
+      setCurrentAction("");
       setTimeout(() => { setProgress(0); setExportStatus("idle"); }, 3000);
     }
   };
@@ -733,10 +707,12 @@ export function ExportTab() {
     setIsExporting(true);
     setProgress(0);
     setExportStatus("idle");
+    setCurrentAction("Preparing PDF...");
 
     try {
       let combinedHtml = "";
       for (let i = 0; i < pageCount; i++) {
+        setCurrentAction(`Rendering Page ${i + 1}/${pageCount}`);
         const pageHtml = await renderPageHTML(
             currentElements.filter(el => (el.pageIndex ?? 0) === i), 
             excelData?.rows[selectedRowIndex], 
@@ -746,6 +722,7 @@ export function ExportTab() {
         setProgress(Math.round(((i + 1) / pageCount) * 50)); 
       }
 
+      setCurrentAction("Generating PDF on server...");
       const fileName = getConstructedFilename(selectedRowIndex);
       const pdfBlob = await fetchPdfBuffer(combinedHtml, pageCount, fileName);
 
@@ -765,20 +742,62 @@ export function ExportTab() {
     } finally {
       setIsExporting(false);
       setProgress(100);
+      setCurrentAction("");
       setTimeout(() => { setProgress(0); setExportStatus("idle"); }, 3000);
     }
   };
 
+  // --- UPDATED BULK EXPORT LOGIC ---
   const generateBulkPDFs = async () => {
     if (!excelData || excelData.rows.length === 0) return;
-    setIsExporting(true); setProgress(0); setExportStatus("idle");
+
+    // Reset state
+    setIsExporting(true); 
+    setProgress(0); 
+    setExportStatus("idle");
+    abortRef.current = false; // Reset abort signal
+
+    const totalItems = excelData.rows.length;
+    const startTime = Date.now();
 
     try {
       const zip = new JSZip();
       const usedFilenames = new Set<string>();
 
-      for (let rowIndex = 0; rowIndex < excelData.rows.length; rowIndex++) {
+      for (let rowIndex = 0; rowIndex < totalItems; rowIndex++) {
+        // 1. Check for cancellation
+        if (abortRef.current) {
+            throw new Error("ABORT_EXPORT");
+        }
+
         const rowData = excelData.rows[rowIndex];
+
+        // 2. Generate Name
+        let pdfName = getConstructedFilename(rowIndex);
+        let uniqueName = pdfName;
+        let counter = 1;
+        while (usedFilenames.has(uniqueName)) { uniqueName = `${pdfName}_${counter}`; counter++; }
+        usedFilenames.add(uniqueName);
+
+        // 3. Update Status UI
+        setCurrentAction(`Exporting: ${uniqueName}.pdf (${rowIndex + 1} of ${totalItems})`);
+
+        // 4. Update Time Estimate
+        if (rowIndex > 0) {
+            const elapsed = (Date.now() - startTime) / 1000; // seconds
+            const avgTime = elapsed / rowIndex; 
+            const remaining = Math.ceil(avgTime * (totalItems - rowIndex));
+
+            if (remaining > 60) {
+                setTimeRemaining(`~${Math.ceil(remaining / 60)} min remaining`);
+            } else {
+                setTimeRemaining(`~${remaining} sec remaining`);
+            }
+        } else {
+            setTimeRemaining("Calculating time...");
+        }
+
+        // 5. Generate HTML & PDF (One by one)
         let combinedHtml = "";
         for (let i = 0; i < pageCount; i++) {
             const pageHtml = await renderPageHTML(
@@ -789,17 +808,14 @@ export function ExportTab() {
             combinedHtml += `<div class="page-container">${pageHtml}</div>`;
         }
 
-        let pdfName = getConstructedFilename(rowIndex);
-        let uniqueName = pdfName;
-        let counter = 1;
-        while (usedFilenames.has(uniqueName)) { uniqueName = `${pdfName}_${counter}`; counter++; }
-        usedFilenames.add(uniqueName);
-
         const pdfBlob = await fetchPdfBuffer(combinedHtml, pageCount, uniqueName);
         zip.file(`${uniqueName}.pdf`, pdfBlob);
-        setProgress(Math.round(((rowIndex + 1) / excelData.rows.length) * 100));
+
+        // 6. Update Progress Bar
+        setProgress(Math.round(((rowIndex + 1) / totalItems) * 100));
       }
 
+      setCurrentAction("Creating ZIP archive...");
       const zipBlob = await zip.generateAsync({ type: "blob" });
       const url = window.URL.createObjectURL(zipBlob);
       const a = document.createElement("a");
@@ -812,13 +828,25 @@ export function ExportTab() {
 
       setExportStatus("success");
       toast({ title: "Bulk export complete", description: `Downloaded ZIP containing ${excelData.rows.length} files.` });
-    } catch (error) {
-      setExportStatus("error");
-      toast({ title: "Export failed", description: "An error occurred during bulk export.", variant: "destructive" });
+    } catch (error: any) {
+      if (error.message === "ABORT_EXPORT") {
+          setExportStatus("cancelled");
+          toast({ title: "Export Cancelled", description: "Bulk export was stopped by user." });
+      } else {
+          setExportStatus("error");
+          toast({ title: "Export failed", description: "An error occurred during bulk export.", variant: "destructive" });
+      }
     } finally {
       setIsExporting(false);
+      setCurrentAction("");
+      setTimeRemaining("");
       setTimeout(() => { setProgress(0); setExportStatus("idle"); }, 3000);
     }
+  };
+
+  const handleCancelExport = () => {
+      abortRef.current = true;
+      setCurrentAction("Cancelling...");
   };
 
   return (
@@ -922,13 +950,30 @@ export function ExportTab() {
 
         <Separator />
 
-        {/* Progress Bar */}
+        {/* Progress Bar (UPDATED UX) */}
         {isExporting && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm">
-              <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              <span>Generating files...</span>
+          <div className="space-y-3 bg-muted/30 p-3 rounded-md border border-primary/20">
+            <div className="flex justify-between items-start">
+                <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        <span>{currentAction || "Processing..."}</span>
+                    </div>
+                    {timeRemaining && (
+                        <p className="text-xs text-muted-foreground pl-6">{timeRemaining}</p>
+                    )}
+                </div>
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6 hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                    onClick={handleCancelExport}
+                    title="Cancel Export"
+                >
+                    <XCircle className="h-4 w-4" />
+                </Button>
             </div>
+
             <Progress value={progress} className="h-2" />
           </div>
         )}
@@ -945,6 +990,13 @@ export function ExportTab() {
           <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-lg">
             <AlertCircle className="h-4 w-4" />
             <span>Export failed. Please try again.</span>
+          </div>
+        )}
+
+        {!isExporting && exportStatus === "cancelled" && (
+          <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 dark:bg-amber-950/50 p-3 rounded-lg">
+            <AlertCircle className="h-4 w-4" />
+            <span>Export cancelled by user.</span>
           </div>
         )}
 

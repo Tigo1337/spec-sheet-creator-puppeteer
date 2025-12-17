@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { getAuth, clerkClient } from "@clerk/express";
+import { getAuth } from "@clerk/express";
 import { storage } from "./storage";
 import {
   ObjectStorageService,
@@ -16,6 +16,31 @@ import { exec } from "child_process";
 import { promisify } from "util";
 
 const execAsync = promisify(exec);
+
+// --- STRICT QUEUE SYSTEM ---
+// This acts as a bottleneck. It allows only 1 PDF generation at a time.
+// This is critical for Replit/VPS to prevent CPU/RAM spikes.
+const pdfQueue = {
+  active: 0,
+  limit: 1, 
+  queue: [] as (() => void)[],
+
+  async add<T>(task: () => Promise<T>): Promise<T> {
+    if (this.active >= this.limit) {
+      await new Promise<void>((resolve) => this.queue.push(resolve));
+    }
+    this.active++;
+    try {
+      return await task();
+    } finally {
+      this.active--;
+      if (this.queue.length > 0) {
+        const next = this.queue.shift();
+        next?.();
+      }
+    }
+  }
+};
 
 export async function registerRoutes(
   httpServer: Server,
@@ -33,10 +58,7 @@ export async function registerRoutes(
       const qrRecord = await storage.getQRCode(shortId);
 
       if (qrRecord) {
-         // Increment Scan Count Asynchronously (fire and forget)
          storage.incrementQRCodeScan(shortId).catch(console.error);
-
-         // 302 Redirect for analytics tracking
          return res.redirect(302, qrRecord.destinationUrl);
       }
 
@@ -48,108 +70,103 @@ export async function registerRoutes(
   });
 
   // ============================================
-  // 1. PDF Export Route (High Quality + CMYK)
+  // 1. PDF Export Route (STRICT QUEUE + FRESH BROWSER)
   // ============================================
   app.post("/api/export/pdf", async (req, res) => {
-    // Destructure colorModel (default to rgb)
-    const { html, width, height, pageCount = 1, scale = 2, colorModel = 'rgb' } = req.body;
+    const { html, width, height, scale = 2, colorModel = 'rgb' } = req.body;
 
     if (!html || !width || !height) {
       return res.status(400).json({ error: "Missing required parameters" });
     }
 
     try {
-      console.log(`-> Generating PDF (Scale: ${scale}x, Mode: ${colorModel.toUpperCase()})...`);
+      // 1. Enter the Queue (Wait for turn)
+      const pdfBuffer = await pdfQueue.add(async () => {
+        console.log(`-> Processing PDF. Queue waiting: ${pdfQueue.queue.length}`);
 
-      const browser = await puppeteer.launch({
-        headless: true,
-        executablePath: process.env.NIX_CHROMIUM_WRAPPER,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-gpu',
-          '--disable-dev-shm-usage',
-          '--font-render-hinting=none',
-        ],
-      });
-
-      const page = await browser.newPage();
-
-      await page.setViewport({
-        width: Math.ceil(width),
-        height: Math.ceil(height),
-        deviceScaleFactor: Number(scale),
-      });
-
-      await page.setContent(html, {
-        waitUntil: ["load", "networkidle0"],
-        timeout: 60000,
-      });
-
-      // UPDATED: Explicitly wait for fonts to be fully loaded
-      await page.evaluate(async () => {
-        await document.fonts.ready;
-      });
-
-      const pdfData = await page.pdf({
-        printBackground: true,
-        preferCSSPageSize: true,
-      });
-
-      await browser.close();
-
-      let finalPdfBuffer = Buffer.from(pdfData);
-
-      // --- CMYK POST-PROCESSING ---
-      if (colorModel === 'cmyk') {
-        console.log("-> Converting to CMYK via Ghostscript...");
-
-        const timestamp = Date.now();
-        // Use a safe temp directory path
-        const inputPath = path.resolve(`/tmp/input_${timestamp}.pdf`);
-        const outputPath = path.resolve(`/tmp/output_${timestamp}.pdf`);
+        // 2. Launch a FRESH browser for this specific request
+        // This ensures no memory leaks or zombie processes from previous runs
+        const browser = await puppeteer.launch({
+          headless: true,
+          executablePath: process.env.NIX_CHROMIUM_WRAPPER || puppeteer.executablePath(),
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-gpu',
+            '--disable-dev-shm-usage', // Critical for Docker/Replit
+            '--font-render-hinting=none',
+            '--disable-extensions',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process', 
+          ],
+        });
 
         try {
-            // 1. Write the RGB PDF to disk
-            await fs.promises.writeFile(inputPath, finalPdfBuffer);
+          const page = await browser.newPage();
 
-            // 2. Run Ghostscript command
-            // -dPDFSETTINGS=/prepress ensures high quality
-            // -sColorConversionStrategy=CMYK forces conversion
+          await page.setViewport({
+            width: Math.ceil(width),
+            height: Math.ceil(height),
+            deviceScaleFactor: Number(scale),
+          });
+
+          // Set content with a reasonable timeout
+          await page.setContent(html, {
+            waitUntil: ["load", "networkidle0"],
+            timeout: 60000, 
+          });
+
+          await page.evaluate(async () => {
+            await document.fonts.ready;
+          });
+
+          const data = await page.pdf({
+            printBackground: true,
+            preferCSSPageSize: true,
+          });
+
+          return Buffer.from(data);
+
+        } finally {
+          // 3. KILL the browser immediately after use
+          await browser.close().catch(e => console.error("Error closing browser:", e));
+        }
+      });
+
+      // --- CMYK POST-PROCESSING ---
+      let finalBuffer = pdfBuffer;
+
+      if (colorModel === 'cmyk') {
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(7);
+        const inputPath = path.resolve(`/tmp/input_${timestamp}_${randomId}.pdf`);
+        const outputPath = path.resolve(`/tmp/output_${timestamp}_${randomId}.pdf`);
+
+        try {
+            await fs.promises.writeFile(inputPath, finalBuffer);
             await execAsync(
                 `gs -o "${outputPath}" -sDEVICE=pdfwrite -sColorConversionStrategy=CMYK -dProcessColorModel=/DeviceCMYK -dPDFSETTINGS=/prepress -dSAFER -dBATCH -dNOPAUSE "${inputPath}"`
             );
+            finalBuffer = await fs.promises.readFile(outputPath);
 
-            // 3. Read back the converted file
-            finalPdfBuffer = await fs.promises.readFile(outputPath);
-
-            // 4. Cleanup temp files
-            await fs.promises.unlink(inputPath);
-            await fs.promises.unlink(outputPath);
-
-            console.log("-> CMYK Conversion Successful.");
+            await fs.promises.unlink(inputPath).catch(() => {});
+            await fs.promises.unlink(outputPath).catch(() => {});
         } catch (gsError) {
-            console.error("Ghostscript conversion failed, falling back to RGB:", gsError);
-            // Attempt cleanup even if it fails
-            try {
-                if (fs.existsSync(inputPath)) await fs.promises.unlink(inputPath);
-                if (fs.existsSync(outputPath)) await fs.promises.unlink(outputPath);
-            } catch (e) { /* ignore cleanup errors */ }
+            console.error("Ghostscript conversion failed (using RGB):", gsError);
+            if (fs.existsSync(inputPath)) await fs.promises.unlink(inputPath).catch(() => {});
         }
       }
-
-      console.log(`-> Sending Final PDF (${finalPdfBuffer.length} bytes)`);
 
       res.set({
         "Content-Type": "application/pdf",
         "Content-Disposition": "attachment; filename=export.pdf",
-        "Content-Length": String(finalPdfBuffer.length),
+        "Content-Length": String(finalBuffer.length),
       });
-
-      res.send(finalPdfBuffer);
+      res.send(finalBuffer);
 
     } catch (error) {
-      console.error("PDF Generation Error:", error);
+      console.error("PDF Export Error:", error);
       if (!res.headersSent) {
         res.status(500).json({ error: "Failed to generate PDF" });
       }
@@ -157,7 +174,7 @@ export async function registerRoutes(
   });
 
   // ============================================
-  // 2. Preview Generation Route (Thumbnail)
+  // 2. Preview Generation Route
   // ============================================
   app.post("/api/export/preview", async (req, res) => {
     const { html, width, height } = req.body;
@@ -167,51 +184,43 @@ export async function registerRoutes(
     }
 
     try {
-      const browser = await puppeteer.launch({
-        headless: true,
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-gpu',
-          '--disable-dev-shm-usage',
-          '--font-render-hinting=none',
-        ],
+      // Use queue for previews too, to prevent them from blocking PDF exports or crashing RAM
+      const base64String = await pdfQueue.add(async () => {
+        const browser = await puppeteer.launch({
+          headless: true,
+          executablePath: process.env.NIX_CHROMIUM_WRAPPER || puppeteer.executablePath(),
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
+        });
+
+        try {
+          const page = await browser.newPage();
+          await page.setViewport({
+            width: Math.ceil(width),
+            height: Math.ceil(height),
+            deviceScaleFactor: 0.5, 
+          });
+
+          await page.setContent(html, {
+            waitUntil: ["load", "networkidle0"],
+            timeout: 30000,
+          });
+
+          await page.evaluate(async () => {
+            await document.fonts.ready;
+          });
+
+          return await page.screenshot({
+            type: "jpeg",
+            quality: 70,
+            fullPage: true,
+            encoding: "base64"
+          });
+        } finally {
+          await browser.close();
+        }
       });
 
-      const page = await browser.newPage();
-
-      // Lower scale for thumbnails (faster/smaller)
-      await page.setViewport({
-        width: Math.ceil(width),
-        height: Math.ceil(height),
-        deviceScaleFactor: 0.5, 
-      });
-
-      await page.setContent(html, {
-        waitUntil: ["load", "networkidle0"],
-        timeout: 30000,
-      });
-
-      // UPDATED: Wait for fonts here too for accurate previews
-      await page.evaluate(async () => {
-        await document.fonts.ready;
-      });
-
-      // Take Screenshot as Base64 String
-      const base64String = await page.screenshot({
-        type: "jpeg",
-        quality: 70,
-        fullPage: true,
-        encoding: "base64"
-      });
-
-      await browser.close();
-
-      // Return JSON so frontend can safely parse it
-      res.json({ 
-        image: `data:image/jpeg;base64,${base64String}` 
-      });
+      res.json({ image: `data:image/jpeg;base64,${base64String}` });
 
     } catch (error) {
       console.error("Preview Generation Error:", error);
@@ -220,32 +229,24 @@ export async function registerRoutes(
   });
 
   // ============================================
-  // QR Code CRUD API
+  // QR Code & Admin Routes (Standard)
   // ============================================
+
+  const adminUserId = process.env.ADMIN_USER_ID;
 
   app.post("/api/qrcodes", async (req, res) => {
     try {
       const auth = getAuth(req);
       if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
-
       const parseResult = insertQrCodeSchema.safeParse(req.body);
-
-      if (!parseResult.success) {
-        return res.status(400).json({ error: parseResult.error.message });
-      }
-
-      const { destinationUrl, designId } = parseResult.data;
-
-      const newQR = await storage.createQRCode(auth.userId, destinationUrl, designId);
-
+      if (!parseResult.success) return res.status(400).json({ error: parseResult.error.message });
+      const newQR = await storage.createQRCode(auth.userId, parseResult.data.destinationUrl, parseResult.data.designId);
       res.status(201).json(newQR);
     } catch (error) {
-      console.error("Failed to create QR code:", error);
       res.status(500).json({ error: "Failed to create QR code" });
     }
   });
 
-  // NEW: List QR Codes for Dashboard
   app.get("/api/qrcodes", async (req, res) => {
     try {
       const auth = getAuth(req);
@@ -257,26 +258,19 @@ export async function registerRoutes(
     }
   });
 
-  // NEW: Update QR Code Destination
   app.put("/api/qrcodes/:id", async (req, res) => {
     try {
       const auth = getAuth(req);
       if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
-      const { destinationUrl } = req.body;
-
-      const updated = await storage.updateQRCode(req.params.id, auth.userId, destinationUrl);
+      const updated = await storage.updateQRCode(req.params.id, auth.userId, req.body.destinationUrl);
       if (!updated) return res.status(404).json({ error: "QR Code not found" });
-
       res.json(updated);
     } catch (error) {
       res.status(500).json({ error: "Failed to update QR code" });
     }
   });
 
-  // ============================================
-  // Standard CRUD Routes
-  // ============================================
-
+  // Template Routes (Admin Secured)
   app.get("/api/templates", async (req, res) => {
     try {
       const templates = await storage.getTemplates();
@@ -298,7 +292,8 @@ export async function registerRoutes(
 
   app.post("/api/templates", async (req, res) => {
     try {
-      // TODO: Add admin check here
+      const auth = getAuth(req);
+      if (!auth.userId || auth.userId !== adminUserId) return res.status(403).json({ error: "Unauthorized" });
       const parseResult = insertTemplateSchema.safeParse(req.body);
       if (!parseResult.success) return res.status(400).json({ error: parseResult.error.message });
       const template = await storage.createTemplate(parseResult.data);
@@ -310,7 +305,8 @@ export async function registerRoutes(
 
   app.put("/api/templates/:id", async (req, res) => {
     try {
-      // TODO: Add admin check here
+      const auth = getAuth(req);
+      if (!auth.userId || auth.userId !== adminUserId) return res.status(403).json({ error: "Unauthorized" });
       const template = await storage.updateTemplate(req.params.id, req.body);
       if (!template) return res.status(404).json({ error: "Template not found" });
       res.json(template);
@@ -321,7 +317,8 @@ export async function registerRoutes(
 
   app.delete("/api/templates/:id", async (req, res) => {
     try {
-      // TODO: Add admin check here
+      const auth = getAuth(req);
+      if (!auth.userId || auth.userId !== adminUserId) return res.status(403).json({ error: "Unauthorized" });
       const deleted = await storage.deleteTemplate(req.params.id);
       if (!deleted) return res.status(404).json({ error: "Template not found" });
       res.status(204).send();
@@ -330,29 +327,16 @@ export async function registerRoutes(
     }
   });
 
+  // Design Routes (Standard)
   app.post("/api/designs", async (req, res) => {
     try {
       const auth = getAuth(req);
       if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
-
-      const parseResult = insertSavedDesignSchema.safeParse({
-        ...req.body,
-        userId: auth.userId,
-      });
-
-      if (!parseResult.success) {
-          console.error("Design Validation Failed:", parseResult.error.message);
-          return res.status(400).json({ error: parseResult.error.message });
-      }
-
+      const parseResult = insertSavedDesignSchema.safeParse({ ...req.body, userId: auth.userId });
+      if (!parseResult.success) return res.status(400).json({ error: parseResult.error.message });
       const design = await storage.createDesign(parseResult.data);
       res.status(201).json(design);
-    } catch (error: any) {
-      console.error("Database Insert Error:", error); // UPDATED LOGGING
-      // Check for specific column missing error
-      if (error.message?.includes("column") && error.message?.includes("does not exist")) {
-         return res.status(500).json({ error: "Database schema mismatch. Please run migrations." });
-      }
+    } catch (error) {
       res.status(500).json({ error: "Failed to create design" });
     }
   });
@@ -404,7 +388,7 @@ export async function registerRoutes(
     }
   });
 
-  // Object Storage routes
+  // Object Storage, Stripe, Users routes
   app.get("/public-objects/:filePath(*)", async (req, res) => {
     const filePath = req.params.filePath;
     try {
@@ -445,7 +429,6 @@ export async function registerRoutes(
     }
   });
 
-  // Stripe
   app.get("/api/stripe/config", async (req, res) => {
     try {
       const publishableKey = await getStripePublishableKey();
