@@ -6,8 +6,31 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { getStripeSync } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
+import { exec } from "child_process";
+import { promisify } from "util";
+import puppeteer from "puppeteer";
+import { storage } from "./storage";
+import * as Sentry from "@sentry/node";
+import { nodeProfilingIntegration } from "@sentry/profiling-node";
+
+const execAsync = promisify(exec);
 
 const app = express();
+
+// 1. INITIALIZE SENTRY (Must be the very first thing)
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  integrations: [
+    nodeProfilingIntegration(),
+  ],
+  // Performance Monitoring: Capture 100% of transactions for MVP
+  tracesSampleRate: 1.0, 
+  profilesSampleRate: 1.0, 
+});
+
+// NOTE: In Sentry v8, we do NOT manually add requestHandler or tracingHandler.
+// Request isolation is now handled automatically by the SDK.
+
 const httpServer = createServer(app);
 
 // Add Clerk authentication middleware
@@ -40,39 +63,75 @@ async function initStripe() {
     });
     console.log('Stripe schema ready');
 
-    // Get StripeSync instance
     const stripeSync = await getStripeSync();
 
-    // Set up managed webhook
     if (process.env.REPLIT_DOMAINS) {
       console.log('Setting up managed webhook...');
       const webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`;
       const { webhook, uuid } = await stripeSync.findOrCreateManagedWebhook(
         `${webhookBaseUrl}/api/stripe/webhook`,
-        {
-          enabled_events: ['*'],
-          description: 'Managed webhook for Stripe sync',
-        }
+        { enabled_events: ['*'], description: 'Managed webhook for Stripe sync' }
       );
       console.log(`Webhook configured: ${webhook.url} (UUID: ${uuid})`);
     }
 
-    // Sync all existing Stripe data in background
-    console.log('Syncing Stripe data...');
-    stripeSync.syncBackfill()
-      .then(() => {
-        console.log('Stripe data synced');
-      })
-      .catch((err: Error) => {
-        console.error('Error syncing Stripe data:', err);
-      });
+    stripeSync.syncBackfill().catch((err: Error) => {
+      console.error('Error syncing Stripe data:', err);
+    });
   } catch (error) {
     console.error('Failed to initialize Stripe:', error);
+    Sentry.captureException(error);
   }
 }
 
-// Initialize Stripe on startup
-await initStripe();
+// === SMOKE TESTS ===
+
+// 1. Ghostscript Check
+async function checkGhostscript() {
+  try {
+    const { stdout } = await execAsync("gs --version");
+    console.log(`✅ Ghostscript detected: v${stdout.trim()} (CMYK Export Ready)`);
+  } catch (error) {
+    console.warn("⚠️  Ghostscript NOT found. CMYK exports will fallback to RGB.");
+    console.warn("   -> Fix: Add 'pkgs.ghostscript' to your replit.nix file.");
+  }
+}
+
+// 2. Puppeteer Launch Check
+async function checkPuppeteer() {
+  try {
+    console.log("Testing Puppeteer launch...");
+    const browser = await puppeteer.launch({
+      headless: true,
+      executablePath: process.env.NIX_CHROMIUM_WRAPPER || puppeteer.executablePath(),
+      args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--single-process']
+    });
+    const version = await browser.version();
+    await browser.close();
+    console.log(`✅ Puppeteer functional: ${version}`);
+  } catch (error) {
+    console.error("❌ CRITICAL: Puppeteer failed to launch!");
+    console.error(error);
+    Sentry.captureException(error);
+  }
+}
+
+// 3. Database Connection Check
+async function checkDatabase() {
+  try {
+    // Attempt a lightweight query
+    await storage.getUser("health_check_probe");
+    console.log(`✅ Database connected`);
+  } catch (error) {
+    console.error("❌ CRITICAL: Database connection failed");
+    console.error(error);
+    Sentry.captureException(error);
+  }
+}
+// ===================
+
+// Initialize Stripe (Async)
+initStripe();
 
 // Register Stripe webhook route BEFORE express.json()
 app.post(
@@ -99,12 +158,13 @@ app.post(
       res.status(200).json({ received: true });
     } catch (error: any) {
       console.error('Webhook error:', error.message);
+      Sentry.captureException(error);
       res.status(400).json({ error: 'Webhook processing error' });
     }
   }
 );
 
-// === CRITICAL CHANGE: Increase limit to 50mb ===
+// Increase limit to 50mb for large file uploads
 app.use(
   express.json({
     limit: "50mb", 
@@ -115,7 +175,6 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false, limit: "50mb" }));
-// ==============================================
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -155,7 +214,19 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Run all Smoke Tests in parallel
+  console.log("--- Starting System Checks ---");
+  await Promise.all([
+    checkGhostscript(),
+    checkPuppeteer(),
+    checkDatabase(),
+  ]);
+  console.log("--- System Checks Complete ---");
+
   await registerRoutes(httpServer, app);
+
+  // 3. SENTRY ERROR HANDLER (Replaces app.use(Sentry.Handlers.errorHandler))
+  Sentry.setupExpressErrorHandler(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

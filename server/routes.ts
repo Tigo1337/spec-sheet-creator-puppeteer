@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { getAuth } from "@clerk/express";
+import { getAuth, clerkClient } from "@clerk/express";
 import { storage } from "./storage";
 import {
   ObjectStorageService,
@@ -49,6 +49,43 @@ export async function registerRoutes(
   const objectStorageService = new ObjectStorageService();
 
   // ============================================
+  // HEALTH CHECK ENDPOINT
+  // Monitoring services (e.g. UptimeRobot) should ping this
+  // ============================================
+  app.get("/health", async (req, res) => {
+    const health = {
+      uptime: process.uptime(),
+      timestamp: Date.now(),
+      status: "OK",
+      checks: {
+        database: "unknown",
+        stripe: "unknown"
+      }
+    };
+
+    // 1. Check Database Connectivity
+    try {
+      // Using a known-safe query (fetching a non-existent ID returns undefined, not error)
+      await storage.getUser("health-check-probe");
+      health.checks.database = "connected";
+    } catch (e) {
+      health.checks.database = "disconnected";
+      health.status = "DEGRADED";
+      console.error("Health check failed: Database", e);
+    }
+
+    // 2. Check Stripe Config
+    if (process.env.STRIPE_SECRET_KEY) {
+        health.checks.stripe = "configured";
+    } else {
+        health.checks.stripe = "missing_key";
+    }
+
+    const httpCode = health.status === "OK" ? 200 : 503;
+    res.status(httpCode).json(health);
+  });
+
+  // ============================================
   // 0. Dynamic QR Code Redirection (Public)
   // ============================================
   app.get("/q/:id", async (req, res) => {
@@ -85,7 +122,6 @@ export async function registerRoutes(
         console.log(`-> Processing PDF. Queue waiting: ${pdfQueue.queue.length}`);
 
         // 2. Launch a FRESH browser for this specific request
-        // This ensures no memory leaks or zombie processes from previous runs
         const browser = await puppeteer.launch({
           headless: true,
           executablePath: process.env.NIX_CHROMIUM_WRAPPER || puppeteer.executablePath(),
@@ -93,7 +129,7 @@ export async function registerRoutes(
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-gpu',
-            '--disable-dev-shm-usage', // Critical for Docker/Replit
+            '--disable-dev-shm-usage',
             '--font-render-hinting=none',
             '--disable-extensions',
             '--no-first-run',
@@ -111,7 +147,6 @@ export async function registerRoutes(
             deviceScaleFactor: Number(scale),
           });
 
-          // Set content with a reasonable timeout
           await page.setContent(html, {
             waitUntil: ["load", "networkidle0"],
             timeout: 60000, 
@@ -136,6 +171,7 @@ export async function registerRoutes(
 
       // --- CMYK POST-PROCESSING ---
       let finalBuffer = pdfBuffer;
+      let usedColorModel = 'rgb'; 
 
       if (colorModel === 'cmyk') {
         const timestamp = Date.now();
@@ -149,6 +185,7 @@ export async function registerRoutes(
                 `gs -o "${outputPath}" -sDEVICE=pdfwrite -sColorConversionStrategy=CMYK -dProcessColorModel=/DeviceCMYK -dPDFSETTINGS=/prepress -dSAFER -dBATCH -dNOPAUSE "${inputPath}"`
             );
             finalBuffer = await fs.promises.readFile(outputPath);
+            usedColorModel = 'cmyk';
 
             await fs.promises.unlink(inputPath).catch(() => {});
             await fs.promises.unlink(outputPath).catch(() => {});
@@ -162,6 +199,7 @@ export async function registerRoutes(
         "Content-Type": "application/pdf",
         "Content-Disposition": "attachment; filename=export.pdf",
         "Content-Length": String(finalBuffer.length),
+        "X-Color-Model": usedColorModel,
       });
       res.send(finalBuffer);
 
@@ -184,7 +222,6 @@ export async function registerRoutes(
     }
 
     try {
-      // Use queue for previews too, to prevent them from blocking PDF exports or crashing RAM
       const base64String = await pdfQueue.add(async () => {
         const browser = await puppeteer.launch({
           headless: true,
@@ -229,7 +266,7 @@ export async function registerRoutes(
   });
 
   // ============================================
-  // QR Code & Admin Routes (Standard)
+  // QR Code & Admin Routes
   // ============================================
 
   const adminUserId = process.env.ADMIN_USER_ID;
@@ -327,7 +364,7 @@ export async function registerRoutes(
     }
   });
 
-  // Design Routes (Standard)
+  // User Designs Routes
   app.post("/api/designs", async (req, res) => {
     try {
       const auth = getAuth(req);
@@ -336,7 +373,8 @@ export async function registerRoutes(
       if (!parseResult.success) return res.status(400).json({ error: parseResult.error.message });
       const design = await storage.createDesign(parseResult.data);
       res.status(201).json(design);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.message?.includes("column")) return res.status(500).json({ error: "Database schema mismatch." });
       res.status(500).json({ error: "Failed to create design" });
     }
   });
@@ -388,7 +426,7 @@ export async function registerRoutes(
     }
   });
 
-  // Object Storage, Stripe, Users routes
+  // Standard routes
   app.get("/public-objects/:filePath(*)", async (req, res) => {
     const filePath = req.params.filePath;
     try {
