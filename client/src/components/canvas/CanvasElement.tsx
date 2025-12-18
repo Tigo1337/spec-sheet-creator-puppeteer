@@ -1,13 +1,30 @@
 import { useDraggable } from "@dnd-kit/core";
 import type { CanvasElement as CanvasElementType } from "@shared/schema";
 import { useCanvasStore } from "@/stores/canvas-store";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { isHtmlContent, paginateTOC } from "@/lib/canvas-utils"; 
 import { formatContent } from "@/lib/formatter";
-import { AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
+import { 
+  AlertTriangle, 
+  ChevronLeft, 
+  ChevronRight, 
+  Copy, 
+  Trash2, 
+  BringToFront, 
+  SendToBack, 
+  Lock, 
+  Unlock 
+} from "lucide-react";
 import QRCode from "qrcode";
 import { Button } from "@/components/ui/button"; 
 import { loadFont } from "@/lib/font-loader"; 
+import { 
+  ContextMenu, 
+  ContextMenuContent, 
+  ContextMenuItem, 
+  ContextMenuSeparator, 
+  ContextMenuTrigger 
+} from "@/components/ui/context-menu";
 
 interface CanvasElementProps {
   element: CanvasElementType;
@@ -22,9 +39,22 @@ export function CanvasElement({
   zoom,
   onSelect,
 }: CanvasElementProps) {
-  const { excelData, selectedRowIndex, updateElement } = useCanvasStore();
+  const { 
+    excelData, 
+    selectedRowIndex, 
+    updateElement, 
+    duplicateElement, 
+    deleteElement, 
+    bringToFront, 
+    sendToBack 
+  } = useCanvasStore();
+
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  // --- NEW: Inline Editing State ---
+  const [isEditing, setIsEditing] = useState(false);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
 
   const [previewPage, setPreviewPage] = useState(0);
   const [qrSvg, setQrSvg] = useState<string>("");
@@ -35,7 +65,7 @@ export function CanvasElement({
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: element.id,
-    disabled: element.locked,
+    disabled: element.locked || isEditing, // Disable drag when editing text
   });
 
   // Load Fonts for this element on mount/update
@@ -63,15 +93,43 @@ export function CanvasElement({
     onSelect(element.id, e.shiftKey);
   };
 
+  // --- MODIFIED: Double Click for Inline Editing ---
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (element.type === "text" || element.type === "dataField") {
-      const { updateElement } = useCanvasStore.getState();
-      const newContent = prompt("Edit text:", element.content || "");
-      if (newContent !== null) {
-        updateElement(element.id, { content: newContent });
-      }
+    if (!element.locked && (element.type === "text" || element.type === "dataField")) {
+      setIsEditing(true);
     }
+  };
+
+  // --- NEW: Focus textarea when editing starts ---
+  useEffect(() => {
+    if (isEditing && editorRef.current) {
+      editorRef.current.focus();
+      editorRef.current.select();
+    }
+  }, [isEditing]);
+
+  // --- NEW: Save on Blur ---
+  const handleBlur = () => {
+    setIsEditing(false);
+    if (editorRef.current) {
+       updateElement(element.id, { content: editorRef.current.value });
+    }
+  };
+
+  // --- NEW: Save on Enter (Shift+Enter for new line) ---
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+       e.preventDefault();
+       setIsEditing(false);
+       if (editorRef.current) {
+          updateElement(element.id, { content: editorRef.current.value });
+       }
+    }
+    if (e.key === "Escape") {
+       setIsEditing(false);
+    }
+    e.stopPropagation();
   };
 
   const getDisplayContent = () => {
@@ -218,12 +276,37 @@ export function CanvasElement({
     height: element.dimension.height * zoom,
     transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined,
     opacity: isDragging ? 0.7 : element.visible ? 1 : 0.3,
-    cursor: element.locked ? "not-allowed" : "move",
+    cursor: element.locked ? "not-allowed" : isEditing ? "text" : "move",
     userSelect: "none",
     zIndex: element.zIndex,
   };
 
   const renderContent = () => {
+    // --- NEW: Inline Editor Renderer ---
+    if (isEditing) {
+      const activeFont = element.textStyle?.fontFamily || "Inter";
+      const fontValue = activeFont.includes(" ") ? `"${activeFont}"` : activeFont;
+      return (
+        <textarea
+          ref={editorRef}
+          defaultValue={element.content}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          className="w-full h-full resize-none outline-none overflow-hidden bg-transparent p-1"
+          style={{
+            fontFamily: fontValue,
+            fontSize: (element.textStyle?.fontSize || 16) * zoom,
+            fontWeight: element.textStyle?.fontWeight || 400,
+            color: element.textStyle?.color || "#000000",
+            textAlign: (element.textStyle?.textAlign || "left") as any,
+            lineHeight: element.textStyle?.lineHeight || 1.5,
+            letterSpacing: `${element.textStyle?.letterSpacing || 0}px`,
+            padding: 4 * zoom,
+          }}
+        />
+      );
+    }
+
     const listStyleProp = element.format?.listStyle;
     const hasCustomListStyle = listStyleProp && listStyleProp !== 'none';
 
@@ -353,7 +436,7 @@ export function CanvasElement({
           />
         );
 
-      // --- TOC RENDERER (UPDATED) ---
+      // --- TOC RENDERER (PRESERVED) ---
       case "toc-list":
         const settings = element.tocSettings || { title: "Table of Contents", showTitle: true, columnCount: 1 };
         const columnCount = settings.columnCount || 1;
@@ -477,25 +560,51 @@ export function CanvasElement({
     }
   };
 
+  // --- NEW: Context Menu Wrapper ---
   return (
-    <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      data-testid={`canvas-element-${element.id}`}
-      className={`absolute transition-shadow duration-100 canvas-element-wrapper`}
-      style={{
-        ...style,
-        ...(isSelected && {
-          outline: "2px solid #3b82f6", 
-          outlineOffset: "0px",
-          backgroundColor: "transparent",
-        }),
-      }}
-      onClick={handleClick}
-      onDoubleClick={handleDoubleClick}
-    >
-      {renderContent()}
-    </div>
+    <ContextMenu>
+      <ContextMenuTrigger>
+        <div
+          ref={setNodeRef}
+          {...listeners}
+          {...attributes}
+          data-testid={`canvas-element-${element.id}`}
+          className={`absolute transition-shadow duration-100 canvas-element-wrapper`}
+          style={{
+            ...style,
+            // Disable outline when editing so the textarea focus ring takes precedence if needed
+            ...(isSelected && !isEditing && {
+              outline: "2px solid #3b82f6", 
+              outlineOffset: "0px",
+              backgroundColor: "transparent",
+            }),
+          }}
+          onClick={handleClick}
+          onDoubleClick={handleDoubleClick}
+        >
+          {renderContent()}
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={() => bringToFront(element.id)}>
+          <BringToFront className="w-4 h-4 mr-2" /> Bring to Front
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => sendToBack(element.id)}>
+          <SendToBack className="w-4 h-4 mr-2" /> Send to Back
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={() => updateElement(element.id, { locked: !element.locked })}>
+          {element.locked ? <Unlock className="w-4 h-4 mr-2" /> : <Lock className="w-4 h-4 mr-2" />}
+          {element.locked ? "Unlock" : "Lock"}
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => duplicateElement(element.id)}>
+          <Copy className="w-4 h-4 mr-2" /> Duplicate
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={() => deleteElement(element.id)} className="text-destructive focus:text-destructive">
+          <Trash2 className="w-4 h-4 mr-2" /> Delete
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
