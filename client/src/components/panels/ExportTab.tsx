@@ -436,7 +436,7 @@ export function ExportTab() {
         watermark.style.backgroundColor = "rgba(255,255,255,0.7)";
         watermark.style.padding = "4px 8px";
         watermark.style.borderRadius = "4px";
-        watermark.innerHTML = "Created with <b>Doculoom</b>";
+        watermark.innerHTML = "Created with <b>Doculoom.io</b>";
         container.appendChild(watermark);
     }
 
