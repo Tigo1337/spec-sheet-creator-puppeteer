@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
+import { useSubscription } from "@/hooks/use-subscription";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@clerk/clerk-react";
-import { QrCode, Loader2, ExternalLink, Edit2, Check, X, BarChart3 } from "lucide-react";
+import { QrCode, Loader2, ExternalLink, Edit2, Check, X, BarChart3, Lock, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 type QrCodeData = {
   id: string;
@@ -20,9 +22,11 @@ export function QRManagerDialog() {
   const [isLoading, setIsLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editUrl, setEditUrl] = useState("");
+  const [, setLocation] = useLocation();
 
   const { getToken } = useAuth();
   const { toast } = useToast();
+  const { isPro } = useSubscription();
 
   const fetchCodes = async () => {
     setIsLoading(true);
@@ -64,8 +68,8 @@ export function QRManagerDialog() {
   };
 
   useEffect(() => {
-    if (isOpen) fetchCodes();
-  }, [isOpen]);
+    if (isOpen && isPro) fetchCodes();
+  }, [isOpen, isPro]);
 
   // Determine the base URL to display (Production vs Local)
   const baseUrl = import.meta.env.VITE_APP_BASE_URL || window.location.origin;
@@ -80,10 +84,33 @@ export function QRManagerDialog() {
       </DialogTrigger>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Dynamic QR Codes</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            Dynamic QR Codes
+            {!isPro && <Lock className="h-4 w-4 text-muted-foreground" />}
+          </DialogTitle>
         </DialogHeader>
 
-        {isLoading ? (
+        {!isPro ? (
+          // PRO GATE UI
+          <div className="flex flex-col items-center justify-center py-10 px-4 text-center space-y-4">
+            <div className="bg-purple-100 p-4 rounded-full">
+                <Zap className="h-8 w-8 text-purple-600" />
+            </div>
+            <div className="space-y-2 max-w-md">
+                <h3 className="font-semibold text-xl">Unlock Dynamic QR Codes</h3>
+                <p className="text-sm text-muted-foreground">
+                    Track scans and update destination URLs anytime without reprinting your documents.
+                    Available exclusively on the Pro plan.
+                </p>
+            </div>
+            <Button 
+                onClick={() => { setIsOpen(false); setLocation("/pricing"); }} 
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+                Upgrade to Pro
+            </Button>
+          </div>
+        ) : isLoading ? (
           <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>
         ) : codes.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">

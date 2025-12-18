@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useSubscription } from "@/hooks/use-subscription";
 import {
   Download,
   Settings,
@@ -27,7 +28,9 @@ import {
   Printer,
   AlertTriangle,
   Book,
-  XCircle // Added for Cancel button
+  XCircle,
+  Lock,
+  Crown
 } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import JSZip from "jszip";
@@ -50,6 +53,7 @@ export function ExportTab() {
   const abortRef = useRef(false); // To handle cancellation
 
   const { toast } = useToast();
+  const { isPro } = useSubscription();
 
   const {
     exportSettings,
@@ -413,6 +417,26 @@ export function ExportTab() {
 
       container.appendChild(elementDiv);
     }
+
+    // WATERMARK INJECTION FOR FREE USERS
+    if (!isPro) {
+        const watermark = document.createElement("div");
+        watermark.style.position = "absolute";
+        watermark.style.bottom = "16px";
+        watermark.style.right = "16px";
+        watermark.style.opacity = "0.5";
+        watermark.style.pointerEvents = "none";
+        watermark.style.zIndex = "9999";
+        watermark.style.fontFamily = "sans-serif";
+        watermark.style.fontSize = "12px";
+        watermark.style.color = "#000000";
+        watermark.style.backgroundColor = "rgba(255,255,255,0.7)";
+        watermark.style.padding = "4px 8px";
+        watermark.style.borderRadius = "4px";
+        watermark.innerHTML = "Created with <b>Doculoom</b>";
+        container.appendChild(watermark);
+    }
+
     return container.outerHTML;
   };
 
@@ -931,7 +955,19 @@ export function ExportTab() {
                      <Monitor className={`h-5 w-5 ${exportMode === "digital" ? "text-primary" : "text-muted-foreground"}`} />
                      <div className="text-center"><p className="text-xs font-medium">Digital Ready</p><p className="text-[10px] text-muted-foreground">Compressed (Small)</p></div>
                   </div>
-                  <div onClick={() => setExportMode("print")} className={`cursor-pointer border rounded-lg p-3 flex flex-col items-center justify-center gap-2 transition-all hover:bg-muted/50 ${exportMode === "print" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"}`}>
+
+                  {/* Gated Print Ready Option */}
+                  <div 
+                    onClick={() => {
+                        if (isPro) setExportMode("print");
+                        else toast({ title: "Pro Feature", description: "High-quality print export is available on Pro.", variant: "default" });
+                    }} 
+                    className={`relative cursor-pointer border rounded-lg p-3 flex flex-col items-center justify-center gap-2 transition-all 
+                        ${isPro ? "hover:bg-muted/50" : "opacity-70 bg-muted/10"} 
+                        ${exportMode === "print" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"}`
+                    }
+                  >
+                     {!isPro && <Lock className="absolute top-2 right-2 h-3 w-3 text-muted-foreground" />}
                      <Printer className={`h-5 w-5 ${exportMode === "print" ? "text-primary" : "text-muted-foreground"}`} />
                      <div className="text-center"><p className="text-xs font-medium">Print Ready</p><p className="text-[10px] text-muted-foreground">High Quality (Big)</p></div>
                   </div>
@@ -1005,12 +1041,12 @@ export function ExportTab() {
           {/* CATALOG MODE BUTTON */}
           {isCatalogMode ? (
             <Button
-              className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white"
-              onClick={generateFullCatalogPDF}
+              className={`w-full gap-2 ${isPro ? "bg-purple-600 hover:bg-purple-700" : "bg-slate-200 text-slate-500 hover:bg-slate-200"}`}
+              onClick={isPro ? generateFullCatalogPDF : () => toast({ title: "Upgrade Required", description: "Catalog export is a Pro feature." })}
               disabled={isExporting}
             >
-              {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Book className="h-4 w-4" />}
-              Generate Full Catalog PDF
+              {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : isPro ? <Book className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+              {isPro ? "Generate Full Catalog PDF" : "Unlock Catalog Export"}
             </Button>
           ) : (
             // BASIC MODE BUTTONS
@@ -1040,6 +1076,14 @@ export function ExportTab() {
             </>
           )}
         </div>
+
+        {/* Free Plan Info Footer */}
+        {!isPro && (
+            <div className="text-xs text-center p-2 bg-blue-50 text-blue-700 rounded border border-blue-100 flex flex-col gap-1">
+                <p className="font-semibold flex items-center justify-center gap-1"><Crown className="h-3 w-3" /> Free Plan Active</p>
+                <p>Exports will include a watermark.</p>
+            </div>
+        )}
 
         <div className="text-xs text-muted-foreground space-y-1 p-3 bg-muted/30 rounded-lg">
           <p className="font-medium">Tips:</p>

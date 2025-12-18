@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { useSubscription } from "@/hooks/use-subscription";
 import {
   Dialog,
   DialogContent,
@@ -40,11 +41,11 @@ import {
   FileText, 
   FilePlus, 
   LayoutTemplate, 
-  Layers, 
   BookOpen, 
   ChevronLeft, 
   ChevronRight,
-  BookTemplate
+  BookTemplate,
+  Lock
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { isHtmlContent } from "@/lib/canvas-utils";
@@ -54,6 +55,7 @@ import QRCode from "qrcode";
 export function SavedDesignsTab() {
   const { user } = useUser();
   const { toast } = useToast();
+  const { isPro } = useSubscription();
   const isAdmin = user?.publicMetadata?.role === "admin";
 
   // Dialog States
@@ -178,7 +180,17 @@ export function SavedDesignsTab() {
 
   // --- ACTIONS ---
 
-  const handleCreateDesign = (tier: "basic" | "composite" | "catalog") => {
+  const handleCreateDesign = (tier: "basic" | "catalog") => {
+    // Restrict Catalog Creation
+    if (tier === "catalog" && !isPro) {
+      toast({
+        title: "Pro Feature Locked",
+        description: "Full Catalog Assembly is available on the Pro plan.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (hasUnsavedChanges && !confirm("You have unsaved changes. Create a new design anyway?")) {
       return;
     }
@@ -574,32 +586,30 @@ export function SavedDesignsTab() {
                       <Button className="w-full mt-2" variant="outline">Select Basic</Button>
                     </Card>
 
-                    <Card className="p-6 border flex flex-col gap-4 relative overflow-hidden bg-muted/10 opacity-75">
-                      <div className="absolute top-3 right-3">
-                        <Badge variant="secondary" className="text-[10px] font-normal tracking-wide">COMING SOON</Badge>
-                      </div>
-                      <div className="w-12 h-12 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500">
-                        <Layers className="h-6 w-6" />
-                      </div>
-                      <div className="space-y-2 flex-1">
-                        <h3 className="font-semibold text-lg text-muted-foreground">Composite Report</h3>
-                        <p className="text-sm text-muted-foreground">For documents requiring external PDF covers or inserts.</p>
-                      </div>
-                      <Button className="w-full mt-2" variant="ghost" disabled>Unavailable</Button>
-                    </Card>
-
                     <Card 
-                      className="p-6 cursor-pointer border-2 hover:border-purple-500/50 transition-all flex flex-col gap-4"
+                      className={`p-6 cursor-pointer border-2 transition-all flex flex-col gap-4 ${
+                        !isPro ? "opacity-90 bg-muted/20 border-dashed" : "hover:border-purple-500/50"
+                      }`}
                       onClick={() => handleCreateDesign("catalog")}
                     >
-                      <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600">
+                      <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600 relative">
                         <BookOpen className="h-6 w-6" />
+                        {!isPro && (
+                          <div className="absolute -top-2 -right-2 bg-slate-900 text-white rounded-full p-1 shadow-md">
+                            <Lock className="h-3 w-3" />
+                          </div>
+                        )}
                       </div>
                       <div className="space-y-2 flex-1">
-                        <h3 className="font-semibold text-lg">Full Catalog</h3>
+                        <div className="flex justify-between items-start">
+                          <h3 className="font-semibold text-lg">Full Catalog</h3>
+                          {!isPro && <Badge variant="secondary" className="text-[10px]">PRO</Badge>}
+                        </div>
                         <p className="text-sm text-muted-foreground">Advanced publishing for large catalogs with covers and TOCs.</p>
                       </div>
-                      <Button className="w-full mt-2" variant="outline">Select Catalog</Button>
+                      <Button className="w-full mt-2" variant={isPro ? "outline" : "ghost"}>
+                        {isPro ? "Select Catalog" : "Upgrade to Unlock"}
+                      </Button>
                     </Card>
                   </div>
                 </ScrollArea>
