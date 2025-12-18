@@ -38,7 +38,6 @@ import { isHtmlContent, getImageDimensions, paginateTOC } from "@/lib/canvas-uti
 import { formatContent } from "@/lib/formatter";
 import QRCode from "qrcode";
 import { type CanvasElement, availableFonts, openSourceFontMap } from "@shared/schema";
-// New Import
 import { UpgradeDialog } from "@/components/dialogs/UpgradeDialog";
 
 export function ExportTab() {
@@ -49,7 +48,6 @@ export function ExportTab() {
   const [exportMode, setExportMode] = useState<"digital" | "print">("digital");
   const [hasLowQualityImages, setHasLowQualityImages] = useState(false);
 
-  // New Upgrade Dialog State
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
 
   // UX State for Bulk Export
@@ -544,7 +542,10 @@ export function ExportTab() {
       }),
     });
 
-    if (!response.ok) throw new Error("Server failed to generate PDF");
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Server failed to generate PDF");
+    }
     return await response.blob();
   };
 
@@ -720,10 +721,20 @@ export function ExportTab() {
       setExportStatus("success");
       toast({ title: "Catalog Exported", description: "Your full catalog PDF is ready." });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Catalog Generation Error", error);
-      setExportStatus("error");
-      toast({ title: "Export Failed", description: "Could not generate catalog.", variant: "destructive" });
+      if (error.message.includes("Monthly PDF limit reached")) {
+         setExportStatus("error");
+         toast({ 
+            title: "Limit Reached", 
+            description: "You have used your 50 free PDFs for this month. Please upgrade to Pro.",
+            variant: "destructive",
+            action: <Button variant="outline" size="sm" onClick={() => setShowUpgradeDialog(true)}>Upgrade</Button>
+         });
+      } else {
+         setExportStatus("error");
+         toast({ title: "Export Failed", description: "Could not generate catalog.", variant: "destructive" });
+      }
     } finally {
       setIsExporting(false);
       setProgress(100);
@@ -764,10 +775,20 @@ export function ExportTab() {
 
       setExportStatus("success");
       toast({ title: "PDF exported successfully", description: `Downloaded as ${fileName}.pdf` });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Export error:", error);
-      setExportStatus("error");
-      toast({ title: "Export failed", description: "An error occurred.", variant: "destructive" });
+      if (error.message.includes("Monthly PDF limit reached")) {
+         setExportStatus("error");
+         toast({ 
+            title: "Limit Reached", 
+            description: "You have used your 50 free PDFs for this month. Please upgrade to Pro.",
+            variant: "destructive",
+            action: <Button variant="outline" size="sm" onClick={() => setShowUpgradeDialog(true)}>Upgrade</Button>
+         });
+      } else {
+         setExportStatus("error");
+         toast({ title: "Export failed", description: "An error occurred.", variant: "destructive" });
+      }
     } finally {
       setIsExporting(false);
       setProgress(100);
@@ -861,6 +882,14 @@ export function ExportTab() {
       if (error.message === "ABORT_EXPORT") {
           setExportStatus("cancelled");
           toast({ title: "Export Cancelled", description: "Bulk export was stopped by user." });
+      } else if (error.message.includes("Monthly PDF limit reached")) {
+          setExportStatus("error");
+          toast({ 
+            title: "Limit Reached", 
+            description: "Usage limit reached during bulk export. Upgrade to Pro to continue.",
+            variant: "destructive",
+            action: <Button variant="outline" size="sm" onClick={() => setShowUpgradeDialog(true)}>Upgrade</Button>
+          });
       } else {
           setExportStatus("error");
           toast({ title: "Export failed", description: "An error occurred during bulk export.", variant: "destructive" });

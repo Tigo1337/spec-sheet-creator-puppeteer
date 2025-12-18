@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Switch, Route, Redirect } from "wouter";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SignedIn, SignedOut, useClerk } from "@clerk/clerk-react"; 
+import { SignedIn, SignedOut, useAuth } from "@clerk/clerk-react"; 
 
 // Page Imports
 import Editor from "@/pages/Editor";
@@ -16,14 +16,30 @@ import CheckoutSuccess from "@/pages/CheckoutSuccess";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
-  const { loaded } = useClerk();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
   const [isInitializing, setIsInitializing] = useState(true);
 
+  // 1. Sync User to DB on Load
   useEffect(() => {
-    if (loaded) {
-      setIsInitializing(false);
-    }
-  }, [loaded]);
+    const syncUser = async () => {
+      if (isLoaded && isSignedIn) {
+        try {
+          const token = await getToken();
+          await fetch("/api/users/sync", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` }
+          });
+        } catch (error) {
+          console.error("User sync failed:", error);
+        }
+      }
+      if (isLoaded) {
+        setIsInitializing(false);
+      }
+    };
+
+    syncUser();
+  }, [isLoaded, isSignedIn, getToken]);
 
   if (isInitializing) {
     return (
@@ -38,7 +54,7 @@ function AppContent() {
 
   return (
     <Switch>
-      {/* Public Marketing Routes - Accessible to everyone */}
+      {/* Public Marketing Routes */}
       <Route path="/" component={Homepage} />
       <Route path="/solutions" component={Solutions} />
       <Route path="/features" component={Features} />
@@ -48,13 +64,12 @@ function AppContent() {
       <Route path="/login" component={Login} />
       <Route path="/registration" component={Registration} />
 
-      {/* Checkout handles its own auth redirects internally */}
+      {/* Checkout Handles Logic for Paid vs Free */}
       <Route path="/checkout" component={Checkout} />
       <Route path="/checkout/success" component={CheckoutSuccess} />
 
       {/* Protected App Route */}
       <Route path="/editor">
-        {/* If signed in, show Editor. If not, redirect to Login */}
         <SignedIn>
           <Editor />
         </SignedIn>
@@ -71,7 +86,6 @@ function AppContent() {
 
 function App() {
   return (
-    // QueryClientProvider and Toaster are now in main.tsx to prevent duplication
     <TooltipProvider>
       <AppContent />
     </TooltipProvider>

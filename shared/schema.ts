@@ -313,6 +313,11 @@ export const usersTable = pgTable("users", {
   stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
   plan: varchar("plan", { length: 50 }).notNull().default("free"),
   planStatus: varchar("plan_status", { length: 50 }).notNull().default("active"),
+
+  // NEW: Usage Tracking for Free Tier
+  pdfUsageCount: integer("pdf_usage_count").default(0),
+  pdfUsageResetDate: timestamp("pdf_usage_reset_date").defaultNow(),
+
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Helmet } from 'react-helmet-async'; // 1. Import Helmet
+import { Helmet } from 'react-helmet-async';
+import { useLocation } from "wouter"; // Import useLocation for navigation
 import { 
   FileSpreadsheet, 
   Palette, 
@@ -16,12 +17,33 @@ import {
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { Button } from "@/components/ui/button";
 
+// Define Price IDs (Match those in Pricing.tsx)
+const PRICE_IDS = {
+  proMonthly: "price_1SZtioEFufdmlbEL2SX2yEof",
+  proAnnual: "price_1SZtioEFufdmlbELICbVr7lk",
+};
+
 export default function Homepage() {
+  const [, setLocation] = useLocation(); // Hook for navigation
+
   // Your specific accent color
   const accentColor = "text-[#2A9D90]";
   const accentBg = "bg-[#2A9D90]";
 
-  // 2. Structured Data for Google (Rich Snippets)
+  // Handle Plan Selection (Same logic as Pricing page)
+  const handlePlanSelect = (plan: string, priceId: string) => {
+    sessionStorage.setItem("checkoutPlan", plan);
+    sessionStorage.setItem("checkoutPriceId", priceId);
+    setLocation(`/registration`);
+  };
+
+  const handleFreeSignup = () => {
+    // Clear any stale data to ensure clean free signup
+    sessionStorage.removeItem("checkoutPlan");
+    sessionStorage.removeItem("checkoutPriceId");
+    setLocation("/registration");
+  };
+
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -38,19 +60,14 @@ export default function Homepage() {
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#2A9D90]/20">
-      {/* 3. SEO Head Block */}
       <Helmet>
         <title>Doculoom | Free Spec Sheet & Catalog Maker</title>
         <meta name="description" content="Generate data-driven PDF catalogs, price lists, and spec sheets from Excel. Professional CMYK export supported. Try for free." />
         <link rel="canonical" href="https://doculoom.io/" />
-
-        {/* Open Graph for Social Media (LinkedIn/Twitter/Facebook) */}
         <meta property="og:title" content="Automate Your Spec Sheets with Doculoom" />
         <meta property="og:description" content="Stop copy-pasting into InDesign. Connect your Excel file and batch generate PDFs instantly." />
         <meta property="og:url" content="https://doculoom.io/" />
         <meta property="og:image" content="https://doculoom.io/og-image.jpg" />
-
-        {/* Inject Structured Data */}
         <script type="application/ld+json">
           {JSON.stringify(structuredData)}
         </script>
@@ -67,7 +84,6 @@ export default function Homepage() {
               New: CMYK Print Export & Dynamic QRs
             </div>
 
-            {/* 4. Changed h2 to h1 for SEO Hierarchy */}
             <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900">
               Data-Driven Design for <br className="hidden md:block" />
               <span className={accentColor}>Professional Spec Sheets</span>
@@ -78,16 +94,15 @@ export default function Homepage() {
             </p>
 
             <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
-              <a href="/registration">
-                <Button 
-                  size="lg" 
-                  data-testid="btn-cta-signup" 
-                  className={`h-14 px-8 text-lg ${accentBg} hover:bg-[#2A9D90]/90 text-white shadow-xl shadow-[#2A9D90]/20 hover:shadow-2xl transition-all border-0`}
-                >
-                  Get Started Free
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </a>
+              <Button 
+                size="lg" 
+                data-testid="btn-cta-signup" 
+                onClick={handleFreeSignup}
+                className={`h-14 px-8 text-lg ${accentBg} hover:bg-[#2A9D90]/90 text-white shadow-xl shadow-[#2A9D90]/20 hover:shadow-2xl transition-all border-0`}
+              >
+                Get Started Free
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
 
               <Button variant="outline" size="lg" data-testid="btn-learn-more" className="h-14 px-8 text-lg border-slate-200 hover:bg-slate-50 hover:text-slate-900">
                 View Samples
@@ -97,7 +112,7 @@ export default function Homepage() {
             <p className="text-sm text-slate-500">No credit card required · Free CMYK conversion test</p>
           </div>
 
-          {/* Abstract Visual Representation */}
+          {/* ... (Visual Representation - Keep as is) ... */}
           <div className="relative max-w-5xl mx-auto mt-12 perspective-1000">
             {/* Updated Gradient to match accent */}
             <div className="absolute -inset-4 bg-gradient-to-r from-[#2A9D90] to-teal-600 rounded-xl blur-2xl opacity-20 animate-pulse"></div>
@@ -162,7 +177,7 @@ export default function Homepage() {
         </div>
       </section>
 
-      {/* Features Grid */}
+      {/* Features Grid (Keep as is) */}
       <section id="features" className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center max-w-3xl mx-auto mb-16">
@@ -207,7 +222,7 @@ export default function Homepage() {
         </div>
       </section>
 
-      {/* How it Works Step-by-Step */}
+      {/* How it Works Step-by-Step (Keep as is) */}
       <section id="how-it-works" className="py-24 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4">
            <div className="text-center mb-16">
@@ -215,7 +230,6 @@ export default function Homepage() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-12 relative">
-             {/* Connector Line (Desktop) */}
             <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-0.5 bg-slate-200 -z-10"></div>
 
             <Step 
@@ -240,7 +254,7 @@ export default function Homepage() {
         </div>
       </section>
 
-      {/* Use Cases Tab-like section */}
+      {/* Use Cases (Keep as is) */}
       <section className="py-24">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -259,11 +273,9 @@ export default function Homepage() {
               </div>
             </div>
             <div className="bg-slate-100 rounded-2xl p-8 border border-slate-200 h-[500px] flex items-center justify-center relative overflow-hidden">
-               {/* Decorative background elements using opacity of accent color */}
                <div className={`absolute top-0 right-0 w-64 h-64 ${accentBg} rounded-full blur-3xl opacity-20 translate-x-1/2 -translate-y-1/2`}></div>
                <div className={`absolute bottom-0 left-0 w-64 h-64 ${accentBg} rounded-full blur-3xl opacity-20 -translate-x-1/2 translate-y-1/2`}></div>
 
-               {/* Mockup of a Tech Sheet */}
                <div className="bg-white shadow-2xl rounded-lg w-[300px] h-[420px] p-6 relative z-10 rotate-3 transition-transform hover:rotate-0 duration-500">
                   <div className="flex justify-between items-start mb-4">
                     <div className="w-12 h-12 bg-slate-900 rounded"></div>
@@ -298,7 +310,7 @@ export default function Homepage() {
         </div>
       </section>
 
-      {/* Pricing */}
+      {/* Pricing Section - NOW FUNCTIONAL */}
       <section id="pricing" className="py-24 bg-slate-900 text-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
@@ -322,6 +334,8 @@ export default function Homepage() {
               cta="Start Free"
               variant="outline"
               accentColor={accentColor}
+              // NEW: Functional Prop
+              onAction={handleFreeSignup}
             />
             {/* Pro Tier */}
             <PricingCard 
@@ -340,6 +354,8 @@ export default function Homepage() {
               variant="filled"
               popular
               accentBg={accentBg}
+              // NEW: Functional Prop
+              onAction={() => handlePlanSelect("pro_monthly", PRICE_IDS.proMonthly)}
             />
             {/* Team Tier */}
             <PricingCard 
@@ -356,12 +372,14 @@ export default function Homepage() {
               cta="Contact Sales"
               variant="outline"
               accentColor={accentColor}
+              // NEW: Functional Prop
+              onAction={() => window.location.href = "mailto:sales@doculoom.io"}
             />
           </div>
         </div>
       </section>
 
-      {/* Final CTA */}
+      {/* Final CTA - NOW FUNCTIONAL */}
       <section className={`py-24 ${accentBg} bg-opacity-5`}>
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h2 className="text-4xl font-bold mb-6 text-slate-900">Ready to automate your documents?</h2>
@@ -369,16 +387,19 @@ export default function Homepage() {
             Stop copy-pasting into InDesign. Start generating data-driven PDFs today.
           </p>
           <div className="flex justify-center gap-4">
-             <a href="/registration">
-                <Button size="lg" data-testid="btn-cta-signup" className={`h-14 px-8 text-lg ${accentBg} hover:bg-[#2A9D90]/90 text-white shadow-lg`}>
-                  Get Started Free
-                </Button>
-             </a>
+             <Button 
+                size="lg" 
+                data-testid="btn-cta-signup" 
+                onClick={handleFreeSignup}
+                className={`h-14 px-8 text-lg ${accentBg} hover:bg-[#2A9D90]/90 text-white shadow-lg`}
+             >
+                Get Started Free
+             </Button>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
+      {/* Footer (Keep as is) */}
       <footer className="bg-white border-t border-slate-200 py-12">
         <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-4 gap-8">
           <div>
@@ -421,7 +442,7 @@ export default function Homepage() {
   );
 }
 
-// --- SUB-COMPONENTS ---
+// --- UPDATED SUB-COMPONENTS ---
 
 function FeatureCard({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) {
   return (
@@ -463,8 +484,9 @@ function UseCaseItem({ title, desc, accentColor }: { title: string, desc: string
   );
 }
 
-function PricingCard({ name, price, period, features, cta, variant, popular, accentColor, accentBg }: { 
-  name: string, price: string, period?: string, features: string[], cta: string, variant: 'filled' | 'outline', popular?: boolean, accentColor?: string, accentBg?: string 
+// UPDATED: PricingCard now accepts `onAction` prop
+function PricingCard({ name, price, period, features, cta, variant, popular, accentColor, accentBg, onAction }: { 
+  name: string, price: string, period?: string, features: string[], cta: string, variant: 'filled' | 'outline', popular?: boolean, accentColor?: string, accentBg?: string, onAction?: () => void 
 }) {
   const isFilled = variant === 'filled';
   return (
@@ -488,6 +510,7 @@ function PricingCard({ name, price, period, features, cta, variant, popular, acc
         ))}
       </ul>
       <Button 
+        onClick={onAction}
         className={`w-full ${isFilled ? 'bg-white text-[#2A9D90] hover:bg-slate-50' : 'bg-slate-700 text-white hover:bg-slate-600'}`}
       >
         {cta}

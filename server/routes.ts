@@ -50,7 +50,6 @@ export async function registerRoutes(
 
   // ============================================
   // HEALTH CHECK ENDPOINT
-  // Monitoring services (e.g. UptimeRobot) should ping this
   // ============================================
   app.get("/health", async (req, res) => {
     const health = {
@@ -63,9 +62,7 @@ export async function registerRoutes(
       }
     };
 
-    // 1. Check Database Connectivity
     try {
-      // Using a known-safe query (fetching a non-existent ID returns undefined, not error)
       await storage.getUser("health-check-probe");
       health.checks.database = "connected";
     } catch (e) {
@@ -74,7 +71,6 @@ export async function registerRoutes(
       console.error("Health check failed: Database", e);
     }
 
-    // 2. Check Stripe Config
     if (process.env.STRIPE_SECRET_KEY) {
         health.checks.stripe = "configured";
     } else {
@@ -107,27 +103,65 @@ export async function registerRoutes(
   });
 
   // ============================================
-  // 1. PDF Export Route (STRICT QUEUE + FRESH BROWSER)
+  // 1. PDF Export Route (ENFORCED LIMITS + WATERMARK)
   // ============================================
   app.post("/api/export/pdf", async (req, res) => {
-    // 1. AUTH CHECK
     const auth = getAuth(req);
     if (!auth.userId) {
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    const { html, width, height, scale = 2, colorModel = 'rgb' } = req.body;
+    let { html, width, height, scale = 2, colorModel = 'rgb' } = req.body;
 
     if (!html || !width || !height) {
       return res.status(400).json({ error: "Missing required parameters" });
     }
 
     try {
-      // 2. Enter the Queue (Wait for turn)
-      const pdfBuffer = await pdfQueue.add(async () => {
-        console.log(`-> Processing PDF. Queue waiting: ${pdfQueue.queue.length}`);
+      // 1. GET USER & CHECK PLAN
+      const user = await storage.getUser(auth.userId);
+      const isPro = user?.plan === "pro"; 
 
-        // 3. Launch a FRESH browser for this specific request
+      // 2. ENFORCE USAGE LIMITS (Free Tier)
+      if (!isPro) {
+        // Enforce Export Settings
+        if (colorModel === 'cmyk') {
+          console.warn(`User ${auth.userId} requested CMYK but is Free. Forcing RGB.`);
+          colorModel = 'rgb';
+        }
+
+        // Check Monthly Quota
+        const usage = await storage.checkAndIncrementUsage(auth.userId);
+        if (!usage.allowed) {
+          return res.status(403).json({ 
+            error: "Monthly PDF limit reached (50/50). Upgrade to Pro for unlimited exports." 
+          });
+        }
+
+        // 3. SERVER-SIDE WATERMARK INJECTION
+        if (!html.includes("Created with <b>Doculoom</b>")) {
+           const watermarkStyle = `
+             position: fixed; 
+             bottom: 16px; 
+             right: 16px; 
+             opacity: 0.5; 
+             z-index: 9999; 
+             font-family: sans-serif; 
+             font-size: 12px; 
+             color: #000000; 
+             background-color: rgba(255,255,255,0.7); 
+             padding: 4px 8px; 
+             border-radius: 4px;
+             pointer-events: none;
+           `;
+           const watermarkDiv = `<div style="${watermarkStyle}">Created with <b>Doculoom</b></div>`;
+           // Insert before closing body tag
+           html = html.replace("</body>", `${watermarkDiv}</body>`);
+        }
+      }
+
+      // 4. PROCESS PDF (QUEUE)
+      const pdfBuffer = await pdfQueue.add(async () => {
         const browser = await puppeteer.launch({
           headless: true,
           executablePath: process.env.NIX_CHROMIUM_WRAPPER || puppeteer.executablePath(),
@@ -170,16 +204,15 @@ export async function registerRoutes(
           return Buffer.from(data);
 
         } finally {
-          // 4. KILL the browser immediately after use
           await browser.close().catch(e => console.error("Error closing browser:", e));
         }
       });
 
-      // --- CMYK POST-PROCESSING ---
+      // 5. CMYK POST-PROCESSING (Pro Only)
       let finalBuffer = pdfBuffer;
       let usedColorModel = 'rgb'; 
 
-      if (colorModel === 'cmyk') {
+      if (isPro && colorModel === 'cmyk') {
         const timestamp = Date.now();
         const randomId = Math.random().toString(36).substring(7);
         const inputPath = path.resolve(`/tmp/input_${timestamp}_${randomId}.pdf`);
@@ -221,17 +254,11 @@ export async function registerRoutes(
   // 2. Preview Generation Route
   // ============================================
   app.post("/api/export/preview", async (req, res) => {
-    // 1. AUTH CHECK
     const auth = getAuth(req);
-    if (!auth.userId) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
+    if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
 
     const { html, width, height } = req.body;
-
-    if (!html || !width || !height) {
-      return res.status(400).json({ error: "Missing required parameters" });
-    }
+    if (!html || !width || !height) return res.status(400).json({ error: "Missing required parameters" });
 
     try {
       const base64String = await pdfQueue.add(async () => {
@@ -249,21 +276,10 @@ export async function registerRoutes(
             deviceScaleFactor: 0.5, 
           });
 
-          await page.setContent(html, {
-            waitUntil: ["load", "networkidle0"],
-            timeout: 30000,
-          });
+          await page.setContent(html, { waitUntil: ["load", "networkidle0"], timeout: 30000 });
+          await page.evaluate(async () => { await document.fonts.ready; });
 
-          await page.evaluate(async () => {
-            await document.fonts.ready;
-          });
-
-          return await page.screenshot({
-            type: "jpeg",
-            quality: 70,
-            fullPage: true,
-            encoding: "base64"
-          });
+          return await page.screenshot({ type: "jpeg", quality: 70, fullPage: true, encoding: "base64" });
         } finally {
           await browser.close();
         }
@@ -287,6 +303,13 @@ export async function registerRoutes(
     try {
       const auth = getAuth(req);
       if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
+
+      // ENFORCE: Free users cannot create Dynamic QR Codes
+      const user = await storage.getUser(auth.userId);
+      if (user?.plan !== "pro") {
+        return res.status(403).json({ error: "Dynamic QR Codes are a Pro feature." });
+      }
+
       const parseResult = insertQrCodeSchema.safeParse(req.body);
       if (!parseResult.success) return res.status(400).json({ error: parseResult.error.message });
       const newQR = await storage.createQRCode(auth.userId, parseResult.data.destinationUrl, parseResult.data.designId);
@@ -311,6 +334,13 @@ export async function registerRoutes(
     try {
       const auth = getAuth(req);
       if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
+
+      // ENFORCE: Free users cannot update Dynamic QR Codes
+      const user = await storage.getUser(auth.userId);
+      if (user?.plan !== "pro") {
+        return res.status(403).json({ error: "Managing QR Codes is a Pro feature." });
+      }
+
       const updated = await storage.updateQRCode(req.params.id, auth.userId, req.body.destinationUrl);
       if (!updated) return res.status(404).json({ error: "QR Code not found" });
       res.json(updated);
@@ -319,6 +349,8 @@ export async function registerRoutes(
     }
   });
 
+  // ... (Remaining Template, User Designs, Object Storage, Stripe, and Sync routes - same as original file)
+  // To save space I am truncating them here, but ensure you keep the rest of the file content intact.
   // Template Routes (Admin Secured)
   app.get("/api/templates", async (req, res) => {
     try {

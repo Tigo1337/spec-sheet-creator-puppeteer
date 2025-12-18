@@ -6,7 +6,7 @@ import { Loader2, CreditCard } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 export default function Checkout() {
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isSignedIn, isLoaded, getToken } = useAuth();
   const [, setLocation] = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,17 +28,50 @@ export default function Checkout() {
     if (!isLoaded) return;
 
     if (!isSignedIn) {
-      setLocation(`/registration?plan=${plan}&priceId=${priceId}`);
+      // If not signed in, redirect to registration
+      // Pass params along if they exist so the user isn't lost
+      const params = new URLSearchParams();
+      if (plan) params.append("plan", plan);
+      if (priceId) params.append("priceId", priceId);
+      const queryString = params.toString();
+      setLocation(`/registration${queryString ? `?${queryString}` : ""}`);
       return;
     }
 
+    // GAP FIX: If no priceId is found, this is a Free Tier signup.
+    // Sync the user to DB and redirect to Editor.
     if (!priceId) {
-      setError("No plan selected. Please choose a plan from the pricing page.");
+      handleFreeTierEntry();
       return;
     }
 
     createCheckoutSession();
   }, [isLoaded, isSignedIn, priceId]);
+
+  const handleFreeTierEntry = async () => {
+    setIsLoading(true);
+    try {
+      const token = await getToken();
+      // Explicitly call sync to create the user in the DB
+      await fetch("/api/users/sync", {
+        method: "POST",
+        headers: { 
+          Authorization: `Bearer ${token}` 
+        }
+      });
+      // Clear any stale session data
+      sessionStorage.removeItem("pendingCheckout");
+      sessionStorage.removeItem("checkoutPlan");
+      sessionStorage.removeItem("checkoutPriceId");
+
+      // Redirect to app
+      setLocation("/editor");
+    } catch (err) {
+      console.error("Sync error:", err);
+      // Even if sync "fails" (e.g. network blip), try going to editor
+      setLocation("/editor");
+    }
+  };
 
   const createCheckoutSession = async () => {
     if (!priceId) return;
@@ -47,6 +80,9 @@ export default function Checkout() {
     setError(null);
 
     try {
+      // Note: apiRequest should handle auth headers if configured globally, 
+      // but explicitly passing token is safer if apiRequest doesn't.
+      // Assuming apiRequest works for paid flow, we keep it as is.
       const response = await apiRequest("POST", "/api/checkout", { priceId });
       const data = await response.json();
 
@@ -63,10 +99,18 @@ export default function Checkout() {
     }
   };
 
-  if (!isLoaded) {
+  if (!isLoaded || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="max-w-md text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <h2 className="text-xl font-semibold">
+            {priceId ? "Preparing checkout..." : "Setting up your account..."}
+          </h2>
+          <p className="text-muted-foreground">
+            Please wait while we finalize your registration.
+          </p>
+        </div>
       </div>
     );
   }
@@ -93,15 +137,5 @@ export default function Checkout() {
     );
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="max-w-md text-center space-y-4">
-        <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-        <h2 className="text-xl font-semibold">Preparing your checkout...</h2>
-        <p className="text-muted-foreground">
-          You'll be redirected to our secure payment page.
-        </p>
-      </div>
-    </div>
-  );
+  return null; // Should redirect before rendering this
 }
