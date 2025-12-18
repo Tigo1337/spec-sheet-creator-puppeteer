@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useCanvasStore } from "@/stores/canvas-store";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -33,7 +34,6 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  Bold,
   QrCode,
   List
 } from "lucide-react";
@@ -42,7 +42,7 @@ import {
   createShapeElement,
   createImageElement,
   createQRCodeElement,
-  createTOCElement // Import the new factory function
+  createTOCElement
 } from "@/lib/canvas-utils";
 import { availableFonts } from "@shared/schema";
 
@@ -56,8 +56,25 @@ export function LeftPanel() {
     elements,
     selectedElementIds,
     updateElement,
-    activeSectionType // Need this to conditionally show TOC button
+    activeSectionType
   } = useCanvasStore();
+
+  const [openSections, setOpenSections] = useState<string[]>(["text", "shapes", "images", "qr", "structure"]);
+
+  // Sync active tool with accordion sections
+  useEffect(() => {
+    switch (activeTool) {
+      case "text":
+        if (!openSections.includes("text")) setOpenSections(prev => [...prev, "text"]);
+        break;
+      case "shape":
+        if (!openSections.includes("shapes")) setOpenSections(prev => [...prev, "shapes"]);
+        break;
+      case "image":
+        if (!openSections.includes("images")) setOpenSections(prev => [...prev, "images"]);
+        break;
+    }
+  }, [activeTool]);
 
   const selectedElement =
     selectedElementIds.length === 1
@@ -73,30 +90,35 @@ export function LeftPanel() {
     const x = canvasWidth / 2 - 100;
     const y = canvasHeight / 2 - 20;
     addElement(createTextElement(x, y, "New Text"));
+    setActiveTool("select");
   };
 
   const handleAddShape = (shapeType: "rectangle" | "circle" | "line") => {
     const x = canvasWidth / 2 - 50;
     const y = canvasHeight / 2 - 50;
     addElement(createShapeElement(x, y, shapeType));
+    setActiveTool("select");
   };
 
   const handleAddImage = () => {
     const x = canvasWidth / 2 - 100;
     const y = canvasHeight / 2 - 75;
     addElement(createImageElement(x, y));
+    setActiveTool("select");
   };
 
   const handleAddQRCode = () => {
     const x = canvasWidth / 2 - 50;
     const y = canvasHeight / 2 - 50;
     addElement(createQRCodeElement(x, y));
+    setActiveTool("select");
   };
 
   const handleAddTOC = () => {
     const x = 50;
     const y = 100;
     addElement(createTOCElement(x, y));
+    setActiveTool("select");
   }
 
   const toolButtons = [
@@ -120,7 +142,9 @@ export function LeftPanel() {
                 <Button
                   size="icon"
                   variant={activeTool === tool.id ? "default" : "ghost"}
-                  onClick={() => setActiveTool(tool.id)}
+                  onClick={() => {
+                    setActiveTool(tool.id);
+                  }}
                   data-testid={`tool-${tool.id}`}
                 >
                   <tool.icon className="h-4 w-4" />
@@ -256,42 +280,37 @@ export function LeftPanel() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
+               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Color</Label>
-                <Input
-                  type="color"
-                  value={selectedElement.textStyle?.color || "#000000"}
-                  onChange={(e) => {
-                    updateElement(selectedElement.id, {
-                      textStyle: {
-                        ...selectedElement.textStyle,
-                        color: e.target.value,
-                      },
-                    });
-                  }}
-                  data-testid="input-text-color"
-                  className="h-9"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">
-                  Letter Spacing
-                </Label>
-                <Input
-                  type="number"
-                  step={0.5}
-                  value={selectedElement.textStyle?.letterSpacing || 0}
-                  onChange={(e) => {
-                    updateElement(selectedElement.id, {
-                      textStyle: {
-                        ...selectedElement.textStyle,
-                        letterSpacing: Number(e.target.value),
-                      },
-                    });
-                  }}
-                  data-testid="input-letter-spacing"
-                />
+                <div className="flex gap-2">
+                    <Input
+                    type="color"
+                    value={selectedElement.textStyle?.color || "#000000"}
+                    onChange={(e) => {
+                        updateElement(selectedElement.id, {
+                        textStyle: {
+                            ...selectedElement.textStyle,
+                            color: e.target.value,
+                        },
+                        });
+                    }}
+                    data-testid="input-text-color"
+                    className="h-9 w-9 p-1"
+                    />
+                     <Input
+                        type="text"
+                        value={selectedElement.textStyle?.color || "#000000"}
+                        onChange={(e) => {
+                            updateElement(selectedElement.id, {
+                            textStyle: {
+                                ...selectedElement.textStyle,
+                                color: e.target.value,
+                            },
+                            });
+                        }}
+                        className="h-9 flex-1 font-mono text-xs"
+                    />
+                </div>
               </div>
             </div>
           </div>
@@ -299,7 +318,12 @@ export function LeftPanel() {
       )}
 
       <ScrollArea className="flex-1">
-        <Accordion type="multiple" defaultValue={["text", "shapes", "images", "qr", "structure"]} className="px-2">
+        <Accordion 
+          type="multiple" 
+          value={openSections}
+          onValueChange={setOpenSections}
+          className="px-2"
+        >
 
           {/* New "Structure" Section for TOC - Only visible in TOC mode */}
           {activeSectionType === "toc" && (
@@ -459,12 +483,6 @@ export function LeftPanel() {
           </AccordionItem>
         </Accordion>
       </ScrollArea>
-
-      <div className="p-3 border-t bg-muted/30">
-        <p className="text-xs text-muted-foreground text-center">
-          Click on canvas or drag elements
-        </p>
-      </div>
     </div>
   );
 }
