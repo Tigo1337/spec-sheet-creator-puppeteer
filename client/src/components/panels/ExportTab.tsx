@@ -38,6 +38,8 @@ import { isHtmlContent, getImageDimensions, paginateTOC } from "@/lib/canvas-uti
 import { formatContent } from "@/lib/formatter";
 import QRCode from "qrcode";
 import { type CanvasElement, availableFonts, openSourceFontMap } from "@shared/schema";
+// New Import
+import { UpgradeDialog } from "@/components/dialogs/UpgradeDialog";
 
 export function ExportTab() {
   const [isExporting, setIsExporting] = useState(false);
@@ -46,6 +48,9 @@ export function ExportTab() {
   const [filenamePattern, setFilenamePattern] = useState("");
   const [exportMode, setExportMode] = useState<"digital" | "print">("digital");
   const [hasLowQualityImages, setHasLowQualityImages] = useState(false);
+
+  // New Upgrade Dialog State
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
 
   // UX State for Bulk Export
   const [currentAction, setCurrentAction] = useState(""); 
@@ -876,6 +881,8 @@ export function ExportTab() {
   return (
     <ScrollArea className="h-full">
       <div className="p-4 space-y-4">
+        <UpgradeDialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog} />
+
         {/* File Naming Section */}
         <div>
           <h3 className="font-medium text-sm mb-3 flex items-center gap-2">
@@ -960,7 +967,7 @@ export function ExportTab() {
                   <div 
                     onClick={() => {
                         if (isPro) setExportMode("print");
-                        else toast({ title: "Pro Feature", description: "High-quality print export is available on Pro.", variant: "default" });
+                        else setShowUpgradeDialog(true);
                     }} 
                     className={`relative cursor-pointer border rounded-lg p-3 flex flex-col items-center justify-center gap-2 transition-all 
                         ${isPro ? "hover:bg-muted/50" : "opacity-70 bg-muted/10"} 
@@ -1042,7 +1049,7 @@ export function ExportTab() {
           {isCatalogMode ? (
             <Button
               className={`w-full gap-2 ${isPro ? "bg-purple-600 hover:bg-purple-700" : "bg-slate-200 text-slate-500 hover:bg-slate-200"}`}
-              onClick={isPro ? generateFullCatalogPDF : () => toast({ title: "Upgrade Required", description: "Catalog export is a Pro feature." })}
+              onClick={isPro ? generateFullCatalogPDF : () => setShowUpgradeDialog(true)}
               disabled={isExporting}
             >
               {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : isPro ? <Book className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
@@ -1079,9 +1086,13 @@ export function ExportTab() {
 
         {/* Free Plan Info Footer */}
         {!isPro && (
-            <div className="text-xs text-center p-2 bg-blue-50 text-blue-700 rounded border border-blue-100 flex flex-col gap-1">
+            <div 
+              className="text-xs text-center p-2 bg-blue-50 text-blue-700 rounded border border-blue-100 flex flex-col gap-1 cursor-pointer hover:bg-blue-100 transition-colors"
+              onClick={() => setShowUpgradeDialog(true)}
+              title="Click to upgrade"
+            >
                 <p className="font-semibold flex items-center justify-center gap-1"><Crown className="h-3 w-3" /> Free Plan Active</p>
-                <p>Exports will include a watermark.</p>
+                <p>Exports will include a watermark. <span className="underline">Upgrade to remove.</span></p>
             </div>
         )}
 

@@ -16,15 +16,22 @@ import {
   FileDown,
   Sun,
   Moon,
+  Crown // Added Icon
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useUser, UserButton } from "@clerk/clerk-react";
-// Import the new Dialog
 import { QRManagerDialog } from "@/components/dialogs/QRManagerDialog";
+// Imports for Upgrade Flow
+import { useSubscription } from "@/hooks/use-subscription";
+import { UpgradeDialog } from "@/components/dialogs/UpgradeDialog";
 
 export function Header() {
   const { user } = useUser();
   const [theme, setTheme] = useState<"light" | "dark">("light");
+
+  // New State & Hooks
+  const { isPro } = useSubscription();
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
 
   const {
     zoom,
@@ -61,6 +68,8 @@ export function Header() {
 
   return (
     <header className="h-14 border-b bg-sidebar flex items-center justify-between px-4 gap-4 flex-shrink-0">
+      <UpgradeDialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog} />
+
       {/* Left Section */}
       <div className="flex items-center gap-3 min-w-0">
         <div className="flex items-center gap-2">
@@ -145,7 +154,18 @@ export function Header() {
 
       {/* Right Section */}
       <div className="flex items-center gap-2">
-        {/* NEW QR MANAGER BUTTON */}
+        {/* NEW UPGRADE BUTTON */}
+        {!isPro && (
+          <Button 
+            size="sm" 
+            className="gap-1.5 bg-amber-500 hover:bg-amber-600 text-white border-amber-600 shadow-sm"
+            onClick={() => setShowUpgradeDialog(true)}
+          >
+            <Crown className="h-4 w-4 fill-current" />
+            Upgrade
+          </Button>
+        )}
+
         <QRManagerDialog />
 
         <Separator orientation="vertical" className="h-6" />

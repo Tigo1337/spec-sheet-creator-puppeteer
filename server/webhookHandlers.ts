@@ -14,7 +14,7 @@ export class WebhookHandlers {
     }
 
     const sync = await getStripeSync();
-    
+
     await sync.processWebhook(payload, signature, uuid);
 
     const stripe = await getUncachableStripeClient();
@@ -70,9 +70,13 @@ export class WebhookHandlers {
       const priceId = subscription.items.data[0]?.price.id;
       const productId = subscription.items.data[0]?.price.product as string;
       const product = await stripe.products.retrieve(productId);
-      
-      const planName = product.metadata?.planId || 'pro';
-      
+
+      // FIXED: Normalize plan name to 'pro' if it matches specific IDs
+      let planName = product.metadata?.planId || 'pro';
+      if (planName === 'prod_pro_monthly' || planName === 'prod_pro_annual') {
+        planName = 'pro';
+      }
+
       await storage.updateUserStripeInfo(userId, {
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscriptionId,
@@ -90,7 +94,7 @@ export class WebhookHandlers {
     console.log('Subscription updated:', subscription.id);
 
     const customerId = subscription.customer as string;
-    
+
     try {
       const user = await WebhookHandlers.findUserByCustomerId(customerId);
       if (!user) {
