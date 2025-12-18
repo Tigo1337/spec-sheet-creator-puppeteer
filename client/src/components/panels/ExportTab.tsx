@@ -56,7 +56,8 @@ export function ExportTab() {
   const abortRef = useRef(false); // To handle cancellation
 
   const { toast } = useToast();
-  const { isPro } = useSubscription();
+  // UPDATED: Destructure isLoading to prevent UI flicker
+  const { isPro, isLoading } = useSubscription();
 
   const {
     exportSettings,
@@ -436,7 +437,7 @@ export function ExportTab() {
         watermark.style.backgroundColor = "rgba(255,255,255,0.7)";
         watermark.style.padding = "4px 8px";
         watermark.style.borderRadius = "4px";
-        watermark.innerHTML = "Created with <b>Doculoom.io</b>";
+        watermark.innerHTML = "Created with <b>Doculoom</b>";
         container.appendChild(watermark);
     }
 
@@ -992,18 +993,19 @@ export function ExportTab() {
                      <div className="text-center"><p className="text-xs font-medium">Digital Ready</p><p className="text-[10px] text-muted-foreground">Compressed (Small)</p></div>
                   </div>
 
-                  {/* Gated Print Ready Option */}
+                  {/* UPDATED: Print Ready Option - assume Pro while loading to prevent flicker */}
                   <div 
                     onClick={() => {
-                        if (isPro) setExportMode("print");
+                        if (isPro || isLoading) setExportMode("print");
                         else setShowUpgradeDialog(true);
                     }} 
                     className={`relative cursor-pointer border rounded-lg p-3 flex flex-col items-center justify-center gap-2 transition-all 
-                        ${isPro ? "hover:bg-muted/50" : "opacity-70 bg-muted/10"} 
+                        ${(isPro || isLoading) ? "hover:bg-muted/50" : "opacity-70 bg-muted/10"} 
                         ${exportMode === "print" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"}`
                     }
                   >
-                     {!isPro && <Lock className="absolute top-2 right-2 h-3 w-3 text-muted-foreground" />}
+                     {/* Only show lock if NOT loading and NOT pro */}
+                     {!isPro && !isLoading && <Lock className="absolute top-2 right-2 h-3 w-3 text-muted-foreground" />}
                      <Printer className={`h-5 w-5 ${exportMode === "print" ? "text-primary" : "text-muted-foreground"}`} />
                      <div className="text-center"><p className="text-xs font-medium">Print Ready</p><p className="text-[10px] text-muted-foreground">High Quality (Big)</p></div>
                   </div>
@@ -1074,15 +1076,15 @@ export function ExportTab() {
 
         {/* Buttons */}
         <div className="space-y-2">
-          {/* CATALOG MODE BUTTON */}
+          {/* UPDATED: Catalog Mode Button - Assume Pro/Unlocked while loading */}
           {isCatalogMode ? (
             <Button
-              className={`w-full gap-2 ${isPro ? "bg-purple-600 hover:bg-purple-700" : "bg-slate-200 text-slate-500 hover:bg-slate-200"}`}
-              onClick={isPro ? generateFullCatalogPDF : () => setShowUpgradeDialog(true)}
+              className={`w-full gap-2 ${(isPro || isLoading) ? "bg-purple-600 hover:bg-purple-700" : "bg-slate-200 text-slate-500 hover:bg-slate-200"}`}
+              onClick={(isPro || isLoading) ? generateFullCatalogPDF : () => setShowUpgradeDialog(true)}
               disabled={isExporting}
             >
-              {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : isPro ? <Book className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-              {isPro ? "Generate Full Catalog PDF" : "Unlock Catalog Export"}
+              {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : (isPro || isLoading) ? <Book className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+              {(isPro || isLoading) ? "Generate Full Catalog PDF" : "Unlock Catalog Export"}
             </Button>
           ) : (
             // BASIC MODE BUTTONS
@@ -1113,8 +1115,8 @@ export function ExportTab() {
           )}
         </div>
 
-        {/* Free Plan Info Footer */}
-        {!isPro && (
+        {/* UPDATED: Free Plan Info Footer - Only show if NOT loading and NOT pro */}
+        {!isPro && !isLoading && (
             <div 
               className="text-xs text-center p-2 bg-blue-50 text-blue-700 rounded border border-blue-100 flex flex-col gap-1 cursor-pointer hover:bg-blue-100 transition-colors"
               onClick={() => setShowUpgradeDialog(true)}
