@@ -14,6 +14,7 @@ import path from "path";
 import fs from "fs";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const execAsync = promisify(exec);
 
@@ -46,6 +47,15 @@ export async function registerRoutes(
 ): Promise<Server> {
   const objectStorageService = new ObjectStorageService();
 
+  // --- INITIALIZE GEMINI 2.5 FLASH-LITE ---
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+  const aiModel = genAI.getGenerativeModel({ 
+    model: "gemini-2.5-flash-lite", 
+    generationConfig: {
+      responseMimeType: "application/json",
+    }
+  });
+
   // ============================================
   // HEALTH CHECK ENDPOINT
   // ============================================
@@ -77,6 +87,98 @@ export async function registerRoutes(
 
     const httpCode = health.status === "OK" ? 200 : 503;
     res.status(httpCode).json(health);
+  });
+
+  // ============================================
+  // AI AUTO-MAPPING ROUTE (STRICT & ROBUST)
+  // ============================================
+  app.post("/api/ai/map-fields", async (req, res) => {
+    const auth = getAuth(req);
+    if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
+
+    const { sourceHeaders, targetVariables } = req.body;
+
+    if (!sourceHeaders || !targetVariables) {
+      return res.status(400).json({ error: "Missing headers or targets" });
+    }
+
+    try {
+      // --- PROMPT ---
+      const prompt = `
+        You are a strict data mapping engine.
+
+        INPUT DATA:
+        1. **Source Headers** (Columns in User's CSV): ${JSON.stringify(sourceHeaders)}
+        2. **Allowed Targets** (Variables in User's Template): ${JSON.stringify(targetVariables)}
+
+        **YOUR GOAL:**
+        For each "Source Header", determine if it semantically matches EXACTLY ONE of the "Allowed Targets".
+
+        **CRITICAL CONSTRAINTS (DO NOT IGNORE):**
+        1. **NO NEW TARGETS:** The 'target' field in your JSON **MUST** be an exact string from the "Allowed Targets" list above. 
+           - If a Source Header matches a concept that is NOT in "Allowed Targets", **IGNORE IT**. Do not map it.
+           - Example: If Source is "SKU" but "SKU" is NOT in Allowed Targets, return nothing for it.
+        2. **SEMANTIC MATCHING ONLY:** - Match synonyms (e.g., Source "Dimensions" -> Target "Measurements").
+           - Match abbreviations (e.g., Source "Qty" -> Target "Quantity").
+           - DO NOT match unrelated types (e.g., NEVER map "Price" to "Measurements").
+        3. **CONFIDENCE:**
+           - 1.0 = Perfect synonym or exact match.
+           - 0.0 = No valid target found in the list.
+        4. **OUTPUT:** Return a clean JSON array of objects: { "source": string, "target": string, "confidence": number }.
+        5. **FILTER:** Only return mappings with confidence > 0.8.
+      `;
+
+      // --- ROBUST RETRY LOGIC (429 & 503) ---
+      let result;
+      let attempts = 0;
+      const maxAttempts = 3;
+
+      while (attempts < maxAttempts) {
+        try {
+          result = await aiModel.generateContent(prompt);
+          break; // Success!
+        } catch (e: any) {
+          // Check for Rate Limit (429) OR Service Overload (503)
+          if (
+            e.status === 429 || 
+            e.status === 503 || 
+            e.message?.includes("429") || 
+            e.message?.includes("503") ||
+            e.message?.includes("Overloaded")
+          ) {
+            attempts++;
+            if (attempts >= maxAttempts) throw e; // Give up after max attempts
+
+            // Exponential backoff: 1s, 2s, 4s
+            const delay = Math.pow(2, attempts) * 1000;
+            console.warn(`Gemini API Error (${e.status}). Retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          } else {
+            throw e; // Throw other errors immediately
+          }
+        }
+      }
+
+      if (!result) throw new Error("AI request failed after retries");
+
+      const responseText = result.response.text();
+
+      // Clean up potential markdown formatting (```json ... ```)
+      const cleanText = responseText.replace(/```json|```/g, "").trim();
+
+      const mapping = JSON.parse(cleanText);
+      const rawMapping = Array.isArray(mapping) ? mapping : (mapping.mapping || mapping.matches || []);
+
+      // --- FINAL SAFETY FILTER ---
+      const validTargets = new Set(targetVariables);
+      const finalMapping = rawMapping.filter((m: any) => validTargets.has(m.target));
+
+      res.json(finalMapping);
+
+    } catch (error) {
+      console.error("Gemini Mapping Error:", error);
+      res.status(500).json({ error: "AI Mapping failed" });
+    }
   });
 
   // ============================================
@@ -532,7 +634,7 @@ export async function registerRoutes(
     try {
       const auth = getAuth(req);
       if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
-      
+
       let user = await storage.getUser(auth.userId);
       if (!user) {
         let email: string | undefined;
@@ -542,7 +644,7 @@ export async function registerRoutes(
         } catch (clerkError: any) {
           console.error(`Clerk user fetch failed during sync for user ${auth.userId}:`, clerkError);
         }
-        
+
         if (!email) {
           return res.status(400).json({ 
             error: "User email not found", 
@@ -592,7 +694,7 @@ export async function registerRoutes(
           // Fallback: If Clerk fetch fails (e.g. race condition), try to use email from token/metadata if possible
           // For now, if we can't get email, we can't create the user record reliably for Stripe
         }
-        
+
         if (!email) return res.status(400).json({ error: "User email not found. Please ensure your Clerk profile is complete." });
         user = await storage.createUser({ id: auth.userId, email, plan: "free", planStatus: "active" });
       }

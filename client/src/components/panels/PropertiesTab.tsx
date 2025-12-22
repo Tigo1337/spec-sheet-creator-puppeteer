@@ -11,7 +11,7 @@ import { getImageDimensions } from "@/lib/canvas-utils";
 import { Switch } from "@/components/ui/switch"; 
 import { loadFont } from "@/lib/font-loader"; 
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@clerk/clerk-react"; // <--- ADDED IMPORT
+import { useAuth } from "@clerk/clerk-react";
 import {
   Select,
   SelectContent,
@@ -54,7 +54,10 @@ import {
   Unlink,
   Columns,
   Loader2,
-  Activity
+  Activity,
+  Database,
+  Image as ImageIcon,
+  ExternalLink // Added for the URL preview label
 } from "lucide-react";
 import { availableFonts, openSourceFontMap, type CanvasElement } from "@shared/schema";
 
@@ -62,7 +65,7 @@ export function PropertiesTab() {
   const [imageLoadingId, setImageLoadingId] = useState<string | null>(null);
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
   const { toast } = useToast();
-  const { getToken } = useAuth(); // <--- GET TOKEN FUNCTION
+  const { getToken } = useAuth();
 
   const {
     elements,
@@ -81,6 +84,7 @@ export function PropertiesTab() {
     backgroundColor,
     setBackgroundColor,
     excelData,
+    selectedRowIndex, 
     resizeElement,
     toggleAspectRatioLock
   } = useCanvasStore();
@@ -88,7 +92,8 @@ export function PropertiesTab() {
   const handleImageUrlChange = async (elementId: string, url: string) => {
     updateElement(elementId, { imageSrc: url });
 
-    if (url) {
+    // Only try to load dimensions if it looks like a real URL (not a variable)
+    if (url && !url.includes("{{") && (url.startsWith("http") || url.startsWith("data:"))) {
       setImageLoadingId(elementId);
       const dimensions = await getImageDimensions(url);
       if (dimensions) {
@@ -117,7 +122,6 @@ export function PropertiesTab() {
       ? elements.find((el) => el.id === selectedElementIds[0])
       : null;
 
-  // --- UPDATED FUNCTION: Generate Tracked Link ---
   const handleGenerateShortLink = async () => {
     if (!selectedElement || !selectedElement.content) {
       toast({ title: "Error", description: "Please enter a URL first.", variant: "destructive" });
@@ -126,13 +130,13 @@ export function PropertiesTab() {
 
     setIsGeneratingLink(true);
     try {
-      const token = await getToken(); // <--- FETCH TOKEN
+      const token = await getToken();
 
       const response = await fetch("/api/qrcodes", {
         method: "POST",
         headers: { 
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}` // <--- ATTACH TOKEN
+            "Authorization": `Bearer ${token}` 
         },
         body: JSON.stringify({ 
           destinationUrl: selectedElement.content 
@@ -146,7 +150,6 @@ export function PropertiesTab() {
 
       const data = await response.json();
 
-      // Use the Prod URL from env if available, otherwise current window
       const baseUrl = import.meta.env.VITE_APP_BASE_URL || window.location.origin;
       const shortUrl = `${baseUrl}/q/${data.id}`;
 
@@ -159,7 +162,6 @@ export function PropertiesTab() {
       setIsGeneratingLink(false);
     }
   };
-  // ---------------------------------------------
 
   if (!selectedElement) {
     return (
@@ -574,11 +576,10 @@ export function PropertiesTab() {
 
         <Separator />
 
-        {/* --- TOC ADVANCED SETTINGS --- */}
+        {/* --- TOC ADVANCED SETTINGS (Unchanged) --- */}
         {selectedElement.type === "toc-list" && selectedElement.tocSettings && (
           <div className="space-y-6">
-
-            {/* 1. TOC Data Configuration */}
+             {/* 1. TOC Data Configuration */}
             <div>
               <h3 className="font-medium text-sm mb-3 text-primary">Data Configuration</h3>
               <div className="space-y-3">
@@ -623,7 +624,7 @@ export function PropertiesTab() {
 
             <Separator />
 
-            {/* 2. Title Settings */}
+            {/* 2. Title Settings (Preserved) */}
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-medium text-sm text-primary">Layout Settings</h3>
@@ -634,9 +635,7 @@ export function PropertiesTab() {
                     })}
                 />
               </div>
-
               <div className="space-y-3 p-3 bg-muted/20 rounded-md border">
-
                   <div className="space-y-1.5">
                       <Label className="text-xs text-muted-foreground flex items-center gap-2">
                           <Columns className="h-3 w-3" /> 
@@ -895,7 +894,7 @@ export function PropertiesTab() {
           </div>
         )}
 
-        {/* --- QR Code Settings (UPDATED) --- */}
+        {/* --- QR Code Settings --- */}
         {selectedElement.type === "qrcode" && (
           <div>
             <h3 className="font-medium text-sm mb-3">QR Code Settings</h3>
@@ -959,7 +958,7 @@ export function PropertiesTab() {
                 {/* --------------------------- */}
 
                 <p className="text-[10px] text-muted-foreground mt-2">
-                  <strong>Dynamic URL:</strong> Allows you to edit the destination link later (even after printing) and track scan statistics.
+                  <strong>Dynamic URL:</strong> Allows you to edit the destination link later.
                 </p>
               </div>
 
@@ -984,8 +983,44 @@ export function PropertiesTab() {
           </div>
         )}
 
-        {(selectedElement.type === "text" ||
-          selectedElement.type === "dataField") && (
+        {/* --- DATA FIELD SPECIFIC: STRICT BINDING (Only for Data Fields) --- */}
+        {selectedElement.type === "dataField" && (
+          <div className="space-y-4">
+             <div className="p-3 bg-primary/5 border border-primary/20 rounded-md">
+                <div className="flex items-center gap-2 mb-2">
+                   <Database className="h-4 w-4 text-primary" />
+                   <h3 className="font-medium text-sm text-primary">Data Binding</h3>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Connected Column</Label>
+                  <Select
+                    value={selectedElement.dataBinding || ""}
+                    onValueChange={(value) => {
+                       // CRITICAL FIX: Syncing Binding AND Content
+                       updateElement(selectedElement.id, { 
+                          dataBinding: value,
+                          content: `{{${value}}}` // Force content to match binding
+                       });
+                    }}
+                  >
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Select a column..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {excelData?.headers.map((header) => (
+                        <SelectItem key={header} value={header}>{header}</SelectItem>
+                      )) || <SelectItem value="none" disabled>No data imported</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                </div>
+             </div>
+             <Separator />
+          </div>
+        )}
+
+        {/* Text & DataField Properties */}
+        {(selectedElement.type === "text" || selectedElement.type === "dataField") && (
           <div>
             <h3 className="font-medium text-sm mb-3">Text Style</h3>
             <div className="space-y-3">
@@ -993,8 +1028,8 @@ export function PropertiesTab() {
                 <div className="flex justify-between items-center">
                   <Label className="text-xs text-muted-foreground">Content</Label>
 
-                  {/* MULTI-SELECT DROPDOWN LOGIC */}
-                  {excelData && excelData.headers.length > 0 && (
+                  {/* Only show "Insert Field" helper for standard Text elements */}
+                  {selectedElement.type === "text" && excelData && excelData.headers.length > 0 && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button 
@@ -1010,18 +1045,13 @@ export function PropertiesTab() {
                             key={header} 
                             onSelect={(e) => {
                               e.preventDefault(); 
-
                               const currentContent = selectedElement.content || "";
                               const fieldTag = `{{${header}}}`;
-
                               if (currentContent.includes(fieldTag)) {
-                                 const newContent = currentContent.split(fieldTag).join("");
-                                 updateElement(selectedElement.id, { content: newContent });
+                                 updateElement(selectedElement.id, { content: currentContent.split(fieldTag).join("") });
                               } else {
                                  const prefix = currentContent && !currentContent.match(/\s$/) ? "\n" : ""; 
-                                 updateElement(selectedElement.id, { 
-                                   content: currentContent + prefix + fieldTag 
-                                 });
+                                 updateElement(selectedElement.id, { content: currentContent + prefix + fieldTag });
                               }
                             }}
                           >
@@ -1040,12 +1070,19 @@ export function PropertiesTab() {
                   onChange={(e) =>
                     updateElement(selectedElement.id, { content: e.target.value })
                   }
-                  placeholder="Enter text or {{FieldName}}..."
-                  data-testid="input-content"
-                  className="font-mono text-sm min-h-[100px]"
+                  placeholder={selectedElement.type === "dataField" ? "Select a column above..." : "Enter text..."}
+                  disabled={selectedElement.type === "dataField"} 
+                  className={`font-mono text-sm min-h-[100px] ${selectedElement.type === "dataField" ? "opacity-70 bg-muted cursor-not-allowed" : ""}`}
                 />
+
+                {selectedElement.type === "dataField" && (
+                   <p className="text-[10px] text-muted-foreground italic">
+                      Content is locked to the bound column. Use "Text" element for custom mixing.
+                   </p>
+                )}
               </div>
 
+              {/* ... (Existing Font controls) ... */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Font Family</Label>
                 <Select
@@ -1089,7 +1126,6 @@ export function PropertiesTab() {
                     data-testid="input-font-size"
                   />
                 </div>
-                {/* Standardized Weight Picker for Text/DataFields */}
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Weight</Label>
                   <Select
@@ -1202,7 +1238,6 @@ export function PropertiesTab() {
                 </div>
               </div>
 
-              {/* Standardized Line Height Slider for Text/DataFields */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">
                   Line Height: {selectedElement.textStyle?.lineHeight || 1.5}
@@ -1220,7 +1255,7 @@ export function PropertiesTab() {
 
             <Separator className="my-4" />
 
-            {/* Data Formatting Section (unchanged) */}
+            {/* Data Formatting Section */}
             <div>
               <h3 className="font-medium text-sm mb-3 flex items-center gap-2">
                 Data Formatting
@@ -1230,7 +1265,6 @@ export function PropertiesTab() {
                 </Tooltip>
               </h3>
 
-              {/* ... (Data formatting inputs remain the same) ... */}
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Treat Data As</Label>
@@ -1536,23 +1570,86 @@ export function PropertiesTab() {
           </div>
         )}
 
-        {/* Image Properties */}
+        {/* Image Properties - UPDATED CONSISTENT UI + SEPARATE PREVIEW FIELD */}
         {selectedElement.type === "image" && (
           <div>
             <h3 className="font-medium text-sm mb-3">Image Settings</h3>
             <div className="space-y-3">
+
+              {/* 1. Image Source / Variable Input (Editable) */}
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Image URL</Label>
+                <div className="flex justify-between items-center">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-2">
+                     <ImageIcon className="h-3 w-3" />
+                     Image Source / URL
+                  </Label>
+
+                  {/* "Insert Field" Helper - Just like Text Fields */}
+                  {excelData && excelData.headers.length > 0 && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          className="h-auto py-1 px-2 text-xs w-auto border-none shadow-none bg-muted/50 hover:bg-muted text-primary whitespace-nowrap"
+                        >
+                           <span className="flex items-center gap-1">Insert Field</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="max-h-[300px] overflow-y-auto">
+                        <DropdownMenuItem onSelect={() => updateElement(selectedElement.id, { imageSrc: "" })}>
+                            <span className="text-muted-foreground italic">Clear</span>
+                        </DropdownMenuItem>
+                        {excelData.headers.map(header => (
+                          <DropdownMenuItem 
+                            key={header} 
+                            onSelect={(e) => {
+                              const fieldTag = `{{${header}}}`;
+                              updateElement(selectedElement.id, { 
+                                imageSrc: fieldTag 
+                              });
+                            }}
+                          >
+                            {header}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+
                 <Input
                   value={selectedElement.imageSrc || ""}
-                  onChange={(e) =>
-                    handleImageUrlChange(selectedElement.id, e.target.value)
-                  }
-                  placeholder="https://..."
+                  onChange={(e) => handleImageUrlChange(selectedElement.id, e.target.value)}
+                  placeholder="https://... or {{MyVariable}}"
                   disabled={imageLoadingId === selectedElement.id}
                   data-testid="input-image-url"
+                  className="font-mono text-xs"
                 />
+                <p className="text-[10px] text-muted-foreground">
+                   Enter a URL or use <code>{"{{Variable}}"}</code> to bind to data.
+                </p>
               </div>
+
+              {/* 2. Resolved URL (READ ONLY) - Shows the actual URL from data if a variable is used */}
+              {selectedElement.imageSrc && selectedElement.imageSrc.includes("{{") && (
+                 <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground flex items-center gap-2">
+                       <ExternalLink className="h-3 w-3" />
+                       URL (Row {selectedRowIndex + 1})
+                    </Label>
+                    <Input
+                       readOnly
+                       value={(() => {
+                          if (!excelData) return "(No data loaded)";
+                          // Replace {{Variables}} with actual data
+                          return selectedElement.imageSrc.replace(/{{([\w\s]+)}}/g, (match, p1) => {
+                             return excelData.rows[selectedRowIndex]?.[p1.trim()] || "(Empty)";
+                          });
+                       })()}
+                       className="font-mono text-xs bg-muted text-muted-foreground cursor-default focus-visible:ring-0"
+                    />
+                 </div>
+              )}
 
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">
@@ -1594,12 +1691,25 @@ export function PropertiesTab() {
                 </div>
               </div>
 
+              {/* Preview Box - Shows data preview if available, otherwise static src */}
               {selectedElement.imageSrc && (
                 <div className="aspect-video bg-muted rounded-md overflow-hidden" style={{ opacity: selectedElement.shapeStyle?.opacity ?? 1 }}>
+                  {/* If source contains {{}}, try to resolve it from current row for preview */}
                   <img
-                    src={selectedElement.imageSrc}
+                    src={
+                        selectedElement.imageSrc.includes("{{") && excelData
+                        ? (function() {
+                             // Simple regex replace for preview
+                             const variable = selectedElement.imageSrc.match(/{{([\w\s]+)}}/)?.[1];
+                             return variable ? excelData.rows[selectedRowIndex]?.[variable] : "";
+                          })()
+                        : selectedElement.imageSrc
+                    }
                     alt="Preview"
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none'; 
+                    }}
                   />
                 </div>
               )}

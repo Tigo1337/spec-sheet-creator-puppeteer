@@ -52,7 +52,7 @@ export function CanvasElement({
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
-  // --- NEW: Inline Editing State ---
+  // Inline Editing State
   const [isEditing, setIsEditing] = useState(false);
   const editorRef = useRef<HTMLTextAreaElement>(null);
 
@@ -65,17 +65,14 @@ export function CanvasElement({
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: element.id,
-    disabled: element.locked || isEditing, // Disable drag when editing text
+    disabled: element.locked || isEditing, 
   });
 
-  // Load Fonts for this element on mount/update
+  // Load Fonts
   useEffect(() => {
-    // 1. Text elements
     if (element.textStyle?.fontFamily) {
         loadFont(element.textStyle.fontFamily);
     }
-
-    // 2. TOC elements
     if (element.tocSettings?.titleStyle?.fontFamily) {
         loadFont(element.tocSettings.titleStyle.fontFamily);
     }
@@ -93,7 +90,6 @@ export function CanvasElement({
     onSelect(element.id, e.shiftKey);
   };
 
-  // --- MODIFIED: Double Click for Inline Editing ---
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!element.locked && (element.type === "text" || element.type === "dataField")) {
@@ -101,7 +97,6 @@ export function CanvasElement({
     }
   };
 
-  // --- NEW: Focus textarea when editing starts ---
   useEffect(() => {
     if (isEditing && editorRef.current) {
       editorRef.current.focus();
@@ -109,7 +104,6 @@ export function CanvasElement({
     }
   }, [isEditing]);
 
-  // --- NEW: Save on Blur ---
   const handleBlur = () => {
     setIsEditing(false);
     if (editorRef.current) {
@@ -117,7 +111,6 @@ export function CanvasElement({
     }
   };
 
-  // --- NEW: Save on Enter (Shift+Enter for new line) ---
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
        e.preventDefault();
@@ -146,11 +139,22 @@ export function CanvasElement({
     return content;
   };
 
+  // --- FIX: UPDATED IMAGE URL RESOLVER ---
   const getImageUrl = () => {
     if (element.type === "image") {
+      // 1. Strict Data Binding (Dropdown selection)
       if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
         return excelData.rows[selectedRowIndex][element.dataBinding] || element.imageSrc || null;
       }
+
+      // 2. Interpolated Variable (Manual {{...}} entry)
+      if (element.imageSrc && excelData && excelData.rows[selectedRowIndex]) {
+         return element.imageSrc.replace(/{{([\w\s]+)}}/g, (match, p1) => {
+            const val = excelData.rows[selectedRowIndex][p1.trim()];
+            return val !== undefined ? val : match;
+         });
+      }
+
       return element.imageSrc || null;
     }
     return null;
@@ -186,7 +190,8 @@ export function CanvasElement({
       img.crossOrigin = "anonymous";
       img.src = url;
     }
-  }, [element.dataBinding, selectedRowIndex, element.type, excelData, element.id, element.dimension.width, imageUrl, updateElement, element.aspectRatio]);
+  }, [element.dataBinding, selectedRowIndex, element.type, excelData, element.id, element.dimension.width, element.imageSrc, updateElement, element.aspectRatio]); 
+  // Added element.imageSrc to deps above
 
   useEffect(() => {
     if (element.type === "qrcode") { 
@@ -282,7 +287,6 @@ export function CanvasElement({
   };
 
   const renderContent = () => {
-    // --- NEW: Inline Editor Renderer ---
     if (isEditing) {
       const activeFont = element.textStyle?.fontFamily || "Inter";
       const fontValue = activeFont.includes(" ") ? `"${activeFont}"` : activeFont;
@@ -323,7 +327,6 @@ export function CanvasElement({
         const displayContent = formatContent(rawTextContent, element.format);
         const hasHtml = isHtmlContent(displayContent);
 
-        // FIX: Ensure fontFamily is quoted to handle spaces (e.g. "Libre Baskerville")
         const activeFont = element.textStyle?.fontFamily || (isDataField ? "JetBrains Mono" : "Inter");
         const fontValue = activeFont.includes(" ") ? `"${activeFont}"` : activeFont;
 
@@ -335,7 +338,7 @@ export function CanvasElement({
               display: "flex",
               flexDirection: "column",
               justifyContent: verticalAlignMap[element.textStyle?.verticalAlign || "middle"] as any,
-              fontFamily: fontValue, // Uses quoted version
+              fontFamily: fontValue, 
               fontSize: (element.textStyle?.fontSize || (isDataField ? 14 : 16)) * zoom,
               fontWeight: element.textStyle?.fontWeight || (isDataField ? 500 : 400),
               color: element.textStyle?.color || "#000000",
@@ -423,7 +426,7 @@ export function CanvasElement({
         return (
           <div className="w-full h-full bg-muted/50 border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
             <span className="text-muted-foreground text-xs" style={{ fontSize: 12 * zoom }}>
-              {element.dataBinding ? `No image for ${element.dataBinding}` : "No image"}
+              {element.dataBinding || element.imageSrc || "No image"}
             </span>
           </div>
         );
@@ -436,7 +439,6 @@ export function CanvasElement({
           />
         );
 
-      // --- TOC RENDERER (PRESERVED) ---
       case "toc-list":
         const settings = element.tocSettings || { title: "Table of Contents", showTitle: true, columnCount: 1 };
         const columnCount = settings.columnCount || 1;
@@ -445,15 +447,12 @@ export function CanvasElement({
         const isMultiPage = (tocData?.length || 0) > 1;
         const isFirstPage = previewPage === 0;
 
-        // FIX: Handle Title Style Quotes
         const titleFont = settings.titleStyle?.fontFamily || "Inter";
         const titleFontValue = titleFont.includes(" ") ? `"${titleFont}"` : titleFont;
 
-        // FIX: Handle Chapter Style Quotes
         const chapterFont = settings.chapterStyle?.fontFamily || "Inter";
         const chapterFontValue = chapterFont.includes(" ") ? `"${chapterFont}"` : chapterFont;
 
-        // FIX: Handle Item Style Quotes
         const itemFont = element.textStyle?.fontFamily || "Inter";
         const itemFontValue = itemFont.includes(" ") ? `"${itemFont}"` : itemFont;
 
@@ -481,7 +480,6 @@ export function CanvasElement({
                   fontFamily: itemFontValue,
                   fontSize: (element.textStyle?.fontSize || 14) * zoom,
                   color: element.textStyle?.color,
-                  // ADDED: Apply weight to the container list
                   fontWeight: element.textStyle?.fontWeight || 400,
                   lineHeight: element.textStyle?.lineHeight,
                   columnCount: columnCount,
@@ -560,7 +558,6 @@ export function CanvasElement({
     }
   };
 
-  // --- NEW: Context Menu Wrapper ---
   return (
     <ContextMenu>
       <ContextMenuTrigger>
@@ -572,7 +569,6 @@ export function CanvasElement({
           className={`absolute transition-shadow duration-100 canvas-element-wrapper`}
           style={{
             ...style,
-            // Disable outline when editing so the textarea focus ring takes precedence if needed
             ...(isSelected && !isEditing && {
               outline: "2px solid #3b82f6", 
               outlineOffset: "0px",
