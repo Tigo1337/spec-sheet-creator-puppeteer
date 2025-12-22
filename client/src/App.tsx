@@ -14,6 +14,9 @@ import Registration from "@/pages/Registration";
 import Checkout from "@/pages/Checkout";
 import CheckoutSuccess from "@/pages/CheckoutSuccess";
 import NotFound from "@/pages/not-found";
+// Legal Pages
+import Privacy from "@/pages/Privacy";
+import Terms from "@/pages/Terms";
 
 function AppContent() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
@@ -59,6 +62,10 @@ function AppContent() {
       <Route path="/solutions" component={Solutions} />
       <Route path="/features" component={Features} />
       <Route path="/pricing" component={Pricing} />
+
+      {/* Legal Routes */}
+      <Route path="/privacy" component={Privacy} />
+      <Route path="/terms" component={Terms} />
 
       {/* Auth Routes */}
       <Route path="/login" component={Login} />

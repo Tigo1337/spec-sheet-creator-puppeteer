@@ -5,24 +5,23 @@ import { Check, ArrowRight, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { Helmet } from "react-helmet-async";
 import { useQuery } from "@tanstack/react-query";
-import { Switch } from "@/components/ui/switch"; // Ensure you have this component
+import { Switch } from "@/components/ui/switch"; 
 import { Label } from "@/components/ui/label";
 
 export default function Pricing() {
   const [, setLocation] = useLocation();
   const [isAnnual, setIsAnnual] = useState(false);
 
-  // 1. Fetch Plans from API
   const { data: prices, isLoading } = useQuery({
     queryKey: ['plans'],
     queryFn: async () => {
       const res = await fetch("/api/plans");
       if (!res.ok) throw new Error("Failed to fetch plans");
       return res.json();
-    }
+    },
+    staleTime: 1000 * 60 * 5, 
   });
 
-  // 2. Helper to find the price object
   const getPrice = (planId: string) => {
     if (!prices) return null;
     return prices.find((p: any) => 
@@ -30,17 +29,24 @@ export default function Pricing() {
     );
   }
 
-  // 3. Helper to format price
-  const formatPrice = (planId: string, fallback: string) => {
+  // --- UPDATED FORMATTER ---
+  const formatPrice = (planId: string, fallback: string, divideByMonth = false) => {
     const price = getPrice(planId);
     if (!price || !price.unit_amount) return fallback;
+
+    let amount = price.unit_amount / 100;
+    if (divideByMonth) {
+        amount = amount / 12;
+    }
 
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: price.currency || 'USD',
-      minimumFractionDigits: 0,
-    }).format(price.unit_amount / 100);
+      minimumFractionDigits: 0, // Keeps $40 as $40
+      maximumFractionDigits: 2, // Allows $39.99 to show as $39.99
+    }).format(amount);
   };
+  // -------------------------
 
   const handlePlanSelect = (plan: string, planIdMetadata: string) => {
     const price = getPrice(planIdMetadata);
@@ -55,7 +61,6 @@ export default function Pricing() {
     setLocation(`/registration`);
   };
 
-  // Shared accent styles
   const accentText = "text-[#2A9D90]";
   const accentBg = "bg-[#2A9D90]";
   const accentBorder = "border-[#2A9D90]";
@@ -84,23 +89,19 @@ export default function Pricing() {
             <h1 className="text-3xl md:text-4xl font-bold text-slate-900">Simple, Transparent Pricing</h1>
             <p className="text-lg text-slate-600">Choose the plan that fits your needs</p>
 
-            {/* TOGGLE SWITCH */}
             <div className="flex items-center justify-center gap-4 pt-4">
               <Label 
-                htmlFor="billing-mode" 
                 className={`text-sm cursor-pointer ${!isAnnual ? "font-bold text-slate-900" : "text-slate-500"}`}
                 onClick={() => setIsAnnual(false)}
               >
                 Monthly
               </Label>
               <Switch 
-                id="billing-mode" 
                 checked={isAnnual} 
                 onCheckedChange={setIsAnnual}
                 className="data-[state=checked]:bg-[#2A9D90]" 
               />
               <Label 
-                htmlFor="billing-mode" 
                 className={`text-sm cursor-pointer flex items-center gap-2 ${isAnnual ? "font-bold text-slate-900" : "text-slate-500"}`}
                 onClick={() => setIsAnnual(true)}
               >
@@ -114,10 +115,10 @@ export default function Pricing() {
 
           <div className="grid md:grid-cols-3 gap-8 mt-12 max-w-6xl mx-auto">
 
-            {/* 1. STARTER (Free) */}
+            {/* 1. STARTER */}
             <div className="p-8 border border-slate-200 rounded-2xl bg-white shadow-sm hover:shadow-md transition-shadow">
               <h3 className="font-semibold text-xl mb-2 text-slate-900">Starter</h3>
-              <p className="text-slate-500 mb-6">For testing & small projects</p>
+              <p className="text-slate-500 mb-6">For getting started</p>
               <div className="mb-6 h-[60px] flex items-end">
                 <span className="text-4xl font-bold text-slate-900">$0</span>
                 <span className="text-slate-500 mb-1 ml-1">/month</span>
@@ -126,7 +127,9 @@ export default function Pricing() {
                 {[
                   '50 PDFs / month', 
                   'Digital Ready Export', 
-                  'Basic Templates', 
+                  'CSV & Excel Import', 
+                  'Basic QR Codes',
+                  'Multi-page Product Templates',
                   'Watermarked Exports'
                 ].map((feat, i) => (
                   <li key={i} className="flex items-start gap-3">
@@ -144,35 +147,42 @@ export default function Pricing() {
               </Button>
             </div>
 
-            {/* 2. PRO (Dynamic) */}
+            {/* 2. PRO */}
             <div className={`p-8 border-2 ${accentBorder} rounded-2xl bg-white relative shadow-xl transform scale-105 z-10`}>
               <div className={`absolute -top-4 left-1/2 -translate-x-1/2 ${accentBg} text-white px-4 py-1 rounded-full text-xs font-bold tracking-wide uppercase shadow-sm`}>
                 Most Popular
               </div>
               <h3 className="font-semibold text-xl mb-2 text-slate-900">Pro</h3>
-              <p className="text-slate-500 mb-6">For scaling production</p>
+              <p className="text-slate-500 mb-6">For professionals</p>
 
-              <div className="mb-6 h-[60px] flex items-end">
-                <span className="text-4xl font-bold text-slate-900 transition-all duration-300">
-                  {isAnnual 
-                    ? formatPrice("prod_pro_annual", "$159") 
-                    : formatPrice("prod_pro_monthly", "$29")
-                  }
-                </span>
-                <span className="text-slate-500 mb-1 ml-1 transition-all duration-300">
-                   {isAnnual ? "/year" : "/month"}
-                </span>
+              <div className="mb-6 h-[60px] flex flex-col justify-end">
+                <div className="flex items-end">
+                    <span className="text-4xl font-bold text-slate-900 transition-all duration-300">
+                    {isAnnual 
+                        ? formatPrice("prod_pro_annual", "$13", true) 
+                        : formatPrice("prod_pro_monthly", "$29", false)
+                    }
+                    </span>
+                    <span className="text-slate-500 mb-1 ml-1 transition-all duration-300">
+                    /month
+                    </span>
+                </div>
+                {isAnnual && (
+                    <span className="text-xs text-slate-400 mt-1">
+                        Billed {formatPrice("prod_pro_annual", "$159", false)} yearly
+                    </span>
+                )}
               </div>
 
               <ul className="space-y-4 mb-8 text-sm">
                 {[
                   'Unlimited PDFs', 
-                  'Print Ready', 
-                  'Dynamic QR Codes', 
-                  'Priority Rendering',
-                  'No Watermarks',
-                  isAnnual ? '2 Months Free' : null // Only show on annual view
-                ].filter(Boolean).map((feat, i) => (
+                  'Print Ready Exports', 
+                  'Manageable QR Codes', 
+                  'Full Catalog Assembly', 
+                  'Priority Rendering Queue',
+                  'Watermark Removal'
+                ].map((feat, i) => (
                   <li key={i} className="flex items-start gap-3">
                     <Check className={`h-5 w-5 ${accentText} shrink-0`} />
                     <span className="text-slate-700 font-medium">{feat}</span>
@@ -190,12 +200,6 @@ export default function Pricing() {
               >
                 {isAnnual ? "Start Pro Annual" : "Start Pro Monthly"}
               </Button>
-
-              {isAnnual && (
-                <p className="text-xs text-center text-slate-400 mt-3">
-                  Billed once per year
-                </p>
-              )}
             </div>
 
             {/* 3. ENTERPRISE */}
@@ -207,12 +211,11 @@ export default function Pricing() {
               </div>
               <ul className="space-y-4 mb-8 text-sm">
                 {[
-                  'Everything in Pro',
                   'Dedicated Rendering Server', 
                   'Custom Font Uploads', 
-                  'Template Migration Service', 
-                  'SLA Support',
-                  'SSO / SAML'
+                  'Template Migration Services', 
+                  'API Access', 
+                  'SLA Support'
                 ].map((feat, i) => (
                   <li key={i} className="flex items-start gap-3">
                     <Check className={`h-5 w-5 ${accentText} shrink-0`} />
