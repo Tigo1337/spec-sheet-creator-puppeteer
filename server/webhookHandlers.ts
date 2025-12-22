@@ -1,24 +1,30 @@
-import { getStripeSync, getUncachableStripeClient } from './stripeClient';
+import { getUncachableStripeClient } from './stripeClient';
 import { storage } from './storage';
 import Stripe from 'stripe';
 
 export class WebhookHandlers {
-  static async processWebhook(payload: Buffer, signature: string, uuid: string): Promise<void> {
+  static async processWebhook(payload: Buffer, signature: string): Promise<void> {
     if (!Buffer.isBuffer(payload)) {
       throw new Error(
-        'STRIPE WEBHOOK ERROR: Payload must be a Buffer. ' +
-        'Received type: ' + typeof payload + '. ' +
-        'This usually means express.json() parsed the body before reaching this handler. ' +
-        'FIX: Ensure webhook route is registered BEFORE app.use(express.json()).'
+        'STRIPE WEBHOOK ERROR: Payload must be a Buffer.'
       );
     }
 
-    const sync = await getStripeSync();
-
-    await sync.processWebhook(payload, signature, uuid);
-
     const stripe = await getUncachableStripeClient();
-    const event = JSON.parse(payload.toString()) as Stripe.Event;
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!webhookSecret) {
+      throw new Error('Missing STRIPE_WEBHOOK_SECRET in environment variables');
+    }
+
+    let event: Stripe.Event;
+
+    try {
+      event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    } catch (err: any) {
+      console.error(`Webhook signature verification failed: ${err.message}`);
+      throw err;
+    }
 
     await WebhookHandlers.handleEvent(event, stripe);
   }
