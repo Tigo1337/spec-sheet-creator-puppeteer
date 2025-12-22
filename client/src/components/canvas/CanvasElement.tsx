@@ -50,7 +50,8 @@ export function CanvasElement({
   } = useCanvasStore();
 
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  // Removed local imageUrl state to prevent stale-state race conditions
 
   // Inline Editing State
   const [isEditing, setIsEditing] = useState(false);
@@ -139,7 +140,7 @@ export function CanvasElement({
     return content;
   };
 
-  // --- FIX: UPDATED IMAGE URL RESOLVER ---
+  // --- DERIVE URL ON EVERY RENDER (Fixes Stale State) ---
   const getImageUrl = () => {
     if (element.type === "image") {
       // 1. Strict Data Binding (Dropdown selection)
@@ -160,38 +161,47 @@ export function CanvasElement({
     return null;
   };
 
+  const activeUrl = getImageUrl();
+
+  // --- ROBUST IMAGE LOADER ---
   useEffect(() => {
-    if (element.type !== "image") return;
+    if (element.type !== "image" || !activeUrl) return;
 
-    const url = getImageUrl();
-    if (url && url !== imageUrl) {
-      setImageUrl(url);
-      const img = new Image();
-      img.onload = () => {
-        const naturalWidth = img.naturalWidth;
-        const naturalHeight = img.naturalHeight;
-        setImageDimensions({ width: naturalWidth, height: naturalHeight });
+    let isMounted = true; // Cleanup flag
+    const img = new Image();
 
-        const naturalRatio = naturalWidth / naturalHeight;
+    img.onload = () => {
+      if (!isMounted) return;
+      const naturalWidth = img.naturalWidth;
+      const naturalHeight = img.naturalHeight;
+      setImageDimensions({ width: naturalWidth, height: naturalHeight });
 
-        if (!element.aspectRatio) {
-             const newHeight = Math.round(element.dimension.width / naturalRatio);
+      const naturalRatio = naturalWidth / naturalHeight;
 
-             updateElement(element.id, {
-                dimension: { width: element.dimension.width, height: newHeight },
-                aspectRatio: naturalRatio,
-                aspectRatioLocked: true 
-             });
-        }
-      };
-      img.onerror = () => {
-        setImageDimensions(null);
-      };
-      img.crossOrigin = "anonymous";
-      img.src = url;
-    }
-  }, [element.dataBinding, selectedRowIndex, element.type, excelData, element.id, element.dimension.width, element.imageSrc, updateElement, element.aspectRatio]); 
-  // Added element.imageSrc to deps above
+      if (!element.aspectRatio) {
+           const newHeight = Math.round(element.dimension.width / naturalRatio);
+           updateElement(element.id, {
+              dimension: { width: element.dimension.width, height: newHeight },
+              aspectRatio: naturalRatio,
+              aspectRatioLocked: true 
+           });
+      }
+    };
+
+    img.onerror = () => {
+      if (!isMounted) return;
+      setImageDimensions(null);
+    };
+
+    img.crossOrigin = "anonymous";
+    img.src = activeUrl;
+
+    return () => {
+        isMounted = false; // Prevent setting state on unmounted component
+        img.onload = null;
+        img.onerror = null;
+    };
+  }, [activeUrl, element.type, element.id, element.dimension.width, element.aspectRatio, updateElement]);
 
   useEffect(() => {
     if (element.type === "qrcode") { 
@@ -393,7 +403,7 @@ export function CanvasElement({
         return <div className="w-full h-full" style={shapeStyle} />;
 
       case "image":
-        const displayImageUrl = getImageUrl();
+        const displayImageUrl = activeUrl; // Use the URL derived in render
         if (displayImageUrl) {
           const neededWidth = Math.ceil(element.dimension.width * 3.125);
           const neededHeight = Math.ceil(element.dimension.height * 3.125);
