@@ -17,6 +17,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { PublicHeader } from "@/components/layout/PublicHeader";
+import { Footer } from "@/components/layout/Footer"; // <--- Imported Footer
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -42,7 +43,6 @@ export default function Homepage() {
     );
   }
 
-  // --- UPDATED FORMATTER ---
   const formatPrice = (planId: string, fallback: string, divideByMonth = false) => {
     const price = getPrice(planId);
     if (!price || !price.unit_amount) return fallback;
@@ -55,11 +55,10 @@ export default function Homepage() {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: price.currency || 'USD',
-      minimumFractionDigits: 0, // Keeps $40 as $40
-      maximumFractionDigits: 2, // Allows $39.99 to show as $39.99
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
     }).format(amount);
   };
-  // -------------------------
 
   const accentColor = "text-[#2A9D90]";
   const accentBg = "bg-[#2A9D90]";
@@ -431,42 +430,8 @@ export default function Homepage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 py-12">
-        <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-4 gap-8">
-          <div>
-            <div className="flex items-center gap-2 font-bold text-xl text-slate-900 mb-4">
-              <div className={`w-8 h-8 ${accentBg} rounded-lg flex items-center justify-center text-white`}>
-                <Layers size={20} />
-              </div>
-              Doculoom
-            </div>
-            <p className="text-slate-500 text-sm">Automating document creation for modern teams.</p>
-          </div>
-           {/* Footer Links - Kept simple */}
-           <div>
-            <h4 className="font-bold mb-4">Product</h4>
-            <ul className="space-y-2 text-sm text-slate-500">
-              <li><a href="#" className="hover:text-[#2A9D90]">Features</a></li>
-              <li><a href="#" className="hover:text-[#2A9D90]">Pricing</a></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-bold mb-4">Resources</h4>
-            <ul className="space-y-2 text-sm text-slate-500">
-              <li><a href="#" className="hover:text-[#2A9D90]">Blog</a></li>
-              <li><a href="#" className="hover:text-[#2A9D90]">Help Center</a></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-bold mb-4">Legal</h4>
-            <ul className="space-y-2 text-sm text-slate-500">
-              <li><a href="#" className="hover:text-[#2A9D90]">Privacy</a></li>
-              <li><a href="#" className="hover:text-[#2A9D90]">Terms</a></li>
-            </ul>
-          </div>
-        </div>
-      </footer>
+      {/* Replaced old Footer block with Component */}
+      <Footer />
     </div>
   );
 }

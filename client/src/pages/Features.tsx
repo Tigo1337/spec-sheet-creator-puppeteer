@@ -1,10 +1,10 @@
 import { PublicHeader } from "@/components/layout/PublicHeader";
-import { Helmet } from "react-helmet-async"; // Import Helmet
+import { Footer } from "@/components/layout/Footer"; // <--- Imported Footer
+import { Helmet } from "react-helmet-async"; 
 
 export default function Features() {
   return (
     <div className="min-h-screen bg-background">
-      {/* SEO BLOCK */}
       <Helmet>
         <title>Features - Excel to PDF Automation | Doculoom</title>
         <meta name="description" content="Explore Doculoom features: Drag-and-drop canvas, Excel/CSV integration, batch PDF export, and CMYK print support." />
@@ -16,7 +16,6 @@ export default function Features() {
       <section className="max-w-7xl mx-auto px-4 py-20">
         <div className="space-y-8">
           <div className="text-center space-y-4">
-            {/* H1 for SEO Hierarchy */}
             <h1 className="text-3xl md:text-4xl font-bold">Features</h1>
             <p className="text-lg text-muted-foreground">Everything you need to create professional spec sheets</p>
           </div>
@@ -41,6 +40,8 @@ export default function Features() {
           </div>
         </div>
       </section>
+
+      <Footer />
     </div>
   );
 }

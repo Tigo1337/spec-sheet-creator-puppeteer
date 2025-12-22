@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PublicHeader } from "@/components/layout/PublicHeader";
+import { Footer } from "@/components/layout/Footer"; // <--- Imported Footer
 import { Button } from "@/components/ui/button";
 import { Check, ArrowRight, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
@@ -42,8 +43,8 @@ export default function Pricing() {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: price.currency || 'USD',
-      minimumFractionDigits: 0, // Keeps $40 as $40
-      maximumFractionDigits: 2, // Allows $39.99 to show as $39.99
+      minimumFractionDigits: 0, 
+      maximumFractionDigits: 2, 
     }).format(amount);
   };
   // -------------------------
@@ -240,6 +241,8 @@ export default function Pricing() {
           </div>
         </div>
       </section>
+
+      <Footer />
     </div>
   );
 }

@@ -1,10 +1,10 @@
 import { PublicHeader } from "@/components/layout/PublicHeader";
-import { Helmet } from "react-helmet-async"; // Import Helmet
+import { Footer } from "@/components/layout/Footer"; // <--- Imported Footer
+import { Helmet } from "react-helmet-async"; 
 
 export default function Solutions() {
   return (
     <div className="min-h-screen bg-background">
-      {/* SEO BLOCK */}
       <Helmet>
         <title>Solutions - For Agencies & Manufacturers | Doculoom</title>
         <meta name="description" content="Streamline document generation for retail, manufacturing, and agencies. Create data-driven spec sheets at scale." />
@@ -16,7 +16,6 @@ export default function Solutions() {
       <section className="max-w-7xl mx-auto px-4 py-20">
         <div className="space-y-8">
           <div className="text-center space-y-4">
-            {/* H1 for SEO Hierarchy */}
             <h1 className="text-3xl md:text-4xl font-bold">Solutions</h1>
             <p className="text-lg text-muted-foreground">Learn how Doculoom solves your design challenges</p>
           </div>
@@ -37,6 +36,8 @@ export default function Solutions() {
           </div>
         </div>
       </section>
+
+      <Footer />
     </div>
   );
 }
