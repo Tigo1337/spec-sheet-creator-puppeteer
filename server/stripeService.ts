@@ -42,6 +42,19 @@ export class StripeService {
       return_url: returnUrl,
     });
   }
+
+  // --- NEW METHOD ---
+  async getActivePrices() {
+    const stripe = await getUncachableStripeClient();
+    const prices = await stripe.prices.list({
+      active: true,
+      limit: 100,
+      expand: ['data.product'] 
+    });
+
+    // Filter to only include prices that have our specific metadata from the seed script
+    return prices.data.filter(p => p.metadata?.planId || (p.product as any)?.metadata?.planId);
+  }
 }
 
 export const stripeService = new StripeService();

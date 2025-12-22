@@ -18,8 +18,6 @@ import { promisify } from "util";
 const execAsync = promisify(exec);
 
 // --- STRICT QUEUE SYSTEM ---
-// This acts as a bottleneck. It allows only 1 PDF generation at a time.
-// This is critical for Replit/VPS to prevent CPU/RAM spikes.
 const pdfQueue = {
   active: 0,
   limit: 1, 
@@ -349,8 +347,6 @@ export async function registerRoutes(
     }
   });
 
-  // ... (Remaining Template, User Designs, Object Storage, Stripe, and Sync routes - same as original file)
-  // To save space I am truncating them here, but ensure you keep the rest of the file content intact.
   // Template Routes (Admin Secured)
   app.get("/api/templates", async (req, res) => {
     try {
@@ -510,6 +506,18 @@ export async function registerRoutes(
       res.status(500).json({ error: "Internal server error" });
     }
   });
+
+  // --- NEW PLANS ROUTE ---
+  app.get("/api/plans", async (req, res) => {
+    try {
+      const prices = await stripeService.getActivePrices();
+      res.json(prices);
+    } catch (error) {
+      console.error("Failed to fetch plans:", error);
+      res.status(500).json({ error: "Failed to fetch plans" });
+    }
+  });
+  // ---------------------
 
   app.get("/api/stripe/config", async (req, res) => {
     try {

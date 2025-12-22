@@ -29,7 +29,19 @@ export async function getStripeSecretKey() {
 }
 
 // 5. Stripe Sync Helper (keeps your DB in sync)
-// Removed stripe-replit-sync for manual Stripe integration
+let stripeSync: any = null;
+
 export async function getStripeSync() {
-  return null;
+  if (!stripeSync) {
+    const { StripeSync } = await import('stripe-replit-sync');
+
+    stripeSync = new StripeSync({
+      poolConfig: {
+        connectionString: process.env.DATABASE_URL!,
+        max: 2,
+      },
+      stripeSecretKey: process.env.STRIPE_SECRET_KEY!,
+    });
+  }
+  return stripeSync;
 }
