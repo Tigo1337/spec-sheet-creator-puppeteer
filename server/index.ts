@@ -34,10 +34,12 @@ Sentry.init({
 const httpServer = createServer(app);
 
 // Add Clerk authentication middleware
-const clerkPublishableKey = process.env.VITE_CLERK_PUBLISHABLE_KEY;
+const clerkPublishableKey = process.env.VITE_CLERK_PUBLISHABLE_KEY_DEV || process.env.VITE_CLERK_PUBLISHABLE_KEY;
+const clerkSecretKey = process.env.CLERK_SECRET_KEY_DEV || process.env.CLERK_SECRET_KEY;
+
 app.use(clerkMiddleware({
   publishableKey: clerkPublishableKey,
-  secretKey: process.env.CLERK_SECRET_KEY,
+  secretKey: clerkSecretKey,
 }));
 
 declare module "http" {
