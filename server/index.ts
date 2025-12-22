@@ -34,8 +34,26 @@ Sentry.init({
 const httpServer = createServer(app);
 
 // Add Clerk authentication middleware
-const clerkPublishableKey = process.env.VITE_CLERK_PUBLISHABLE_KEY_DEV || process.env.VITE_CLERK_PUBLISHABLE_KEY;
-const clerkSecretKey = process.env.CLERK_SECRET_KEY_DEV || process.env.CLERK_SECRET_KEY;
+// Select Clerk keys based on NODE_ENV to prevent dev/prod key mismatches
+const isDevelopment = process.env.NODE_ENV !== 'production';
+
+const clerkPublishableKey = isDevelopment 
+  ? (process.env.VITE_CLERK_PUBLISHABLE_KEY_DEV || process.env.VITE_CLERK_PUBLISHABLE_KEY)
+  : process.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+const clerkSecretKey = isDevelopment 
+  ? (process.env.CLERK_SECRET_KEY_DEV || process.env.CLERK_SECRET_KEY)
+  : process.env.CLERK_SECRET_KEY;
+
+// Fail fast if required Clerk keys are missing
+if (!clerkPublishableKey || !clerkSecretKey) {
+  const envType = isDevelopment ? 'development' : 'production';
+  console.error(`❌ CRITICAL: Missing Clerk keys for ${envType} environment.`);
+  console.error(`   Required: ${isDevelopment ? 'VITE_CLERK_PUBLISHABLE_KEY_DEV & CLERK_SECRET_KEY_DEV (or fallback to prod keys)' : 'VITE_CLERK_PUBLISHABLE_KEY & CLERK_SECRET_KEY'}`);
+  process.exit(1);
+}
+
+console.log(`Clerk configured for ${isDevelopment ? 'development' : 'production'} environment`);
 
 app.use(clerkMiddleware({
   publishableKey: clerkPublishableKey,

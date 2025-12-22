@@ -10,10 +10,18 @@ import { HelmetProvider } from "react-helmet-async";
 
 // --- Configuration Checks ---
 
-// 1. Clerk Key
-const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY_DEV || import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+// 1. Clerk Key - Select based on environment
+// In development mode (Vite dev server), use DEV keys if available
+// In production builds, always use production keys
+const isDevelopment = import.meta.env.DEV;
+
+const PUBLISHABLE_KEY = isDevelopment 
+  ? (import.meta.env.VITE_CLERK_PUBLISHABLE_KEY_DEV || import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
+  : import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
 if (!PUBLISHABLE_KEY) {
-  throw new Error("Missing Publishable Key");
+  const envType = isDevelopment ? 'development' : 'production';
+  throw new Error(`Missing Clerk Publishable Key for ${envType} environment. Please set ${isDevelopment ? 'VITE_CLERK_PUBLISHABLE_KEY_DEV' : 'VITE_CLERK_PUBLISHABLE_KEY'} in your environment.`);
 }
 
 // 2. Sentry Init
