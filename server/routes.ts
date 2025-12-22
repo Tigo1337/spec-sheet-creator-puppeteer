@@ -41,6 +41,23 @@ const pdfQueue = {
   }
 };
 
+// Helper to check admin status via Env Var OR Clerk Role
+async function checkAdmin(userId: string): Promise<boolean> {
+  // 1. Check Environment Variable (Fastest)
+  if (process.env.ADMIN_USER_ID && userId === process.env.ADMIN_USER_ID) {
+    return true;
+  }
+
+  // 2. Check Clerk Role (Database/Metadata source)
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    return user.publicMetadata?.role === "admin";
+  } catch (error) {
+    console.error("Failed to verify admin role:", error);
+    return false;
+  }
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -397,8 +414,6 @@ export async function registerRoutes(
   // QR Code & Admin Routes
   // ============================================
 
-  const adminUserId = process.env.ADMIN_USER_ID;
-
   app.post("/api/qrcodes", async (req, res) => {
     try {
       const auth = getAuth(req);
@@ -472,7 +487,11 @@ export async function registerRoutes(
   app.post("/api/templates", async (req, res) => {
     try {
       const auth = getAuth(req);
-      if (!auth.userId || auth.userId !== adminUserId) return res.status(403).json({ error: "Unauthorized" });
+      if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
+
+      const isAdmin = await checkAdmin(auth.userId);
+      if (!isAdmin) return res.status(403).json({ error: "Unauthorized" });
+
       const parseResult = insertTemplateSchema.safeParse(req.body);
       if (!parseResult.success) return res.status(400).json({ error: parseResult.error.message });
       const template = await storage.createTemplate(parseResult.data);
@@ -485,7 +504,11 @@ export async function registerRoutes(
   app.put("/api/templates/:id", async (req, res) => {
     try {
       const auth = getAuth(req);
-      if (!auth.userId || auth.userId !== adminUserId) return res.status(403).json({ error: "Unauthorized" });
+      if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
+
+      const isAdmin = await checkAdmin(auth.userId);
+      if (!isAdmin) return res.status(403).json({ error: "Unauthorized" });
+
       const template = await storage.updateTemplate(req.params.id, req.body);
       if (!template) return res.status(404).json({ error: "Template not found" });
       res.json(template);
@@ -497,7 +520,11 @@ export async function registerRoutes(
   app.delete("/api/templates/:id", async (req, res) => {
     try {
       const auth = getAuth(req);
-      if (!auth.userId || auth.userId !== adminUserId) return res.status(403).json({ error: "Unauthorized" });
+      if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
+
+      const isAdmin = await checkAdmin(auth.userId);
+      if (!isAdmin) return res.status(403).json({ error: "Unauthorized" });
+
       const deleted = await storage.deleteTemplate(req.params.id);
       if (!deleted) return res.status(404).json({ error: "Template not found" });
       res.status(204).send();

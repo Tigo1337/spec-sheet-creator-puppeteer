@@ -51,8 +51,6 @@ export function CanvasElement({
 
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
 
-  // Removed local imageUrl state to prevent stale-state race conditions
-
   // Inline Editing State
   const [isEditing, setIsEditing] = useState(false);
   const editorRef = useRef<HTMLTextAreaElement>(null);
@@ -71,15 +69,9 @@ export function CanvasElement({
 
   // Load Fonts
   useEffect(() => {
-    if (element.textStyle?.fontFamily) {
-        loadFont(element.textStyle.fontFamily);
-    }
-    if (element.tocSettings?.titleStyle?.fontFamily) {
-        loadFont(element.tocSettings.titleStyle.fontFamily);
-    }
-    if (element.tocSettings?.chapterStyle?.fontFamily) {
-        loadFont(element.tocSettings.chapterStyle.fontFamily);
-    }
+    if (element.textStyle?.fontFamily) loadFont(element.textStyle.fontFamily);
+    if (element.tocSettings?.titleStyle?.fontFamily) loadFont(element.tocSettings.titleStyle.fontFamily);
+    if (element.tocSettings?.chapterStyle?.fontFamily) loadFont(element.tocSettings.chapterStyle.fontFamily);
   }, [
       element.textStyle?.fontFamily, 
       element.tocSettings?.titleStyle?.fontFamily,
@@ -140,15 +132,13 @@ export function CanvasElement({
     return content;
   };
 
-  // --- DERIVE URL ON EVERY RENDER (Fixes Stale State) ---
+  // --- 1. DERIVE URL DIRECTLY (No State) ---
   const getImageUrl = () => {
     if (element.type === "image") {
-      // 1. Strict Data Binding (Dropdown selection)
       if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
         return excelData.rows[selectedRowIndex][element.dataBinding] || element.imageSrc || null;
       }
 
-      // 2. Interpolated Variable (Manual {{...}} entry)
       if (element.imageSrc && excelData && excelData.rows[selectedRowIndex]) {
          return element.imageSrc.replace(/{{([\w\s]+)}}/g, (match, p1) => {
             const val = excelData.rows[selectedRowIndex][p1.trim()];
@@ -163,11 +153,11 @@ export function CanvasElement({
 
   const activeUrl = getImageUrl();
 
-  // --- ROBUST IMAGE LOADER ---
+  // --- 2. ROBUST IMAGE LOADER ---
   useEffect(() => {
     if (element.type !== "image" || !activeUrl) return;
 
-    let isMounted = true; // Cleanup flag
+    let isMounted = true; 
     const img = new Image();
 
     img.onload = () => {
@@ -177,7 +167,6 @@ export function CanvasElement({
       setImageDimensions({ width: naturalWidth, height: naturalHeight });
 
       const naturalRatio = naturalWidth / naturalHeight;
-
       if (!element.aspectRatio) {
            const newHeight = Math.round(element.dimension.width / naturalRatio);
            updateElement(element.id, {
@@ -193,11 +182,12 @@ export function CanvasElement({
       setImageDimensions(null);
     };
 
+    // Keep crossOrigin here for calculation (prevents tainting logic issues)
     img.crossOrigin = "anonymous";
     img.src = activeUrl;
 
     return () => {
-        isMounted = false; // Prevent setting state on unmounted component
+        isMounted = false; 
         img.onload = null;
         img.onerror = null;
     };
@@ -403,7 +393,7 @@ export function CanvasElement({
         return <div className="w-full h-full" style={shapeStyle} />;
 
       case "image":
-        const displayImageUrl = activeUrl; // Use the URL derived in render
+        const displayImageUrl = activeUrl; 
         if (displayImageUrl) {
           const neededWidth = Math.ceil(element.dimension.width * 3.125);
           const neededHeight = Math.ceil(element.dimension.height * 3.125);
@@ -414,13 +404,22 @@ export function CanvasElement({
               className="relative w-full h-full" 
               style={{ opacity: element.shapeStyle?.opacity ?? 1 }}
             >
+              {/* FIX: 
+                  1. Removed crossOrigin="anonymous" to prevent browser cache corruption (glitchy/colored noise).
+                  2. Added loading="eager" to force immediate decode.
+                  3. Added transform: translateZ(0) to force GPU composition layer.
+              */}
               <img
                 src={displayImageUrl}
                 alt=""
-                crossOrigin="anonymous"
+                loading="eager" 
                 className="w-full h-full object-contain"
                 draggable={false}
-                style={{ objectPosition: "center" }}
+                style={{ 
+                    objectPosition: "center",
+                    transform: "translateZ(0)", // Force GPU layer
+                    backfaceVisibility: "hidden"
+                }}
               />
                {isLowQuality && !element.locked && (
                 <div 
