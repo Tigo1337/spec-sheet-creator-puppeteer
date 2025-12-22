@@ -532,16 +532,29 @@ export async function registerRoutes(
     try {
       const auth = getAuth(req);
       if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
-      const clerkUser = await clerkClient.users.getUser(auth.userId);
-      const email = clerkUser.emailAddresses[0]?.emailAddress;
-      if (!email) return res.status(400).json({ error: "User email not found" });
+      
       let user = await storage.getUser(auth.userId);
       if (!user) {
+        let email: string | undefined;
+        try {
+          const clerkUser = await clerkClient.users.getUser(auth.userId);
+          email = clerkUser.emailAddresses[0]?.emailAddress;
+        } catch (clerkError: any) {
+          console.error(`Clerk user fetch failed during sync for user ${auth.userId}:`, clerkError);
+        }
+        
+        if (!email) {
+          return res.status(400).json({ 
+            error: "User email not found", 
+            details: "Could not retrieve email from Clerk. Please ensure you are logged in correctly." 
+          });
+        }
         user = await storage.createUser({ id: auth.userId, email, plan: "free", planStatus: "active" });
       }
       res.json(user);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to sync user" });
+    } catch (error: any) {
+      console.error("Failed to sync user:", error);
+      res.status(500).json({ error: "Failed to sync user", details: error.message });
     }
   });
 
@@ -570,9 +583,17 @@ export async function registerRoutes(
       if (!priceId) return res.status(400).json({ error: "Price ID is required" });
       let user = await storage.getUser(auth.userId);
       if (!user) {
-        const clerkUser = await clerkClient.users.getUser(auth.userId);
-        const email = clerkUser.emailAddresses[0]?.emailAddress;
-        if (!email) return res.status(400).json({ error: "User email not found" });
+        let email: string | undefined;
+        try {
+          const clerkUser = await clerkClient.users.getUser(auth.userId);
+          email = clerkUser.emailAddresses[0]?.emailAddress;
+        } catch (clerkError) {
+          console.error("Clerk user fetch failed, attempting fallback:", clerkError);
+          // Fallback: If Clerk fetch fails (e.g. race condition), try to use email from token/metadata if possible
+          // For now, if we can't get email, we can't create the user record reliably for Stripe
+        }
+        
+        if (!email) return res.status(400).json({ error: "User email not found. Please ensure your Clerk profile is complete." });
         user = await storage.createUser({ id: auth.userId, email, plan: "free", planStatus: "active" });
       }
       let customerId = user.stripeCustomerId;
@@ -592,8 +613,9 @@ export async function registerRoutes(
         auth.userId
       );
       res.json({ url: session.url });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to create checkout session" });
+    } catch (error: any) {
+      console.error("Failed to create checkout session:", error);
+      res.status(500).json({ error: "Failed to create checkout session", details: error.message });
     }
   });
 

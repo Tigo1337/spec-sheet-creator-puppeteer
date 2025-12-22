@@ -80,6 +80,16 @@ export default function Checkout() {
     setError(null);
 
     try {
+      const token = await getToken();
+      
+      // Ensure user exists in DB before checkout
+      await fetch("/api/users/sync", {
+        method: "POST",
+        headers: { 
+          Authorization: `Bearer ${token}` 
+        }
+      });
+
       // Note: apiRequest should handle auth headers if configured globally, 
       // but explicitly passing token is safer if apiRequest doesn't.
       // Assuming apiRequest works for paid flow, we keep it as is.
