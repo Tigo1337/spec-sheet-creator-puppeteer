@@ -45,7 +45,7 @@ import {
   Sparkles,
   Loader2,
   Wand2,
-  Save 
+  Save,
 } from "lucide-react";
 import {
   DndContext,
@@ -55,13 +55,13 @@ import {
   useDraggable,
 } from "@dnd-kit/core";
 
+// ... [Keep DraggableHeader component as is] ...
 function DraggableHeader({ header }: { header: string }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `header-${header}`,
     data: { header },
   });
 
-  // Check store to see if this is an AI field
   const aiFieldNames = useCanvasStore(state => state.aiFieldNames);
   const isAI = aiFieldNames.has(header);
 
@@ -89,7 +89,6 @@ export function DataTab() {
   const [useAI, setUseAI] = useState(true); 
   const { toast } = useToast();
 
-  // --- ENRICHMENT STATE ---
   const [enrichDialogOpen, setEnrichDialogOpen] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
   const [enrichType, setEnrichType] = useState("marketing");
@@ -100,7 +99,7 @@ export function DataTab() {
   const {
     excelData,
     setExcelData,
-    updateExcelData, // New Action
+    updateExcelData, 
     selectedRowIndex,
     setSelectedRowIndex,
     addElement,
@@ -111,15 +110,14 @@ export function DataTab() {
     elements,
     markAiField,    
     aiFieldNames,
-    uniqueIdColumn, // Get from store
-    setUniqueIdColumn // Get from store
+    uniqueIdColumn, 
+    setUniqueIdColumn 
   } = useCanvasStore();
 
   const handleUniqueIdChange = async (columnName: string) => {
     if (!excelData) return;
     setUniqueIdColumn(columnName);
 
-    // Trigger Knowledge Check Immediately
     const keysToCheck = excelData.rows.map(r => r[columnName]).filter(Boolean);
     if (keysToCheck.length === 0) return;
 
@@ -129,47 +127,39 @@ export function DataTab() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
                 keys: keysToCheck,
-                keyName: columnName // Send the specific column name
+                keyName: columnName 
             })
         });
 
         if (knResponse.ok) {
             const { matches } = await knResponse.json();
-            
-            // matches = { "SKU-123": { "Marketing Copy": "..." } }
 
             let finalHeaders = [...excelData.headers];
             let finalRows = [...excelData.rows];
-            
+
             const foundFields = new Set<string>();
             Object.values(matches).forEach((fields: any) => {
                 Object.keys(fields).forEach(f => foundFields.add(f));
             });
 
-            // Filter out fields that already exist in the CSV to prevent duplicates
             const newFields = Array.from(foundFields).filter(f => !finalHeaders.includes(f));
 
             if (newFields.length > 0) {
-                // Add new headers
                 finalHeaders = [...finalHeaders, ...newFields];
-
-                // Merge data into rows
                 finalRows = finalRows.map(row => {
                     const key = row[columnName];
                     const knownData = matches[key] || {};
                     return { ...row, ...knownData };
                 });
 
-                // 1. Mark them as AI fields (Purple UI)
                 newFields.forEach(f => markAiField(f));
 
-                // 2. Use Non-Destructive Update (PRESERVES SPARKLES)
                 updateExcelData({
                     ...excelData,
                     headers: finalHeaders,
                     rows: finalRows
                 });
-                
+
                 toast({
                     title: "Data Retrieved",
                     description: `Found saved content for ${newFields.length} fields.`
@@ -183,6 +173,7 @@ export function DataTab() {
     }
   };
 
+  // ... [Keep handleFileChange, handleEnrichData, handleClearData, DragHandlers, etc.] ...
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -354,10 +345,8 @@ export function DataTab() {
             [newHeader]: generatedContent[index] || ""
         }));
 
-        // 1. Mark AI Field First
         markAiField(newHeader);
 
-        // 2. Use Non-Destructive Update
         updateExcelData({
             ...excelData,
             headers: [...excelData.headers, newHeader],
@@ -438,6 +427,7 @@ export function DataTab() {
   return (
     <ScrollArea className="h-full">
       <div className="p-4 space-y-4">
+        {/* ... [Upload UI] ... */}
         <div>
           <div className="flex items-center justify-between mb-3">
              <h3 className="font-medium text-sm">Import Data</h3>
@@ -626,7 +616,7 @@ export function DataTab() {
         {excelData && (
           <>
             <Separator />
-            
+
             {/* --- NEW: Unique Identifier Selector --- */}
             <div className="bg-purple-50 border border-purple-100 p-3 rounded-md space-y-2">
                 <Label className="text-purple-900 flex items-center gap-2">
@@ -649,7 +639,7 @@ export function DataTab() {
                     Select the column that uniquely identifies your products (e.g., SKU) to retrieve saved AI content.
                 </p>
             </div>
-            
+
             <Separator />
 
             <div>

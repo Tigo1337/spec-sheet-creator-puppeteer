@@ -264,6 +264,60 @@ export async function registerRoutes(
   });
 
   // ============================================
+  // AI KNOWLEDGE MANAGEMENT (UPDATED)
+  // ============================================
+
+  // Get all saved items
+  app.get("/api/ai/knowledge", async (req, res) => {
+    const auth = getAuth(req);
+    if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
+
+    try {
+      const items = await storage.getAllProductKnowledge(auth.userId);
+      res.json(items);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch knowledge base" });
+    }
+  });
+
+  // Delete an item
+  app.delete("/api/ai/knowledge/:id", async (req, res) => {
+    const auth = getAuth(req);
+    if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
+
+    try {
+      const success = await storage.deleteProductKnowledge(req.params.id, auth.userId);
+      if (success) {
+        res.sendStatus(204);
+      } else {
+        res.status(404).json({ error: "Item not found" });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete item" });
+    }
+  });
+
+  // NEW: Update an item
+  app.put("/api/ai/knowledge/:id", async (req, res) => {
+    const auth = getAuth(req);
+    if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
+
+    const { content } = req.body;
+    if (!content) return res.status(400).json({ error: "Content is required" });
+
+    try {
+      const updated = await storage.updateProductKnowledge(req.params.id, auth.userId, content);
+      if (updated) {
+        res.json(updated);
+      } else {
+        res.status(404).json({ error: "Item not found" });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update item" });
+    }
+  });
+
+  // ============================================
   // AI AUTO-MAPPING ROUTE (STRICT & ROBUST)
   // ============================================
   app.post("/api/ai/map-fields", async (req, res) => {

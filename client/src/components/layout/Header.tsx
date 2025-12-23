@@ -16,7 +16,8 @@ import {
   FileDown,
   Sun,
   Moon,
-  Crown // Added Icon
+  Crown, // Added Icon
+  BrainCircuit // NEW ICON
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useUser, UserButton } from "@clerk/clerk-react";
@@ -24,6 +25,8 @@ import { QRManagerDialog } from "@/components/dialogs/QRManagerDialog";
 // Imports for Upgrade Flow
 import { useSubscription } from "@/hooks/use-subscription";
 import { UpgradeDialog } from "@/components/dialogs/UpgradeDialog";
+// NEW: Import Knowledge Manager
+import { KnowledgeManagerDialog } from "@/components/dialogs/KnowledgeManagerDialog";
 
 export function Header() {
   const { user } = useUser();
@@ -167,6 +170,15 @@ export function Header() {
         )}
 
         <QRManagerDialog />
+
+        {/* --- NEW: AI MEMORY MANAGER BUTTON --- */}
+        <KnowledgeManagerDialog>
+           <Button variant="ghost" size="sm" className="gap-1.5 px-2 text-muted-foreground hover:text-purple-600 hover:bg-purple-50">
+             <BrainCircuit className="h-4 w-4" />
+             AI Memory
+           </Button>
+        </KnowledgeManagerDialog>
+        {/* ------------------------------------ */}
 
         <Separator orientation="vertical" className="h-6" />
 

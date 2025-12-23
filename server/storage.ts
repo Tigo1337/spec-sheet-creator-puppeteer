@@ -33,16 +33,20 @@ export interface IStorage {
   createQRCode(userId: string, destinationUrl: string, designId?: string): Promise<QrCode>;
   getQRCode(id: string): Promise<QrCode | undefined>;
   incrementQRCodeScan(id: string): Promise<void>;
-  // NEW: QR Dashboard Methods
   getQRCodesByUser(userId: string): Promise<QrCode[]>;
   updateQRCode(id: string, userId: string, destinationUrl: string): Promise<QrCode | undefined>;
 
-  // NEW: Usage Enforcement
+  // Usage Enforcement
   checkAndIncrementUsage(userId: string): Promise<{ allowed: boolean; count: number; limit: number }>;
 
-  // NEW: Product Knowledge (AI Memory)
+  // Product Knowledge (AI Memory)
   batchSaveProductKnowledge(userId: string, items: InsertProductKnowledge[]): Promise<void>;
   batchGetProductKnowledge(userId: string, productKeys: string[], keyName: string): Promise<ProductKnowledge[]>;
+
+  // NEW: Knowledge Management
+  getAllProductKnowledge(userId: string): Promise<ProductKnowledge[]>;
+  deleteProductKnowledge(id: string, userId: string): Promise<boolean>;
+  updateProductKnowledge(id: string, userId: string, content: string): Promise<ProductKnowledge | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -285,9 +289,7 @@ export class DatabaseStorage implements IStorage {
   async batchSaveProductKnowledge(userId: string, items: InsertProductKnowledge[]): Promise<void> {
     if (items.length === 0) return;
 
-    // Simplistic Batch Insert. In a real production app with high load, 
-    // we might want UPSET (On Conflict Do Update) but strict Insert works for basic MVP.
-    // We filter out any items where content is empty to save space.
+    // Simplistic Batch Insert.
     const validItems = items.filter(i => i.content && i.content.trim().length > 0).map(item => ({
         id: randomUUID(),
         userId,
@@ -297,8 +299,6 @@ export class DatabaseStorage implements IStorage {
     }));
 
     if (validItems.length > 0) {
-        // We use insert for now. If you re-generate, you get duplicate rows.
-        // Retrieval logic handles picking the latest one.
         await this.db.insert(productKnowledgeTable).values(validItems);
     }
   }
@@ -319,6 +319,32 @@ export class DatabaseStorage implements IStorage {
         .orderBy(desc(productKnowledgeTable.createdAt));
 
     return rows;
+  }
+
+  // --- NEW: MANAGEMENT METHODS ---
+  async getAllProductKnowledge(userId: string): Promise<ProductKnowledge[]> {
+    return await this.db.select()
+      .from(productKnowledgeTable)
+      .where(eq(productKnowledgeTable.userId, userId))
+      .orderBy(desc(productKnowledgeTable.createdAt));
+  }
+
+  async deleteProductKnowledge(id: string, userId: string): Promise<boolean> {
+    const result = await this.db.delete(productKnowledgeTable)
+      .where(and(
+        eq(productKnowledgeTable.id, id),
+        eq(productKnowledgeTable.userId, userId)
+      ))
+      .returning();
+    return result.length > 0;
+  }
+
+  async updateProductKnowledge(id: string, userId: string, content: string): Promise<ProductKnowledge | undefined> {
+    const [row] = await this.db.update(productKnowledgeTable)
+      .set({ content, updatedAt: new Date() })
+      .where(and(eq(productKnowledgeTable.id, id), eq(productKnowledgeTable.userId, userId)))
+      .returning();
+    return row;
   }
 }
 
@@ -400,6 +426,30 @@ export class MemStorage implements IStorage {
             productKeys.includes(k.productKey)
         )
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getAllProductKnowledge(userId: string) {
+    return Array.from(this.knowledge.values())
+      .filter(k => k.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async deleteProductKnowledge(id: string, userId: string) {
+    const item = this.knowledge.get(id);
+    if (item && item.userId === userId) {
+      return this.knowledge.delete(id);
+    }
+    return false;
+  }
+
+  async updateProductKnowledge(id: string, userId: string, content: string) {
+    const item = this.knowledge.get(id);
+    if (item && item.userId === userId) {
+      const updated = { ...item, content, updatedAt: new Date() };
+      this.knowledge.set(id, updated);
+      return updated;
+    }
+    return undefined;
   }
 }
 

@@ -17,6 +17,12 @@ const execAsync = promisify(exec);
 
 const app = express();
 
+// --- FIX: Trust the Replit proxy ---
+// This ensures that secure cookies (like Clerk's) are accepted even if the 
+// internal Express server sees the request as HTTP.
+app.set("trust proxy", 1); 
+// -----------------------------------
+
 // 1. INITIALIZE SENTRY (Must be the very first thing)
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
@@ -106,14 +112,14 @@ function checkPuppeteer() {
       Sentry.captureException(error);
     }
   })();
-  
+
   const timeoutPromise = new Promise<void>((resolve) => {
     setTimeout(() => {
       console.log("⚠️  Puppeteer check timed out (will retry on first PDF export)");
       resolve();
     }, timeoutMs);
   });
-  
+
   return Promise.race([checkPromise, timeoutPromise]);
 }
 
