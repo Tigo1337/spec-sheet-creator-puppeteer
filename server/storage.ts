@@ -42,7 +42,7 @@ export interface IStorage {
 
   // NEW: Product Knowledge (AI Memory)
   batchSaveProductKnowledge(userId: string, items: InsertProductKnowledge[]): Promise<void>;
-  batchGetProductKnowledge(userId: string, productKeys: string[]): Promise<ProductKnowledge[]>;
+  batchGetProductKnowledge(userId: string, productKeys: string[], keyName: string): Promise<ProductKnowledge[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -199,7 +199,7 @@ export class DatabaseStorage implements IStorage {
     return this.updateUser(userId, stripeInfo);
   }
 
-  // --- USAGE ENFORCEMENT LOGIC (FIXED) ---
+  // --- USAGE ENFORCEMENT LOGIC ---
   async checkAndIncrementUsage(userId: string): Promise<{ allowed: boolean; count: number; limit: number }> {
     const user = await this.getUser(userId);
     if (!user) {
@@ -281,7 +281,7 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  // --- NEW: PRODUCT KNOWLEDGE IMPLEMENTATION ---
+  // --- NEW: PRODUCT KNOWLEDGE IMPLEMENTATION (UPDATED) ---
   async batchSaveProductKnowledge(userId: string, items: InsertProductKnowledge[]): Promise<void> {
     if (items.length === 0) return;
 
@@ -303,16 +303,16 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async batchGetProductKnowledge(userId: string, productKeys: string[]): Promise<ProductKnowledge[]> {
+  async batchGetProductKnowledge(userId: string, productKeys: string[], keyName: string): Promise<ProductKnowledge[]> {
     if (productKeys.length === 0) return [];
 
-    // Fetch all records for these keys belonging to this user
-    // Then sorting in JS to find latest is easier than complex SQL grouping for MVP
+    // FIX: Filter by keyName (Column Name) AND productKey (Value)
     const rows = await this.db.select()
         .from(productKnowledgeTable)
         .where(
             and(
                 eq(productKnowledgeTable.userId, userId),
+                eq(productKnowledgeTable.keyName, keyName), // Strict Match on Column Name
                 inArray(productKnowledgeTable.productKey, productKeys)
             )
         )
@@ -381,6 +381,7 @@ export class MemStorage implements IStorage {
           this.knowledge.set(id, {
               id,
               userId,
+              keyName: item.keyName, // Save Key Name
               productKey: item.productKey,
               fieldType: item.fieldType,
               content: item.content,
@@ -390,10 +391,14 @@ export class MemStorage implements IStorage {
       });
   }
 
-  async batchGetProductKnowledge(userId: string, productKeys: string[]) {
-      // Filter by User and Keys
+  async batchGetProductKnowledge(userId: string, productKeys: string[], keyName: string) {
+      // Filter by User and Keys AND KeyName
       return Array.from(this.knowledge.values())
-        .filter(k => k.userId === userId && productKeys.includes(k.productKey))
+        .filter(k => 
+            k.userId === userId && 
+            k.keyName === keyName && // Check Key Name
+            productKeys.includes(k.productKey)
+        )
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 }

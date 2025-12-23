@@ -113,6 +113,7 @@ export async function registerRoutes(
     const auth = getAuth(req);
     if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
 
+    // anchorColumn = The name of the column user picked (e.g. "SKU")
     const { rows, type, tone, anchorColumn, customFieldName } = req.body;
 
     if (!rows || !Array.isArray(rows) || rows.length === 0) {
@@ -193,14 +194,14 @@ export async function registerRoutes(
       if (anchorColumn && auth.userId) {
          try {
              const knowledgeItems = limitedRows.map((row: any, i: number) => {
-                 const key = row[anchorColumn]; // Get Value of SKU column
+                 const keyVal = row[anchorColumn]; // Get Value of SKU column (e.g. "123")
                  const content = generatedContent[i];
 
-                 if (!key || !content) return null;
+                 if (!keyVal || !content) return null;
 
                  return {
-                     productKey: String(key).trim(),
-                     // FIX: Use the User's chosen column name if available, else fallback to type
+                     keyName: anchorColumn, // SAVE THE COLUMN NAME (e.g. "SKU")
+                     productKey: String(keyVal).trim(),
                      fieldType: customFieldName || type, 
                      content: String(content)
                  };
@@ -225,14 +226,14 @@ export async function registerRoutes(
   });
 
   // ============================================
-  // AI KNOWLEDGE RETRIEVAL (NEW)
+  // AI KNOWLEDGE RETRIEVAL (UPDATED)
   // ============================================
   app.post("/api/ai/knowledge/check", async (req, res) => {
       const auth = getAuth(req);
       if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
 
-      const { keys } = req.body;
-      if (!keys || !Array.isArray(keys) || keys.length === 0) {
+      const { keys, keyName } = req.body;
+      if (!keys || !Array.isArray(keys) || keys.length === 0 || !keyName) {
           return res.json({ matches: {} });
       }
 
@@ -240,7 +241,8 @@ export async function registerRoutes(
           // Limit keys to prevent massive queries
           const lookupKeys = keys.slice(0, 100);
 
-          const results = await storage.batchGetProductKnowledge(auth.userId, lookupKeys);
+          // Pass keyName to storage
+          const results = await storage.batchGetProductKnowledge(auth.userId, lookupKeys, keyName);
 
           // Group by Product Key
           // Output: { "SKU-123": { "Marketing Copy": "Desc...", "SEO Title": "Title..." } }

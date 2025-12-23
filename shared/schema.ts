@@ -361,6 +361,10 @@ export const insertQrCodeSchema = z.object({
 export const productKnowledgeTable = pgTable("product_knowledge", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id", { length: 255 }).notNull(),
+
+  // NEW: Store the Column Name (e.g., "SKU", "Part#")
+  keyName: varchar("key_name", { length: 255 }).notNull().default("id"), 
+
   productKey: varchar("product_key", { length: 255 }).notNull(), // The SKU or Name (Anchor)
   fieldType: varchar("field_type", { length: 50 }).notNull(),    // e.g. 'marketing', 'seo'
   content: text("content").notNull(),
@@ -374,6 +378,7 @@ export const productKnowledgeTable = pgTable("product_knowledge", {
 
 export type ProductKnowledge = typeof productKnowledgeTable.$inferSelect;
 export const insertProductKnowledgeSchema = z.object({
+  keyName: z.string(), // NEW
   productKey: z.string(),
   fieldType: z.string(),
   content: z.string(),

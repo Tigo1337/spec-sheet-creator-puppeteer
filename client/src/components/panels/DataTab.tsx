@@ -100,6 +100,7 @@ export function DataTab() {
   const {
     excelData,
     setExcelData,
+    updateExcelData, // New Action
     selectedRowIndex,
     setSelectedRowIndex,
     addElement,
@@ -109,8 +110,78 @@ export function DataTab() {
     toggleImageField,
     elements,
     markAiField,    
-    aiFieldNames
+    aiFieldNames,
+    uniqueIdColumn, // Get from store
+    setUniqueIdColumn // Get from store
   } = useCanvasStore();
+
+  const handleUniqueIdChange = async (columnName: string) => {
+    if (!excelData) return;
+    setUniqueIdColumn(columnName);
+
+    // Trigger Knowledge Check Immediately
+    const keysToCheck = excelData.rows.map(r => r[columnName]).filter(Boolean);
+    if (keysToCheck.length === 0) return;
+
+    try {
+        const knResponse = await fetch("/api/ai/knowledge/check", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+                keys: keysToCheck,
+                keyName: columnName // Send the specific column name
+            })
+        });
+
+        if (knResponse.ok) {
+            const { matches } = await knResponse.json();
+            
+            // matches = { "SKU-123": { "Marketing Copy": "..." } }
+
+            let finalHeaders = [...excelData.headers];
+            let finalRows = [...excelData.rows];
+            
+            const foundFields = new Set<string>();
+            Object.values(matches).forEach((fields: any) => {
+                Object.keys(fields).forEach(f => foundFields.add(f));
+            });
+
+            // Filter out fields that already exist in the CSV to prevent duplicates
+            const newFields = Array.from(foundFields).filter(f => !finalHeaders.includes(f));
+
+            if (newFields.length > 0) {
+                // Add new headers
+                finalHeaders = [...finalHeaders, ...newFields];
+
+                // Merge data into rows
+                finalRows = finalRows.map(row => {
+                    const key = row[columnName];
+                    const knownData = matches[key] || {};
+                    return { ...row, ...knownData };
+                });
+
+                // 1. Mark them as AI fields (Purple UI)
+                newFields.forEach(f => markAiField(f));
+
+                // 2. Use Non-Destructive Update (PRESERVES SPARKLES)
+                updateExcelData({
+                    ...excelData,
+                    headers: finalHeaders,
+                    rows: finalRows
+                });
+                
+                toast({
+                    title: "Data Retrieved",
+                    description: `Found saved content for ${newFields.length} fields.`
+                });
+            } else {
+                 toast({ description: "No saved AI data found for this column." });
+            }
+        }
+    } catch (err) {
+        console.error(err);
+    }
+  };
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,64 +197,6 @@ export function DataTab() {
           let finalHeaders = [...result.data.headers];
           let finalRows = [...result.data.rows];
           let mappedCount = 0;
-
-          // --- 1. AI KNOWLEDGE CHECK (SMART IMPORT) ---
-          // This block checks your DB for saved content (e.g. "Marketing Copy") matching the uploaded SKUs
-          if (useAI) {
-             const potentialIdColumns = finalHeaders.filter(h => 
-                /sku|id|code|product_no|part_no/i.test(h)
-             );
-
-             if (potentialIdColumns.length > 0) {
-                 const idColumn = potentialIdColumns[0];
-                 const keysToCheck = finalRows.map(r => r[idColumn]).filter(Boolean);
-
-                 if (keysToCheck.length > 0) {
-                     try {
-                        const knResponse = await fetch("/api/ai/knowledge/check", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ keys: keysToCheck })
-                        });
-
-                        if (knResponse.ok) {
-                            const { matches } = await knResponse.json();
-                            // matches = { "SKU-123": { "Marketing Copy": "..." } }
-
-                            const foundFields = new Set<string>();
-                            Object.values(matches).forEach((fields: any) => {
-                                Object.keys(fields).forEach(f => foundFields.add(f));
-                            });
-
-                            // Filter out fields that already exist in the CSV to prevent duplicates
-                            const newFields = Array.from(foundFields).filter(f => !finalHeaders.includes(f));
-
-                            if (newFields.length > 0) {
-                                // Add new headers
-                                finalHeaders = [...finalHeaders, ...newFields];
-
-                                // Merge data into rows
-                                finalRows = finalRows.map(row => {
-                                    const key = row[idColumn];
-                                    const knownData = matches[key] || {};
-                                    return { ...row, ...knownData };
-                                });
-
-                                // Mark them as AI fields (Purple UI)
-                                newFields.forEach(f => markAiField(f));
-
-                                toast({
-                                    title: "AI Knowledge Retrieved",
-                                    description: `Found saved data for ${newFields.length} columns (linked to ${idColumn}).`
-                                });
-                            }
-                        }
-                     } catch (err) {
-                         console.warn("Failed to check knowledge base", err);
-                     }
-                 }
-             }
-          }
 
           // --- 2. AI AUTO-MAPPING LOGIC (Variable Matching) ---
           if (useAI) {
@@ -341,13 +354,15 @@ export function DataTab() {
             [newHeader]: generatedContent[index] || ""
         }));
 
-        setExcelData({
+        // 1. Mark AI Field First
+        markAiField(newHeader);
+
+        // 2. Use Non-Destructive Update
+        updateExcelData({
             ...excelData,
             headers: [...excelData.headers, newHeader],
             rows: newRows
         });
-
-        markAiField(newHeader);
 
         const successMsg = enrichAnchor !== "none" 
             ? `Added "${newHeader}" and saved to Memory.`
@@ -610,6 +625,31 @@ export function DataTab() {
 
         {excelData && (
           <>
+            <Separator />
+            
+            {/* --- NEW: Unique Identifier Selector --- */}
+            <div className="bg-purple-50 border border-purple-100 p-3 rounded-md space-y-2">
+                <Label className="text-purple-900 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-purple-600" />
+                    AI Memory Sync
+                </Label>
+                <div className="flex gap-2 items-center">
+                    <Select value={uniqueIdColumn || ""} onValueChange={handleUniqueIdChange}>
+                        <SelectTrigger className="bg-white">
+                            <SelectValue placeholder="Select Unique ID Column..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {excelData.headers.map(h => (
+                                <SelectItem key={h} value={h}>{h}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <p className="text-[10px] text-purple-700">
+                    Select the column that uniquely identifies your products (e.g., SKU) to retrieve saved AI content.
+                </p>
+            </div>
+            
             <Separator />
 
             <div>
