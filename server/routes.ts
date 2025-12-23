@@ -107,6 +107,96 @@ export async function registerRoutes(
   });
 
   // ============================================
+  // AI DATA ENRICHMENT ROUTE (NEW)
+  // ============================================
+  app.post("/api/ai/enrich-data", async (req, res) => {
+    const auth = getAuth(req);
+    if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
+
+    const { rows, type, tone } = req.body;
+
+    if (!rows || !Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ error: "No data rows provided" });
+    }
+
+    // Define preset prompts for friction-less UX
+    const promptTemplates: Record<string, string> = {
+      "marketing": "Write a compelling marketing description highlighting key features.",
+      "seo": "Write a short, punchy, SEO-optimized product title (under 60 chars).",
+      "features": "Extract the technical specs and return them as a bulleted list (use • character).",
+      "email": "Write a short, persuasive sales email blurb introducing this product.",
+      "social": "Write an engaging social media caption with relevant hashtags."
+    };
+
+    const selectedPrompt = promptTemplates[type] || promptTemplates["marketing"];
+
+    // Cap at 50 rows for safety/performance
+    const limitedRows = rows.slice(0, 50); 
+
+    try {
+      const prompt = `
+        You are an expert content generator for product catalogs.
+
+        TASK: ${selectedPrompt}
+        TONE: ${tone || "Professional"}
+
+        INSTRUCTIONS:
+        1. I will provide a JSON array of data rows.
+        2. For EACH row, look at ALL available fields (like Name, Dimensions, Material, etc) to understand the product.
+        3. Generate the requested text for that specific product.
+        4. OUTPUT FORMAT: A raw JSON array of strings. ["Text for Item 1", "Text for Item 2", ...].
+        5. Do not include markdown formatting or keys, just the array of strings.
+
+        DATA ROWS:
+        ${JSON.stringify(limitedRows)}
+      `;
+
+      let result;
+      let attempts = 0;
+      const maxAttempts = 3;
+
+      while (attempts < maxAttempts) {
+        try {
+          result = await aiModel.generateContent(prompt);
+          break;
+        } catch (e: any) {
+          if (e.status === 429 || e.status === 503 || e.message?.includes("429") || e.message?.includes("Overloaded")) {
+            attempts++;
+            if (attempts >= maxAttempts) throw e;
+            const delay = Math.pow(2, attempts) * 1000;
+            await new Promise(resolve => setTimeout(resolve, delay));
+          } else {
+            throw e;
+          }
+        }
+      }
+
+      if (!result) throw new Error("AI Generation failed");
+
+      const responseText = result.response.text();
+      const cleanText = responseText.replace(/```json|```/g, "").trim();
+
+      let generatedContent;
+      try {
+        generatedContent = JSON.parse(cleanText);
+      } catch (e) {
+        console.error("AI JSON Parse Error", e);
+        return res.status(500).json({ error: "AI returned invalid format" });
+      }
+
+      if (!Array.isArray(generatedContent)) {
+         return res.status(500).json({ error: "AI did not return an array" });
+      }
+
+      res.json({ generatedContent });
+
+    } catch (error) {
+      console.error("Enrichment Error:", error);
+      res.status(500).json({ error: "Failed to generate content" });
+    }
+  });
+
+  // ============================================
   // AI AUTO-MAPPING ROUTE (STRICT & ROBUST)
   // ============================================
   app.post("/api/ai/map-fields", async (req, res) => {
@@ -179,8 +269,6 @@ export async function registerRoutes(
       if (!result) throw new Error("AI request failed after retries");
 
       const responseText = result.response.text();
-
-      // Clean up potential markdown formatting (```json ... ```)
       const cleanText = responseText.replace(/```json|```/g, "").trim();
 
       const mapping = JSON.parse(cleanText);

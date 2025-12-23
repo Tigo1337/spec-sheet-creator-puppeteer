@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -23,6 +24,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   FileSpreadsheet,
@@ -33,7 +43,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
-  Loader2
+  Loader2,
+  Wand2 
 } from "lucide-react";
 import {
   DndContext,
@@ -49,18 +60,22 @@ function DraggableHeader({ header }: { header: string }) {
     data: { header },
   });
 
+  // Check store to see if this is an AI field (Clean name check)
+  const aiFieldNames = useCanvasStore(state => state.aiFieldNames);
+  const isAI = aiFieldNames.has(header);
+
   return (
     <div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={`flex items-center gap-1.5 px-2.5 py-1.5 bg-primary/10 text-primary rounded-md text-sm cursor-grab active:cursor-grabbing transition-all max-w-full ${
-        isDragging ? "opacity-50 scale-95" : "hover:bg-primary/15"
-      }`}
+      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm cursor-grab active:cursor-grabbing transition-all max-w-full ${
+        isDragging ? "opacity-50 scale-95" : "hover:bg-accent"
+      } ${isAI ? "bg-purple-100 text-purple-900 border border-purple-200" : "bg-primary/10 text-primary"}`}
       data-testid={`draggable-header-${header}`}
     >
       <GripVertical className="h-3 w-3 opacity-60 flex-shrink-0" />
-      <Database className="h-3 w-3 flex-shrink-0" />
+      {isAI ? <Sparkles className="h-3 w-3 flex-shrink-0" /> : <Database className="h-3 w-3 flex-shrink-0" />}
       <span className="truncate font-medium">{header}</span>
     </div>
   );
@@ -73,6 +88,13 @@ export function DataTab() {
   const [useAI, setUseAI] = useState(true); 
   const { toast } = useToast();
 
+  // --- ENRICHMENT STATE ---
+  const [enrichDialogOpen, setEnrichDialogOpen] = useState(false);
+  const [isEnriching, setIsEnriching] = useState(false);
+  const [enrichType, setEnrichType] = useState("marketing");
+  const [enrichTone, setEnrichTone] = useState("Professional");
+  const [enrichColumnName, setEnrichColumnName] = useState("Marketing Copy");
+
   const {
     excelData,
     setExcelData,
@@ -83,7 +105,9 @@ export function DataTab() {
     canvasHeight,
     imageFieldNames,
     toggleImageField,
-    elements 
+    elements,
+    markAiField,    // New Action
+    aiFieldNames    // Access to set
   } = useCanvasStore();
 
   const handleFileChange = useCallback(
@@ -103,53 +127,32 @@ export function DataTab() {
 
           // --- AI AUTO-MAPPING LOGIC START ---
           if (useAI) {
-
-            // 1. Filter out hidden elements
             const activeElements = elements.filter(el => el.visible !== false);
-
-            // 2. Strict Extraction Strategy (Updated for Images)
             const rawTargets = activeElements.flatMap((el) => {
-              // A. Text Elements: Scan content for {{brackets}}
               if (el.type === "text") {
                 if (!el.content || typeof el.content !== "string") return [];
                 const matches = el.content.match(/{{([\w\s]+)}}/g);
                 return matches ? matches.map((m) => m.replace(/{{|}}/g, "").trim()) : [];
               }
-
-              // B. Data Fields: Trust binding
               if (el.type === "dataField") {
                 return el.dataBinding ? [el.dataBinding] : [];
               }
-
-              // C. Images: Check strict binding OR scan URL
               if (el.type === "image") {
                 const targets = [];
-                // 1. Explicit Binding (Priority)
-                if (el.dataBinding) {
-                    targets.push(el.dataBinding);
-                }
-                // 2. Fallback: Scan URL for {{Variable}} pattern
+                if (el.dataBinding) targets.push(el.dataBinding);
                 if (el.imageSrc && typeof el.imageSrc === "string") {
                    const matches = el.imageSrc.match(/{{([\w\s]+)}}/g);
-                   if (matches) {
-                       targets.push(...matches.map((m) => m.replace(/{{|}}/g, "").trim()));
-                   }
+                   if (matches) targets.push(...matches.map((m) => m.replace(/{{|}}/g, "").trim()));
                 }
                 return targets;
               }
-
-              // D. Tables/Lists
               if (el.type === "toc-list" && el.dataBinding) {
                  return [el.dataBinding];
               }
-
               return [];
             });
 
-            // 3. Deduplicate
             const targetVariables = Array.from(new Set(rawTargets)).filter(t => t && t.trim().length > 0);
-
-            console.log("Auto-Mapper Targets:", targetVariables); 
 
             if (targetVariables.length > 0 && result.data.headers.length > 0) {
               try {
@@ -164,13 +167,10 @@ export function DataTab() {
 
                 if (response.ok) {
                   const suggestions = await response.json();
-
-                  // Sort by Priority: Exact Matches First, then High Confidence
                   const bestMatches = new Map();
 
                   suggestions.forEach((s: any) => {
                     const existing = bestMatches.get(s.target);
-
                     const isExact = s.source === s.target;
                     const currentIsExact = existing && existing.source === existing.target;
 
@@ -183,7 +183,6 @@ export function DataTab() {
                     }
                   });
 
-                  // Apply the "Winning" Matches
                   const mapLookup: Record<string, string> = {};
                   bestMatches.forEach((match) => {
                      if (match.source !== match.target) {
@@ -255,6 +254,53 @@ export function DataTab() {
     [setExcelData, toast, elements, useAI] 
   );
 
+  const handleEnrichData = async () => {
+    if (!excelData) return;
+    setIsEnriching(true);
+
+    try {
+        const response = await fetch("/api/ai/enrich-data", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                rows: excelData.rows,
+                type: enrichType,
+                tone: enrichTone,
+            })
+        });
+
+        if (!response.ok) throw new Error("Generation failed");
+
+        const { generatedContent } = await response.json();
+
+        // --- Merge Data (CLEAN NAME) ---
+        // We use the raw name in the data, but mark it as AI in the store
+        const newHeader = enrichColumnName; // No emoji prefix!
+
+        const newRows = excelData.rows.map((row, index) => ({
+            ...row,
+            [newHeader]: generatedContent[index] || ""
+        }));
+
+        setExcelData({
+            ...excelData,
+            headers: [...excelData.headers, newHeader],
+            rows: newRows
+        });
+
+        // Mark it so UI knows to make it purple/sparkly
+        markAiField(newHeader);
+
+        toast({ title: "Data Enriched", description: `Added "${newHeader}" column.` });
+        setEnrichDialogOpen(false);
+
+    } catch (error) {
+        toast({ title: "Error", description: "Failed to generate content.", variant: "destructive" });
+    } finally {
+        setIsEnriching(false);
+    }
+  };
+
   const handleClearData = () => {
     setExcelData(null);
   };
@@ -321,7 +367,6 @@ export function DataTab() {
              {isLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
           </div>
 
-          {/* --- AI TOGGLE SWITCH --- */}
           <div className="flex items-center space-x-2 mb-4 p-2 bg-muted/40 rounded-md border">
              <Switch 
                id="ai-mode" 
@@ -390,17 +435,84 @@ export function DataTab() {
                 </Button>
               </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full gap-2"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isLoading}
-                data-testid="btn-replace-data"
-              >
-                <Upload className="h-4 w-4" />
-                Replace Data
-              </Button>
+              <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-2"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isLoading}
+                    data-testid="btn-replace-data"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Replace
+                  </Button>
+
+                  {/* --- ENRICH BUTTON --- */}
+                  <Dialog open={enrichDialogOpen} onOpenChange={setEnrichDialogOpen}>
+                    <DialogTrigger asChild>
+                       <Button size="sm" className="flex-1 gap-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white border-0">
+                          <Wand2 className="h-4 w-4" />
+                          Enrich
+                       </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                       <DialogHeader>
+                          <DialogTitle className="flex items-center gap-2">
+                             <Sparkles className="h-5 w-5 text-purple-500" />
+                             Generate Content
+                          </DialogTitle>
+                          <DialogDescription>
+                             Use AI to create new data fields based on your product info.
+                          </DialogDescription>
+                       </DialogHeader>
+
+                       <div className="space-y-4 py-2">
+                          <div className="space-y-2">
+                             <Label>Generation Type</Label>
+                             <Select value={enrichType} onValueChange={setEnrichType}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent className="z-[100000]">
+                                   <SelectItem value="marketing">Marketing Description</SelectItem>
+                                   <SelectItem value="seo">SEO Title (Short)</SelectItem>
+                                   <SelectItem value="features">Feature List (Bulleted)</SelectItem>
+                                   <SelectItem value="email">Sales Email Blurb</SelectItem>
+                                   <SelectItem value="social">Social Media Caption</SelectItem>
+                                </SelectContent>
+                             </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                             <Label>Tone</Label>
+                             <Select value={enrichTone} onValueChange={setEnrichTone}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent className="z-[100000]">
+                                   <SelectItem value="Professional">Professional</SelectItem>
+                                   <SelectItem value="Luxury">Luxury / Elegant</SelectItem>
+                                   <SelectItem value="Technical">Technical / Precise</SelectItem>
+                                   <SelectItem value="Friendly">Friendly / Casual</SelectItem>
+                                   <SelectItem value="Urgent">Urgent / Sales-y</SelectItem>
+                                </SelectContent>
+                             </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                             <Label>New Column Name</Label>
+                             <Input value={enrichColumnName} onChange={(e) => setEnrichColumnName(e.target.value)} />
+                          </div>
+                       </div>
+
+                       <DialogFooter>
+                          <Button onClick={handleEnrichData} disabled={isEnriching} className="bg-purple-600 hover:bg-purple-700">
+                             {isEnriching ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wand2 className="h-4 w-4 mr-2" />}
+                             Generate
+                          </Button>
+                       </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                  {/* --------------------- */}
+              </div>
+
               <input
                 ref={fileInputRef}
                 type="file"
@@ -536,7 +648,11 @@ export function DataTab() {
                     {excelData.headers.map((header) => (
                       <TableRow key={header}>
                         <TableCell className="py-2 font-mono text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">
-                          {header}
+                          {aiFieldNames.has(header) ? (
+                             <span className="text-purple-600 font-bold">{header}</span>
+                          ) : (
+                             header
+                          )}
                         </TableCell>
                         <TableCell className="py-2 text-sm break-all">
                           {excelData.rows[selectedRowIndex]?.[header] || "-"}
