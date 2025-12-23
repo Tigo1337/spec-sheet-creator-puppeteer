@@ -16,8 +16,8 @@ import {
   FileDown,
   Sun,
   Moon,
-  Crown, // Added Icon
-  BrainCircuit // NEW ICON
+  Crown, 
+  Sparkles // Changed from BrainCircuit
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useUser, UserButton } from "@clerk/clerk-react";
@@ -174,7 +174,7 @@ export function Header() {
         {/* --- NEW: AI MEMORY MANAGER BUTTON --- */}
         <KnowledgeManagerDialog>
            <Button variant="ghost" size="sm" className="gap-1.5 px-2 text-muted-foreground hover:text-purple-600 hover:bg-purple-50">
-             <BrainCircuit className="h-4 w-4" />
+             <Sparkles className="h-4 w-4" /> {/* Updated Icon */}
              AI Memory
            </Button>
         </KnowledgeManagerDialog>

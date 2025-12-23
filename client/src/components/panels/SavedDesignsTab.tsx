@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useUser } from "@clerk/clerk-react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Changed import
 import { useCanvasStore } from "@/stores/canvas-store";
-import { queryClient } from "@/lib/queryClient";
+// import { queryClient } from "@/lib/queryClient"; // Removed direct import
 import type { SavedDesign, Template } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +56,7 @@ export function SavedDesignsTab() {
   const { user } = useUser();
   const { toast } = useToast();
   const { isPro } = useSubscription();
+  const queryClient = useQueryClient(); // Initialize hook here
   const isAdmin = user?.publicMetadata?.role === "admin";
 
   // Dialog States
@@ -127,6 +128,7 @@ export function SavedDesignsTab() {
       return response.json();
     },
     onSuccess: () => {
+      // This will now invalidate the correct instance context
       queryClient.invalidateQueries({ queryKey: ["/api/designs"] });
       toast({ title: "Design saved", description: "Your design has been saved successfully." });
       setSaveDialogOpen(false);

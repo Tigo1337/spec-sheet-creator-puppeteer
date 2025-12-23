@@ -520,7 +520,7 @@ export function DataTab() {
                     <DialogTrigger asChild>
                        <Button size="sm" className="flex-1 gap-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white border-0">
                           <Wand2 className="h-4 w-4" />
-                          Enrich
+                          Generate with AI
                        </Button>
                     </DialogTrigger>
                     {/* Note: Z-Index removed from DialogContent to fix Dropdown */}
@@ -621,7 +621,7 @@ export function DataTab() {
             <div className="bg-purple-50 border border-purple-100 p-3 rounded-md space-y-2">
                 <Label className="text-purple-900 flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-purple-600" />
-                    AI Memory Sync
+                    Sync AI Generated Fields
                 </Label>
                 <div className="flex gap-2 items-center">
                     <Select value={uniqueIdColumn || ""} onValueChange={handleUniqueIdChange}>
@@ -635,8 +635,8 @@ export function DataTab() {
                         </SelectContent>
                     </Select>
                 </div>
-                <p className="text-[10px] text-purple-700">
-                    Select the column that uniquely identifies your products (e.g., SKU) to retrieve saved AI content.
+                <p className="text-[12px] text-purple-700">
+                    Select the column that uniquely identifies your products (e.g., SKU) to retrieve saved AI Generated Content.
                 </p>
             </div>
 
