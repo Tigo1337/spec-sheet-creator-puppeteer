@@ -107,13 +107,13 @@ export async function registerRoutes(
   });
 
   // ============================================
-  // AI DATA ENRICHMENT ROUTE (NEW)
+  // AI DATA ENRICHMENT ROUTE (UPDATED)
   // ============================================
   app.post("/api/ai/enrich-data", async (req, res) => {
     const auth = getAuth(req);
     if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
 
-    const { rows, type, tone } = req.body;
+    const { rows, type, tone, anchorColumn, customFieldName } = req.body;
 
     if (!rows || !Array.isArray(rows) || rows.length === 0) {
       return res.status(400).json({ error: "No data rows provided" });
@@ -188,12 +188,77 @@ export async function registerRoutes(
          return res.status(500).json({ error: "AI did not return an array" });
       }
 
+      // --- MEMORY SAVE STEP (FIXED) ---
+      // If user provided an Anchor Column (e.g. SKU), save this generation to DB
+      if (anchorColumn && auth.userId) {
+         try {
+             const knowledgeItems = limitedRows.map((row: any, i: number) => {
+                 const key = row[anchorColumn]; // Get Value of SKU column
+                 const content = generatedContent[i];
+
+                 if (!key || !content) return null;
+
+                 return {
+                     productKey: String(key).trim(),
+                     // FIX: Use the User's chosen column name if available, else fallback to type
+                     fieldType: customFieldName || type, 
+                     content: String(content)
+                 };
+             }).filter((item: any) => item !== null);
+
+             if (knowledgeItems.length > 0) {
+                 await storage.batchSaveProductKnowledge(auth.userId, knowledgeItems);
+                 console.log(`[AI Memory] Saved ${knowledgeItems.length} items for user ${auth.userId}`);
+             }
+         } catch (saveError) {
+             console.error("[AI Memory] Failed to save knowledge:", saveError);
+             // Don't fail the request, just log it.
+         }
+      }
+
       res.json({ generatedContent });
 
     } catch (error) {
       console.error("Enrichment Error:", error);
       res.status(500).json({ error: "Failed to generate content" });
     }
+  });
+
+  // ============================================
+  // AI KNOWLEDGE RETRIEVAL (NEW)
+  // ============================================
+  app.post("/api/ai/knowledge/check", async (req, res) => {
+      const auth = getAuth(req);
+      if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
+
+      const { keys } = req.body;
+      if (!keys || !Array.isArray(keys) || keys.length === 0) {
+          return res.json({ matches: {} });
+      }
+
+      try {
+          // Limit keys to prevent massive queries
+          const lookupKeys = keys.slice(0, 100);
+
+          const results = await storage.batchGetProductKnowledge(auth.userId, lookupKeys);
+
+          // Group by Product Key
+          // Output: { "SKU-123": { "Marketing Copy": "Desc...", "SEO Title": "Title..." } }
+          const map: Record<string, Record<string, string>> = {};
+
+          results.forEach(item => {
+              if (!map[item.productKey]) map[item.productKey] = {};
+              // If multiple entries exist, the query order (desc date) ensures we see the latest first.
+              if (!map[item.productKey][item.fieldType]) {
+                  map[item.productKey][item.fieldType] = item.content;
+              }
+          });
+
+          res.json({ matches: map });
+      } catch (error) {
+          console.error("Knowledge Check Error:", error);
+          res.status(500).json({ error: "Failed to check knowledge base" });
+      }
   });
 
   // ============================================
@@ -269,6 +334,8 @@ export async function registerRoutes(
       if (!result) throw new Error("AI request failed after retries");
 
       const responseText = result.response.text();
+
+      // Clean up potential markdown formatting (```json ... ```)
       const cleanText = responseText.replace(/```json|```/g, "").trim();
 
       const mapping = JSON.parse(cleanText);

@@ -133,6 +133,7 @@ interface CanvasState {
   saveAsTemplate: (name: string, description?: string, previewImages?: string[]) => Template;
   loadTemplate: (template: Template) => void;
 
+  // FIX: Updated to accept excelData
   loadCatalogDesign: (data: { 
     sections: Record<CatalogSectionType, CatalogSection>, 
     chapterDesigns: any, 
@@ -650,7 +651,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(template.elements);
   },
 
-  // NEW: Action to load a saved catalog design
+  // FIX: Updated to accept excelData
   loadCatalogDesign: (data) => {
       history = [];
       historyIndex = -1;

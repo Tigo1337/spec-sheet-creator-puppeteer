@@ -44,7 +44,8 @@ import {
   ChevronRight,
   Sparkles,
   Loader2,
-  Wand2 
+  Wand2,
+  Save 
 } from "lucide-react";
 import {
   DndContext,
@@ -60,7 +61,7 @@ function DraggableHeader({ header }: { header: string }) {
     data: { header },
   });
 
-  // Check store to see if this is an AI field (Clean name check)
+  // Check store to see if this is an AI field
   const aiFieldNames = useCanvasStore(state => state.aiFieldNames);
   const isAI = aiFieldNames.has(header);
 
@@ -94,6 +95,7 @@ export function DataTab() {
   const [enrichType, setEnrichType] = useState("marketing");
   const [enrichTone, setEnrichTone] = useState("Professional");
   const [enrichColumnName, setEnrichColumnName] = useState("Marketing Copy");
+  const [enrichAnchor, setEnrichAnchor] = useState<string>("none"); 
 
   const {
     excelData,
@@ -106,8 +108,8 @@ export function DataTab() {
     imageFieldNames,
     toggleImageField,
     elements,
-    markAiField,    // New Action
-    aiFieldNames    // Access to set
+    markAiField,    
+    aiFieldNames
   } = useCanvasStore();
 
   const handleFileChange = useCallback(
@@ -121,11 +123,69 @@ export function DataTab() {
 
         if (result.success && result.data) {
 
-          let finalHeaders = result.data.headers;
-          let finalRows = result.data.rows;
+          let finalHeaders = [...result.data.headers];
+          let finalRows = [...result.data.rows];
           let mappedCount = 0;
 
-          // --- AI AUTO-MAPPING LOGIC START ---
+          // --- 1. AI KNOWLEDGE CHECK (SMART IMPORT) ---
+          // This block checks your DB for saved content (e.g. "Marketing Copy") matching the uploaded SKUs
+          if (useAI) {
+             const potentialIdColumns = finalHeaders.filter(h => 
+                /sku|id|code|product_no|part_no/i.test(h)
+             );
+
+             if (potentialIdColumns.length > 0) {
+                 const idColumn = potentialIdColumns[0];
+                 const keysToCheck = finalRows.map(r => r[idColumn]).filter(Boolean);
+
+                 if (keysToCheck.length > 0) {
+                     try {
+                        const knResponse = await fetch("/api/ai/knowledge/check", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ keys: keysToCheck })
+                        });
+
+                        if (knResponse.ok) {
+                            const { matches } = await knResponse.json();
+                            // matches = { "SKU-123": { "Marketing Copy": "..." } }
+
+                            const foundFields = new Set<string>();
+                            Object.values(matches).forEach((fields: any) => {
+                                Object.keys(fields).forEach(f => foundFields.add(f));
+                            });
+
+                            // Filter out fields that already exist in the CSV to prevent duplicates
+                            const newFields = Array.from(foundFields).filter(f => !finalHeaders.includes(f));
+
+                            if (newFields.length > 0) {
+                                // Add new headers
+                                finalHeaders = [...finalHeaders, ...newFields];
+
+                                // Merge data into rows
+                                finalRows = finalRows.map(row => {
+                                    const key = row[idColumn];
+                                    const knownData = matches[key] || {};
+                                    return { ...row, ...knownData };
+                                });
+
+                                // Mark them as AI fields (Purple UI)
+                                newFields.forEach(f => markAiField(f));
+
+                                toast({
+                                    title: "AI Knowledge Retrieved",
+                                    description: `Found saved data for ${newFields.length} columns (linked to ${idColumn}).`
+                                });
+                            }
+                        }
+                     } catch (err) {
+                         console.warn("Failed to check knowledge base", err);
+                     }
+                 }
+             }
+          }
+
+          // --- 2. AI AUTO-MAPPING LOGIC (Variable Matching) ---
           if (useAI) {
             const activeElements = elements.filter(el => el.visible !== false);
             const rawTargets = activeElements.flatMap((el) => {
@@ -154,13 +214,13 @@ export function DataTab() {
 
             const targetVariables = Array.from(new Set(rawTargets)).filter(t => t && t.trim().length > 0);
 
-            if (targetVariables.length > 0 && result.data.headers.length > 0) {
+            if (targetVariables.length > 0 && finalHeaders.length > 0) {
               try {
                 const response = await fetch("/api/ai/map-fields", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
-                    sourceHeaders: result.data.headers,
+                    sourceHeaders: finalHeaders,
                     targetVariables: targetVariables,
                   }),
                 });
@@ -192,8 +252,8 @@ export function DataTab() {
                   });
 
                   if (mappedCount > 0) {
-                    finalHeaders = result.data.headers.map(h => mapLookup[h] || h);
-                    finalRows = result.data.rows.map(row => {
+                    finalHeaders = finalHeaders.map(h => mapLookup[h] || h);
+                    finalRows = finalRows.map(row => {
                       const newRow: Record<string, string> = {};
                       Object.keys(row).forEach(key => {
                         const newKey = mapLookup[key] || key;
@@ -214,7 +274,6 @@ export function DataTab() {
               }
             }
           }
-          // --- AI AUTO-MAPPING LOGIC END ---
 
           setExcelData({
             ...result.data,
@@ -226,8 +285,8 @@ export function DataTab() {
              toast({
               title: "Data imported",
               description: useAI 
-                ? `Loaded ${result.data.headers.length} columns (No AI matches found).`
-                : `Loaded ${result.data.headers.length} columns (AI disabled).`,
+                ? `Loaded ${finalHeaders.length} columns.`
+                : `Loaded ${finalHeaders.length} columns (AI disabled).`,
             });
           }
 
@@ -251,7 +310,7 @@ export function DataTab() {
         }
       }
     },
-    [setExcelData, toast, elements, useAI] 
+    [setExcelData, toast, elements, useAI, markAiField] 
   );
 
   const handleEnrichData = async () => {
@@ -266,6 +325,8 @@ export function DataTab() {
                 rows: excelData.rows,
                 type: enrichType,
                 tone: enrichTone,
+                anchorColumn: enrichAnchor === "none" ? undefined : enrichAnchor, // Send Anchor
+                customFieldName: enrichColumnName // Send Custom Name
             })
         });
 
@@ -273,9 +334,7 @@ export function DataTab() {
 
         const { generatedContent } = await response.json();
 
-        // --- Merge Data (CLEAN NAME) ---
-        // We use the raw name in the data, but mark it as AI in the store
-        const newHeader = enrichColumnName; // No emoji prefix!
+        const newHeader = enrichColumnName;
 
         const newRows = excelData.rows.map((row, index) => ({
             ...row,
@@ -288,10 +347,13 @@ export function DataTab() {
             rows: newRows
         });
 
-        // Mark it so UI knows to make it purple/sparkly
         markAiField(newHeader);
 
-        toast({ title: "Data Enriched", description: `Added "${newHeader}" column.` });
+        const successMsg = enrichAnchor !== "none" 
+            ? `Added "${newHeader}" and saved to Memory.`
+            : `Added "${newHeader}" column.`;
+
+        toast({ title: "Data Enriched", description: successMsg });
         setEnrichDialogOpen(false);
 
     } catch (error) {
@@ -456,6 +518,7 @@ export function DataTab() {
                           Enrich
                        </Button>
                     </DialogTrigger>
+                    {/* Note: Z-Index removed from DialogContent to fix Dropdown */}
                     <DialogContent>
                        <DialogHeader>
                           <DialogTitle className="flex items-center gap-2">
@@ -468,32 +531,53 @@ export function DataTab() {
                        </DialogHeader>
 
                        <div className="space-y-4 py-2">
-                          <div className="space-y-2">
-                             <Label>Generation Type</Label>
-                             <Select value={enrichType} onValueChange={setEnrichType}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent className="z-[100000]">
-                                   <SelectItem value="marketing">Marketing Description</SelectItem>
-                                   <SelectItem value="seo">SEO Title (Short)</SelectItem>
-                                   <SelectItem value="features">Feature List (Bulleted)</SelectItem>
-                                   <SelectItem value="email">Sales Email Blurb</SelectItem>
-                                   <SelectItem value="social">Social Media Caption</SelectItem>
-                                </SelectContent>
-                             </Select>
+                          <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                 <Label>Type</Label>
+                                 <Select value={enrichType} onValueChange={setEnrichType}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent className="z-[100]">
+                                       <SelectItem value="marketing">Marketing Desc</SelectItem>
+                                       <SelectItem value="seo">SEO Title</SelectItem>
+                                       <SelectItem value="features">Feature List</SelectItem>
+                                       <SelectItem value="email">Sales Email</SelectItem>
+                                       <SelectItem value="social">Social Post</SelectItem>
+                                    </SelectContent>
+                                 </Select>
+                              </div>
+
+                              <div className="space-y-2">
+                                 <Label>Tone</Label>
+                                 <Select value={enrichTone} onValueChange={setEnrichTone}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent className="z-[100]">
+                                       <SelectItem value="Professional">Professional</SelectItem>
+                                       <SelectItem value="Luxury">Luxury</SelectItem>
+                                       <SelectItem value="Technical">Technical</SelectItem>
+                                       <SelectItem value="Friendly">Friendly</SelectItem>
+                                       <SelectItem value="Urgent">Urgent</SelectItem>
+                                    </SelectContent>
+                                 </Select>
+                              </div>
                           </div>
 
-                          <div className="space-y-2">
-                             <Label>Tone</Label>
-                             <Select value={enrichTone} onValueChange={setEnrichTone}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent className="z-[100000]">
-                                   <SelectItem value="Professional">Professional</SelectItem>
-                                   <SelectItem value="Luxury">Luxury / Elegant</SelectItem>
-                                   <SelectItem value="Technical">Technical / Precise</SelectItem>
-                                   <SelectItem value="Friendly">Friendly / Casual</SelectItem>
-                                   <SelectItem value="Urgent">Urgent / Sales-y</SelectItem>
+                          <div className="space-y-2 p-3 bg-muted/30 rounded-md border">
+                             <Label className="flex items-center gap-2">
+                                <Save className="h-3 w-3 text-muted-foreground" />
+                                Product ID <span className="text-[10px] text-muted-foreground font-normal">(Optional: Save to Memory)</span>
+                             </Label>
+                             <Select value={enrichAnchor} onValueChange={setEnrichAnchor}>
+                                <SelectTrigger className="bg-background"><SelectValue placeholder="Select ID Column..." /></SelectTrigger>
+                                <SelectContent className="z-[100]">
+                                   <SelectItem value="none" className="text-muted-foreground italic">Don't save to memory</SelectItem>
+                                   {excelData.headers.map(h => (
+                                      <SelectItem key={h} value={h}>{h}</SelectItem>
+                                   ))}
                                 </SelectContent>
                              </Select>
+                             <p className="text-[10px] text-muted-foreground">
+                                If you select a unique ID (like SKU), we will save this generated text so you can auto-fill it next time.
+                             </p>
                           </div>
 
                           <div className="space-y-2">

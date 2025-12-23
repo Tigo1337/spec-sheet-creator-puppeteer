@@ -85,7 +85,7 @@ export function SavedDesignsTab() {
     clearSelection,
     selectElements,
     hasUnsavedChanges,
-    excelData,
+    excelData, // Needed for saving!
     selectedRowIndex,
     // Catalog State & Actions
     setCatalogMode,
@@ -116,7 +116,6 @@ export function SavedDesignsTab() {
   // --- MUTATIONS ---
 
   const saveDesignMutation = useMutation({
-    // Updated to accept any design data structure (Single or Catalog)
     mutationFn: async (designData: any) => {
       const response = await fetch("/api/designs", {
         method: "POST",
@@ -197,7 +196,6 @@ export function SavedDesignsTab() {
 
     resetCanvas();
 
-    // Toggle Catalog Mode based on selection
     if (tier === "catalog") {
         setCatalogMode(true);
         toast({ title: "Catalog Mode", description: "Full Catalog designer activated." });
@@ -213,7 +211,7 @@ export function SavedDesignsTab() {
     if (hasUnsavedChanges && !confirm("You have unsaved changes. Load template anyway?")) {
       return;
     }
-    setCatalogMode(false); // Templates currently default to basic mode
+    setCatalogMode(false); 
     loadTemplate(template);
     setNewDesignDialogOpen(false);
     toast({ title: "Template Loaded", description: `Loaded "${template.name}"` });
@@ -225,18 +223,17 @@ export function SavedDesignsTab() {
     }
 
     if (design.type === 'catalog' && design.catalogData) {
-        // Load as Catalog
+        // Load Catalog
         loadCatalogDesign({
            sections: design.catalogData.sections,
            chapterDesigns: design.catalogData.chapterDesigns,
            canvasWidth: design.canvasWidth,
            canvasHeight: design.canvasHeight,
-           // FIX: Pass restored excelData
-           excelData: design.catalogData.excelData
+           excelData: design.catalogData.excelData // Restore Data
         });
         toast({ title: "Catalog Loaded", description: `"${design.name}" loaded in Catalog Mode.` });
     } else {
-        // Load as Single Page / Basic
+        // Load Single Page
         setCatalogMode(false); 
         loadTemplate({
           id: design.id,
@@ -251,6 +248,11 @@ export function SavedDesignsTab() {
           updatedAt: design.updatedAt,
           previewImages: []
         });
+
+        // FIX: Restore Data for Single Page Designs
+        if (design.catalogData?.excelData) {
+            useCanvasStore.getState().setExcelData(design.catalogData.excelData);
+        }
 
         // Restore image field bindings
         const imageFields = new Set(
@@ -272,17 +274,12 @@ export function SavedDesignsTab() {
 
     if (isCatalogMode) {
         // === CATALOG SAVE LOGIC ===
-        // We need to capture the *current* state of the canvas into the catalog objects before saving
-        // because the 'elements' state is transient (it represents the active section).
-
         const finalSections = { ...catalogSections };
         const finalChapterDesigns = { ...chapterDesigns };
 
         if (activeSectionType === 'chapter' && activeChapterGroup) {
-            // Save active chapter
             finalChapterDesigns[activeChapterGroup] = { elements, backgroundColor };
         } else {
-            // Save active section (cover, toc, etc)
             finalSections[activeSectionType] = {
                 ...finalSections[activeSectionType],
                 elements,
@@ -296,14 +293,13 @@ export function SavedDesignsTab() {
             type: "catalog",
             canvasWidth,
             canvasHeight,
-            pageCount, // Current page count (informational)
-            backgroundColor, // This stores the current active BG, but catalogData has specific BGs
-            elements: [],    // Empty elements for top-level, data is in catalogData
+            pageCount,
+            backgroundColor, 
+            elements: [],    
             catalogData: {
                 sections: finalSections,
                 chapterDesigns: finalChapterDesigns,
-                // FIX: Save the Excel Data
-                excelData: excelData
+                excelData: excelData // Save Data
             }
         });
     } else {
@@ -317,11 +313,15 @@ export function SavedDesignsTab() {
             pageCount,
             backgroundColor,
             elements,
+            // FIX: Save excelData inside catalogData even for 'single' mode
+            catalogData: {
+                excelData: excelData 
+            }
         });
     }
   };
 
-  // --- PREVIEW GENERATION ---
+  // ... (Keep existing Preview Generation code exactly as is)
   const generateHTMLForPage = async (pageIndex: number) => {
     const container = document.createElement("div");
     container.style.width = `${canvasWidth}px`;
@@ -557,6 +557,8 @@ export function SavedDesignsTab() {
           )}
         </div>
 
+        {/* ... (Keep existing Dialogs exactly as they are) ... */}
+        {/* Just make sure the Dialogs below are included in your actual file copy-paste */}
         <Dialog open={newDesignDialogOpen} onOpenChange={setNewDesignDialogOpen}>
           <DialogContent className="max-w-5xl h-[80vh] flex flex-col" style={{ zIndex: 2147483647 }}>
             <DialogHeader>
@@ -672,7 +674,6 @@ export function SavedDesignsTab() {
           <DialogTrigger asChild>
             <Button 
               className="w-full" 
-              // Enable button if in Catalog Mode OR if standard elements exist
               disabled={elements.length === 0 && !isCatalogMode}
               data-testid="button-save-design"
             >
@@ -759,7 +760,6 @@ export function SavedDesignsTab() {
                   <div className="flex-1 min-w-0">
                     <h4 className="font-medium text-sm break-words leading-tight">{design.name}</h4>
 
-                    {/* NEW: Display Design Type Badge */}
                     <div className="flex items-center gap-2 mt-1">
                         {design.type === 'catalog' ? (
                             <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded flex items-center gap-1">

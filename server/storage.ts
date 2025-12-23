@@ -1,9 +1,9 @@
-import type { Template, InsertTemplate, SavedDesign, InsertSavedDesign, CanvasElement, DbUser, InsertDbUser, QrCode, InsertQrCode } from "@shared/schema";
-import { savedDesignsTable, templatesTable, usersTable, qrCodesTable } from "@shared/schema";
+import type { Template, InsertTemplate, SavedDesign, InsertSavedDesign, CanvasElement, DbUser, InsertDbUser, QrCode, InsertQrCode, ProductKnowledge, InsertProductKnowledge } from "@shared/schema";
+import { savedDesignsTable, templatesTable, usersTable, qrCodesTable, productKnowledgeTable } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
 export interface IStorage {
@@ -39,6 +39,10 @@ export interface IStorage {
 
   // NEW: Usage Enforcement
   checkAndIncrementUsage(userId: string): Promise<{ allowed: boolean; count: number; limit: number }>;
+
+  // NEW: Product Knowledge (AI Memory)
+  batchSaveProductKnowledge(userId: string, items: InsertProductKnowledge[]): Promise<void>;
+  batchGetProductKnowledge(userId: string, productKeys: string[]): Promise<ProductKnowledge[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -276,6 +280,46 @@ export class DatabaseStorage implements IStorage {
     const [row] = await this.db.update(qrCodesTable).set({ destinationUrl, updatedAt: new Date() }).where(and(eq(qrCodesTable.id, id), eq(qrCodesTable.userId, userId))).returning();
     return row;
   }
+
+  // --- NEW: PRODUCT KNOWLEDGE IMPLEMENTATION ---
+  async batchSaveProductKnowledge(userId: string, items: InsertProductKnowledge[]): Promise<void> {
+    if (items.length === 0) return;
+
+    // Simplistic Batch Insert. In a real production app with high load, 
+    // we might want UPSET (On Conflict Do Update) but strict Insert works for basic MVP.
+    // We filter out any items where content is empty to save space.
+    const validItems = items.filter(i => i.content && i.content.trim().length > 0).map(item => ({
+        id: randomUUID(),
+        userId,
+        ...item,
+        createdAt: new Date(),
+        updatedAt: new Date()
+    }));
+
+    if (validItems.length > 0) {
+        // We use insert for now. If you re-generate, you get duplicate rows.
+        // Retrieval logic handles picking the latest one.
+        await this.db.insert(productKnowledgeTable).values(validItems);
+    }
+  }
+
+  async batchGetProductKnowledge(userId: string, productKeys: string[]): Promise<ProductKnowledge[]> {
+    if (productKeys.length === 0) return [];
+
+    // Fetch all records for these keys belonging to this user
+    // Then sorting in JS to find latest is easier than complex SQL grouping for MVP
+    const rows = await this.db.select()
+        .from(productKnowledgeTable)
+        .where(
+            and(
+                eq(productKnowledgeTable.userId, userId),
+                inArray(productKnowledgeTable.productKey, productKeys)
+            )
+        )
+        .orderBy(desc(productKnowledgeTable.createdAt));
+
+    return rows;
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -283,6 +327,8 @@ export class MemStorage implements IStorage {
   private designs: Map<string, SavedDesign>;
   private qrCodes: Map<string, QrCode>; 
   private users: Map<string, DbUser> = new Map();
+  // New Map for Knowledge: ID -> Object
+  private knowledge: Map<string, ProductKnowledge> = new Map();
 
   constructor() {
     this.templates = new Map();
@@ -326,6 +372,29 @@ export class MemStorage implements IStorage {
 
     user.pdfUsageCount = count;
     return { allowed: true, count, limit: 50 };
+  }
+
+  // --- NEW: PRODUCT KNOWLEDGE (MemStorage) ---
+  async batchSaveProductKnowledge(userId: string, items: InsertProductKnowledge[]) {
+      items.forEach(item => {
+          const id = randomUUID();
+          this.knowledge.set(id, {
+              id,
+              userId,
+              productKey: item.productKey,
+              fieldType: item.fieldType,
+              content: item.content,
+              createdAt: new Date(),
+              updatedAt: new Date()
+          });
+      });
+  }
+
+  async batchGetProductKnowledge(userId: string, productKeys: string[]) {
+      // Filter by User and Keys
+      return Array.from(this.knowledge.values())
+        .filter(k => k.userId === userId && productKeys.includes(k.productKey))
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 }
 

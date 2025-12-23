@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { pgTable, varchar, text, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, varchar, text, timestamp, jsonb, integer, uniqueIndex } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 // Canvas Element Types
@@ -356,3 +356,26 @@ export const insertQrCodeSchema = z.object({
   destinationUrl: z.string().url(),
   designId: z.string().optional(),
 });
+
+// --- NEW: PRODUCT KNOWLEDGE BASE (AI MEMORY) ---
+export const productKnowledgeTable = pgTable("product_knowledge", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  productKey: varchar("product_key", { length: 255 }).notNull(), // The SKU or Name (Anchor)
+  fieldType: varchar("field_type", { length: 50 }).notNull(),    // e.g. 'marketing', 'seo'
+  content: text("content").notNull(),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => ({
+  // Optional: Add unique index to prevent duplicates if DB supports it easily
+  // uniqueEntry: uniqueIndex("user_product_field_unique").on(t.userId, t.productKey, t.fieldType)
+}));
+
+export type ProductKnowledge = typeof productKnowledgeTable.$inferSelect;
+export const insertProductKnowledgeSchema = z.object({
+  productKey: z.string(),
+  fieldType: z.string(),
+  content: z.string(),
+});
+export type InsertProductKnowledge = z.infer<typeof insertProductKnowledgeSchema>;
