@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { 
   FileSpreadsheet, 
+  FileText,
   Palette, 
   Printer, 
   LayoutTemplate, 
@@ -17,7 +18,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { PublicHeader } from "@/components/layout/PublicHeader";
-import { Footer } from "@/components/layout/Footer"; // <--- Imported Footer
+import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -107,10 +108,10 @@ export default function Homepage() {
 
       <PublicHeader />
 
-      {/* Hero Section */}
-      <section className="relative overflow-hidden pt-16 pb-24 lg:pt-32 lg:pb-40">
+      {/* Hero Section - Text Content Only */}
+      <section className="relative overflow-hidden pt-16 pb-12 lg:pt-32 lg:pb-20">
         <div className="max-w-7xl mx-auto px-4 relative z-10">
-          <div className="text-center space-y-8 max-w-4xl mx-auto mb-16">
+          <div className="text-center space-y-8 max-w-4xl mx-auto">
             <div className={`inline-flex items-center rounded-full border border-[#2A9D90]/30 bg-[#2A9D90]/10 px-3 py-1 text-sm font-medium ${accentColor} mb-4`}>
               <span className={`flex h-2 w-2 rounded-full ${accentBg} mr-2`}></span>
               New: CMYK Print Export & Dynamic QRs
@@ -143,61 +144,126 @@ export default function Homepage() {
 
             <p className="text-sm text-slate-500">No credit card required · Free CMYK conversion test</p>
           </div>
+        </div>
+      </section>
 
-          {/* Visual Canvas */}
-          <div className="relative max-w-5xl mx-auto mt-12 perspective-1000">
+      {/* Visual Canvas Section - Full Width */}
+      <section className="pb-24 lg:pb-40 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="relative w-full mx-auto perspective-1000">
             <div className="absolute -inset-4 bg-gradient-to-r from-[#2A9D90] to-teal-600 rounded-xl blur-2xl opacity-20 animate-pulse"></div>
+
+            {/* Main Container - Aspect Ratio controls the total height */}
             <div className="relative bg-slate-900 rounded-xl border border-slate-800 shadow-2xl overflow-hidden aspect-[16/9] md:aspect-[21/9] flex flex-col md:flex-row">
-              {/* Left Panel */}
+
+              {/* 1. Left Panel */}
               <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r border-slate-800 bg-slate-900/50 p-6 flex flex-col gap-4">
-                <div className="flex items-center gap-2 text-slate-400 text-xs uppercase tracking-wider font-semibold">
+                <div className="flex items-center gap-2 text-slate-400 text-xs uppercase tracking-wider font-semibold shrink-0">
                   <FileSpreadsheet size={14} /> 1. Import Data
                 </div>
-                <div className="space-y-2">
-                  <div className="grid grid-cols-3 gap-2 text-[10px] text-slate-500 font-mono mb-2">
-                    <div>SKU</div><div>PRICE</div><div>QR_URL</div>
-                  </div>
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="h-8 w-full bg-slate-800/50 rounded flex items-center px-3 gap-2">
-                      <div className="h-1.5 w-8 bg-slate-600 rounded"></div>
-                      <div className={`h-1.5 w-12 ${accentBg} opacity-40 rounded`}></div>
-                      <div className={`h-1.5 w-16 ${accentBg} opacity-20 rounded ml-auto`}></div>
+
+                {/* Headers */}
+                <div className="grid grid-cols-4 gap-2 text-[10px] text-slate-500 font-mono px-3 shrink-0">
+                  <div className="truncate">NAME</div>
+                  <div className="truncate">SKU</div>
+                  <div className="truncate">DESC</div>
+                  <div className="truncate">IMAGE</div>
+                </div>
+
+                {/* Dynamic Rows Container 
+                    flex-1: takes remaining height
+                    overflow-hidden: cuts off rows that don't fit
+                    mask-image: fades out the bottom for a smooth look 
+                */}
+                <div className="flex-1 overflow-hidden flex flex-col gap-2 relative [mask-image:linear-gradient(to_bottom,black_90%,transparent)]">
+                  {/* We render extra rows (12) to ensure it fills any aspect ratio, overflow hides the rest */}
+                  {[...Array(12)].map((_, i) => (
+                    <div key={i} className="h-8 w-full bg-slate-800/50 rounded grid grid-cols-4 items-center px-3 gap-2 shrink-0">
+                      <div className={`h-1.5 w-8 ${accentBg} opacity-80 rounded`}></div>
+                      <div className={`h-1.5 w-8 ${accentBg} opacity-50 rounded`}></div>
+                      <div className={`h-1.5 w-8 ${accentBg} opacity-20 rounded`}></div>
+                      <div className="h-1.5 w-8 bg-slate-800 rounded"></div>
                     </div>
                   ))}
                 </div>
               </div>
-              {/* Middle Panel */}
-              <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r border-slate-800 bg-slate-900 p-6 relative group">
-                <div className="flex items-center gap-2 text-slate-400 text-xs uppercase tracking-wider font-semibold mb-4">
+
+              {/* 2. Middle Panel */}
+              <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r border-slate-800 bg-slate-900 p-6 flex flex-col">
+                <div className="flex items-center gap-2 text-slate-400 text-xs uppercase tracking-wider font-semibold mb-4 shrink-0">
                   <Palette size={14} /> 2. Map & Design
                 </div>
-                <div className="aspect-[3/4] bg-white rounded shadow-lg mx-auto w-3/4 p-4 transform transition-transform group-hover:scale-105 duration-500 relative">
-                  <div className="h-24 bg-slate-100 rounded mb-3 flex items-center justify-center border-2 border-dashed border-slate-200">
+
+                {/* Card: flex-1 w-full forces it to fill the panel height/width */}
+                <div className="bg-white rounded shadow-lg flex-1 w-full p-4 relative flex flex-col">
+
+                  {/* Top aligned placeholders */}
+                  <div className="flex justify-between mb-3">
+                    <div className={`h-2 w-8 ${accentBg} opacity-80 rounded`}></div>
+                    <div className={`h-2 w-8 ${accentBg} opacity-80 rounded`}></div>
+                  </div>
+
+                  {/* Product Image Box */}
+                  <div className="h-24 bg-slate-800 rounded mb-3 flex items-center justify-center border-2 border-dashed border-slate-200 shrink-0">
                     <div className="text-slate-400 text-[10px]">Product Image</div>
                   </div>
-                  <div className={`h-2 w-full ${accentBg} opacity-20 rounded mb-2`}></div>
-                  <div className="h-2 w-2/3 bg-slate-100 rounded mb-4"></div>
+
+                  {/* Body Lines - spread out to fill space if needed */}
+                  <div className="flex flex-col gap-2">
+                    <div className={`h-2 w-full ${accentBg} opacity-20 rounded`}></div>
+                    <div className={`h-2 w-full ${accentBg} opacity-20 rounded`}></div>
+                    <div className={`h-2 w-full ${accentBg} opacity-20 rounded`}></div>
+                    <div className={`h-2 w-full ${accentBg} opacity-20 rounded`}></div>
+                    <div className={`h-2 w-2/3 ${accentBg} opacity-20 rounded`}></div>
+                  </div>
+
+                  {/* QR Code */}
                   <div className="absolute bottom-4 right-4">
-                    <QrCode className="w-8 h-8 text-slate-800 opacity-20" />
+                    <QrCode className="w-8 h-8 text-slate-800 opacity-90" />
                   </div>
                 </div>
               </div>
-              {/* Right Panel */}
-              <div className="w-full md:w-1/3 bg-slate-900/50 p-6 relative">
-                <div className="flex items-center gap-2 text-slate-400 text-xs uppercase tracking-wider font-semibold mb-4">
-                  <Printer size={14} /> 3. CMYK Export
+
+              {/* 3. Right Panel */}
+              <div className="w-full md:w-1/3 bg-slate-900/50 p-6 flex flex-col">
+                <div className="flex items-center gap-2 text-slate-400 text-xs uppercase tracking-wider font-semibold mb-4 shrink-0">
+                  <FileText size={14} /> 3. Generate PDF
                 </div>
-                <div className="relative h-full flex items-center justify-center">
-                  <div className="absolute top-8 left-8 w-32 h-40 bg-white opacity-40 rounded shadow border border-slate-200 transform -rotate-12"></div>
-                  <div className="relative w-32 h-40 bg-white rounded shadow-xl border border-slate-200 flex flex-col items-center justify-center gap-3">
-                    <CheckCircle2 className={accentColor} size={32} />
-                    <div className="text-center">
-                      <span className="text-xs font-bold text-slate-800 block">Print Ready</span>
-                      <span className="text-[10px] text-slate-500">CMYK Profile Applied</span>
-                    </div>
+
+                {/* Card: flex-1 w-full forces it to fill the panel height/width */}
+                <div className="bg-white rounded shadow-lg flex-1 w-full p-4 relative flex flex-col border border-slate-200">
+
+                  {/* Header Info */}
+                  <div className="flex justify-between mb-3 items-end shrink-0">
+                    <span className={`text-[10px] font-bold ${accentColor} opacity-80`}>MODERN BATHTUB</span>
+                    <span className={`text-[10px] font-bold ${accentColor} opacity-80`}>MOD-BATH-WHT</span>
                   </div>
+
+                  {/* Image Area - UPDATED to 16:9 */}
+                  {/* Replaced 'h-24' with 'aspect-video' (16:9 ratio) */}
+                  <div className="aspect-video w-full bg-slate-800 rounded-sm mb-3 border border-slate-700 overflow-hidden shrink-0">
+                      <img 
+                        src="https://res.cloudinary.com/olilepage/image/upload/f_auto,q_auto/v1766578632/fluted-gray-modern-bathtub-japandi-ultra-4k-ar-16-9_q6ppsb.png" 
+                        alt="Modern Bathtub" 
+                        className="w-full h-full object-cover"
+                      />
+                  </div>
+
+                  {/* Body Content - flex-1 allows text to sit comfortably */}
+                  <div className="flex flex-col gap-1 flex-1">
+                    <p className="text-[10px] text-slate-500 leading-[1.4] text-left">
+                      Transform your bathroom into a private sanctuary with this stunning freestanding bathtub. Featuring a sophisticated fluted exterior, the textured design adds architectural depth and modern elegance to any space. The soft gray finish is perfectly offset by brushed gold cylindrical legs, creating a luxurious contrast that captures the essence of contemporary chic.
+                    </p>
+                  </div>
+
+                  {/* QR Code */}
+                  <div className="absolute bottom-4 right-4">
+                    <QrCode className="w-8 h-8 text-slate-800 opacity-90" />
+                  </div>
+
                 </div>
               </div>
+
             </div>
           </div>
         </div>
@@ -420,11 +486,11 @@ export default function Homepage() {
           <h2 className="text-4xl font-bold mb-6 text-slate-900">Ready to automate your documents?</h2>
           <div className="flex justify-center gap-4">
              <Button 
-                size="lg" 
-                onClick={handleFreeSignup}
-                className={`h-14 px-8 text-lg ${accentBg} hover:bg-[#2A9D90]/90 text-white shadow-lg`}
+               size="lg" 
+               onClick={handleFreeSignup}
+               className={`h-14 px-8 text-lg ${accentBg} hover:bg-[#2A9D90]/90 text-white shadow-lg`}
              >
-                Get Started Free
+               Get Started Free
              </Button>
           </div>
         </div>
