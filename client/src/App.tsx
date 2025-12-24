@@ -18,6 +18,9 @@ import NotFound from "@/pages/not-found";
 import Privacy from "@/pages/Privacy";
 import Terms from "@/pages/Terms";
 
+// Support Widget Import
+import { SupportWidget } from "@/components/support/SupportWidget";
+
 function AppContent() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
   const [isInitializing, setIsInitializing] = useState(true);
@@ -56,38 +59,43 @@ function AppContent() {
   }
 
   return (
-    <Switch>
-      {/* Public Marketing Routes */}
-      <Route path="/" component={Homepage} />
-      <Route path="/solutions" component={Solutions} />
-      <Route path="/features" component={Features} />
-      <Route path="/pricing" component={Pricing} />
+    <>
+      <Switch>
+        {/* Public Marketing Routes */}
+        <Route path="/" component={Homepage} />
+        <Route path="/solutions" component={Solutions} />
+        <Route path="/features" component={Features} />
+        <Route path="/pricing" component={Pricing} />
 
-      {/* Legal Routes */}
-      <Route path="/privacy" component={Privacy} />
-      <Route path="/terms" component={Terms} />
+        {/* Legal Routes */}
+        <Route path="/privacy" component={Privacy} />
+        <Route path="/terms" component={Terms} />
 
-      {/* Auth Routes */}
-      <Route path="/login" component={Login} />
-      <Route path="/registration" component={Registration} />
+        {/* Auth Routes */}
+        <Route path="/login" component={Login} />
+        <Route path="/registration" component={Registration} />
 
-      {/* Checkout Handles Logic for Paid vs Free */}
-      <Route path="/checkout" component={Checkout} />
-      <Route path="/checkout/success" component={CheckoutSuccess} />
+        {/* Checkout Handles Logic for Paid vs Free */}
+        <Route path="/checkout" component={Checkout} />
+        <Route path="/checkout/success" component={CheckoutSuccess} />
 
-      {/* Protected App Route */}
-      <Route path="/editor">
-        <SignedIn>
-          <Editor />
-        </SignedIn>
-        <SignedOut>
-          <Redirect to="/login" />
-        </SignedOut>
-      </Route>
+        {/* Protected App Route */}
+        <Route path="/editor">
+          <SignedIn>
+            <Editor />
+          </SignedIn>
+          <SignedOut>
+            <Redirect to="/login" />
+          </SignedOut>
+        </Route>
 
-      {/* Fallback */}
-      <Route component={NotFound} />
-    </Switch>
+        {/* Fallback */}
+        <Route component={NotFound} />
+      </Switch>
+
+      {/* Persistent Support Widget (Visible on all pages) */}
+      <SupportWidget />
+    </>
   );
 }
 
