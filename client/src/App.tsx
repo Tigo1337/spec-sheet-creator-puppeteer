@@ -10,6 +10,8 @@ import Solutions from "@/pages/Solutions";
 import Features from "@/pages/Features";
 import Pricing from "@/pages/Pricing";
 import Login from "@/pages/Login";
+import Demo from "@/pages/Demo";
+import TemplateLibrary from "@/pages/TemplateLibrary";
 import Registration from "@/pages/Registration";
 import Checkout from "@/pages/Checkout";
 import CheckoutSuccess from "@/pages/CheckoutSuccess";
@@ -65,7 +67,9 @@ function AppContent() {
         <Route path="/" component={Homepage} />
         <Route path="/solutions" component={Solutions} />
         <Route path="/features" component={Features} />
+        <Route path="/templates" component={TemplateLibrary} />
         <Route path="/pricing" component={Pricing} />
+        <Route path="/demo" component={Demo} />
 
         {/* Legal Routes */}
         <Route path="/privacy" component={Privacy} />

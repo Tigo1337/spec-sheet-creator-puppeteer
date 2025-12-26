@@ -10,6 +10,7 @@ export function PublicHeader() {
     { label: "Solutions", href: "/solutions" },
     { label: "Features", href: "/features" },
     { label: "Pricing", href: "/pricing" },
+    { label: "Book Demo", href: "/demo" },
   ];
 
   return (

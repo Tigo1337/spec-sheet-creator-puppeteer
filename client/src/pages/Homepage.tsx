@@ -137,7 +137,13 @@ export default function Homepage() {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
 
-              <Button variant="outline" size="lg" data-testid="btn-learn-more" className="h-14 px-8 text-lg border-slate-200 hover:bg-slate-50 hover:text-slate-900">
+              <Button 
+                variant="outline" 
+                size="lg" 
+                data-testid="btn-learn-more" 
+                onClick={() => setLocation("/templates")}
+                className="h-14 px-8 text-lg border-slate-200 hover:bg-slate-50 hover:text-slate-900"
+              >
                 View Samples
               </Button>
             </div>
@@ -342,7 +348,11 @@ export default function Homepage() {
                 <UseCaseItem title="Direct Mail" desc="Design personalized postcards with dynamic offers and tracking URLs." accentColor={accentColor} />
               </div>
               <div className="mt-8">
-                <Button variant="outline" className="gap-2 hover:text-[#2A9D90] hover:bg-[#2A9D90]/5">
+                <Button 
+                  variant="outline" 
+                  className="gap-2 hover:text-[#2A9D90] hover:bg-[#2A9D90]/5"
+                  onClick={() => setLocation("/templates")}
+                >
                   See template library <ChevronRight size={16} />
                 </Button>
               </div>

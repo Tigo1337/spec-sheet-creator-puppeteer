@@ -12,16 +12,18 @@ import { getStripePublishableKey } from "./stripeClient";
 import puppeteer from "puppeteer";
 import path from "path";
 import fs from "fs";
-import { exec } from "child_process";
+import { exec, execFile } from "child_process";
 import { promisify } from "util";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const execAsync = promisify(exec);
+// Use execFile for safer execution (avoids shell injection)
+const execFileAsync = promisify(execFile);
 
 // --- STRICT QUEUE SYSTEM ---
 const pdfQueue = {
   active: 0,
-  limit: 1, 
+  limit: 3, // FIX: Increased concurrency limit from 1 to 3
   queue: [] as (() => void)[],
 
   async add<T>(task: () => Promise<T>): Promise<T> {
@@ -44,7 +46,8 @@ const pdfQueue = {
 // Helper to check admin status via Env Var OR Clerk Role
 async function checkAdmin(userId: string): Promise<boolean> {
   // 1. Check Environment Variable (Fastest)
-  if (process.env.ADMIN_USER_ID && userId === process.env.ADMIN_USER_ID) {
+  // FIX: Ensure env var is not empty string to prevent accidental open access
+  if (process.env.ADMIN_USER_ID && process.env.ADMIN_USER_ID.trim().length > 0 && userId === process.env.ADMIN_USER_ID) {
     return true;
   }
 
@@ -509,6 +512,32 @@ export async function registerRoutes(
         try {
           const page = await browser.newPage();
 
+          // --- FIX: SECURITY INTERCEPTION ---
+          // Prevent SSRF and LFI by blocking network requests to internal/local/file resources
+          await page.setRequestInterception(true);
+          page.on('request', (request) => {
+             const url = request.url().toLowerCase();
+
+             // Allow data URIs (images)
+             if (url.startsWith('data:')) {
+               return request.continue();
+             }
+
+             // Block file protocol (LFI protection)
+             if (url.startsWith('file:')) {
+               return request.abort();
+             }
+
+             // Block local network IPs (SSRF protection)
+             if (url.includes('localhost') || url.includes('127.0.0.1') || url.includes('::1') || url.includes('169.254.169.254')) {
+               return request.abort();
+             }
+
+             // In strict mode, you might want to allow only specific domains (like fonts.googleapis.com)
+             request.continue();
+          });
+          // ----------------------------------
+
           await page.setViewport({
             width: Math.ceil(width),
             height: Math.ceil(height),
@@ -548,9 +577,21 @@ export async function registerRoutes(
 
         try {
             await fs.promises.writeFile(inputPath, finalBuffer);
-            await execAsync(
-                `gs -o "${outputPath}" -sDEVICE=pdfwrite -sColorConversionStrategy=CMYK -dProcessColorModel=/DeviceCMYK -dPDFSETTINGS=/prepress -dSAFER -dBATCH -dNOPAUSE "${inputPath}"`
-            );
+
+            // FIX: Use execFileAsync to avoid shell injection vulnerabilities
+            // Note: We use the array syntax for args to be safe
+            await execFileAsync('gs', [
+                '-o', outputPath,
+                '-sDEVICE=pdfwrite',
+                '-sColorConversionStrategy=CMYK',
+                '-dProcessColorModel=/DeviceCMYK',
+                '-dPDFSETTINGS=/prepress',
+                '-dSAFER',
+                '-dBATCH',
+                '-dNOPAUSE',
+                inputPath
+            ]);
+
             finalBuffer = await fs.promises.readFile(outputPath);
             usedColorModel = 'cmyk';
 
@@ -598,6 +639,17 @@ export async function registerRoutes(
 
         try {
           const page = await browser.newPage();
+
+          // FIX: Apply security Interception to Preview as well
+          await page.setRequestInterception(true);
+          page.on('request', (request) => {
+             const url = request.url().toLowerCase();
+             if (url.startsWith('file:') || url.includes('localhost') || url.includes('127.0.0.1')) {
+               return request.abort();
+             }
+             request.continue();
+          });
+
           await page.setViewport({
             width: Math.ceil(width),
             height: Math.ceil(height),

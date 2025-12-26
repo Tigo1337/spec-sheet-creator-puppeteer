@@ -170,15 +170,25 @@ app.post(
   }
 );
 
-// Increase limit to 50mb for large file uploads
-app.use(
-  express.json({
-    limit: "50mb", 
-    verify: (req, _res, buf) => {
-      req.rawBody = buf;
-    },
-  }),
-);
+// --- SECURITY FIX: DoS Protection via Payload Size ---
+// Use strict 1MB limit by default, but allow 50MB for specific heavy routes
+const largePayloadRoutes = ['/api/export/pdf', '/api/export/preview', '/api/objects/upload'];
+
+app.use((req, res, next) => {
+  if (largePayloadRoutes.some(route => req.path.startsWith(route))) {
+    // 50MB limit for export/upload routes
+    express.json({ 
+      limit: "50mb", 
+      verify: (req, _res, buf) => { req.rawBody = buf; } 
+    })(req, res, next);
+  } else {
+    // 1MB limit for everything else (Auth, Data saving, etc.)
+    express.json({ 
+      limit: "1mb", 
+      verify: (req, _res, buf) => { req.rawBody = buf; } 
+    })(req, res, next);
+  }
+});
 
 app.use(express.urlencoded({ extended: false, limit: "50mb" }));
 

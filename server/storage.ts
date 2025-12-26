@@ -203,7 +203,7 @@ export class DatabaseStorage implements IStorage {
     return this.updateUser(userId, stripeInfo);
   }
 
-  // --- USAGE ENFORCEMENT LOGIC ---
+  // --- USAGE ENFORCEMENT LOGIC (ATOMIC) ---
   async checkAndIncrementUsage(userId: string): Promise<{ allowed: boolean; count: number; limit: number }> {
     const user = await this.getUser(userId);
     if (!user) {
@@ -224,39 +224,35 @@ export class DatabaseStorage implements IStorage {
 
     // Check if new month (Reset Logic)
     const isNewMonth = now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear();
-    let currentCount = user.pdfUsageCount || 0;
 
     if (isNewMonth) {
       console.log(`[Usage Check] New month detected. Resetting count to 1.`);
-      currentCount = 0;
       // Reset logic
       await this.db.update(usersTable)
         .set({ 
           pdfUsageCount: 1, 
           pdfUsageResetDate: now,
-          updatedAt: now // Force update timestamp so we can see the change
+          updatedAt: now 
         })
         .where(eq(usersTable.id, userId));
       return { allowed: true, count: 1, limit };
     }
 
-    if (currentCount >= limit) {
-      console.log(`[Usage Check] Limit reached (${currentCount}/${limit}).`);
-      return { allowed: false, count: currentCount, limit };
+    if ((user.pdfUsageCount || 0) >= limit) {
+      console.log(`[Usage Check] Limit reached (${user.pdfUsageCount}/${limit}).`);
+      return { allowed: false, count: user.pdfUsageCount || 0, limit };
     }
 
-    const newCount = currentCount + 1;
-    console.log(`[Usage Check] Incrementing count to ${newCount}`);
-
-    // EXPLICIT UPDATE (Removing Atomic SQL to fix potential compatibility issues)
-    await this.db.update(usersTable)
+    // ATOMIC INCREMENT to prevent race conditions
+    const [updatedUser] = await this.db.update(usersTable)
       .set({ 
-        pdfUsageCount: newCount,
-        updatedAt: now // Force update timestamp so we can see the change
+        pdfUsageCount: sql`${usersTable.pdfUsageCount} + 1`,
+        updatedAt: now 
       })
-      .where(eq(usersTable.id, userId));
+      .where(eq(usersTable.id, userId))
+      .returning();
 
-    return { allowed: true, count: newCount, limit };
+    return { allowed: true, count: updatedUser.pdfUsageCount || 0, limit };
   }
 
   // QR Code Methods
@@ -451,6 +447,11 @@ export class MemStorage implements IStorage {
     }
     return undefined;
   }
+}
+
+// --- FIX: ENFORCE DATABASE IN PRODUCTION ---
+if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL) {
+  throw new Error("🚨 FATAL: Production environment detected but DATABASE_URL is missing. Exiting to prevent data loss.");
 }
 
 export const storage: IStorage = process.env.DATABASE_URL ? new DatabaseStorage() : new MemStorage();
