@@ -505,7 +505,7 @@ export async function registerRoutes(
             '--disable-extensions',
             '--no-first-run',
             '--no-zygote',
-            '--single-process', 
+            // --- FIX: Removed '--single-process' for stability ---
           ],
         });
 

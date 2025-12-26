@@ -1,10 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { clerkMiddleware } from "@clerk/express";
-import { runMigrations } from 'stripe-replit-sync';
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
-import { getStripeSync } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 import { exec } from "child_process";
 import { promisify } from "util";
@@ -12,6 +10,7 @@ import puppeteer from "puppeteer";
 import { storage } from "./storage";
 import * as Sentry from "@sentry/node";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
+import { rateLimit } from "express-rate-limit"; // --- NEW IMPORT ---
 
 const execAsync = promisify(exec);
 
@@ -34,13 +33,37 @@ Sentry.init({
   profilesSampleRate: 1.0, 
 });
 
-// NOTE: In Sentry v8, we do NOT manually add requestHandler or tracingHandler.
-// Request isolation is now handled automatically by the SDK.
-
 const httpServer = createServer(app);
 
+// --- RATE LIMITING CONFIGURATION ---
+// 1. Strict Limiter: For expensive routes (AI, Export, Auth)
+const strictLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  limit: 10, // Limit each IP to 10 requests per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please slow down to prevent abuse." }
+});
+
+// 2. General API Limiter: For standard usage (saving, fetching)
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 300, // Limit each IP to 300 requests per 15 mins (approx 1 every 3 sec)
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later." }
+});
+
+// Apply Strict Limits to expensive routes immediately
+app.use("/api/ai", strictLimiter);
+app.use("/api/export", strictLimiter);
+app.use("/api/objects/upload", strictLimiter);
+
+// Apply General Limits to all other API routes
+app.use("/api", apiLimiter);
+// -----------------------------------
+
 // Add Clerk authentication middleware
-// Select Clerk keys based on NODE_ENV to prevent dev/prod key mismatches
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
 const clerkPublishableKey = isDevelopment 
@@ -55,7 +78,6 @@ const clerkSecretKey = isDevelopment
 if (!clerkPublishableKey || !clerkSecretKey) {
   const envType = isDevelopment ? 'development' : 'production';
   console.error(`❌ CRITICAL: Missing Clerk keys for ${envType} environment.`);
-  console.error(`   Required: ${isDevelopment ? 'VITE_CLERK_PUBLISHABLE_KEY_DEV & CLERK_SECRET_KEY_DEV (or fallback to prod keys)' : 'VITE_CLERK_PUBLISHABLE_KEY & CLERK_SECRET_KEY'}`);
   process.exit(1);
 }
 
@@ -82,19 +104,15 @@ async function initStripe() {
 }
 
 // === SMOKE TESTS ===
-
-// 1. Ghostscript Check
 async function checkGhostscript() {
   try {
     const { stdout } = await execAsync("gs --version");
     console.log(`✅ Ghostscript detected: v${stdout.trim()} (CMYK Export Ready)`);
   } catch (error) {
     console.warn("⚠️  Ghostscript NOT found. CMYK exports will fallback to RGB.");
-    console.warn("   -> Fix: Add 'pkgs.ghostscript' to your replit.nix file.");
   }
 }
 
-// 2. Puppeteer Launch Check (non-blocking with timeout)
 function checkPuppeteer() {
   const timeoutMs = 10000;
   const checkPromise = (async () => {
@@ -123,10 +141,8 @@ function checkPuppeteer() {
   return Promise.race([checkPromise, timeoutPromise]);
 }
 
-// 3. Database Connection Check
 async function checkDatabase() {
   try {
-    // Attempt a lightweight query
     await storage.getUser("health_check_probe");
     console.log(`✅ Database connected`);
   } catch (error) {
@@ -135,7 +151,6 @@ async function checkDatabase() {
     Sentry.captureException(error);
   }
 }
-// ===================
 
 // Initialize Stripe (Async)
 initStripe();
@@ -146,21 +161,14 @@ app.post(
   express.raw({ type: 'application/json' }),
   async (req, res) => {
     const signature = req.headers['stripe-signature'];
-
-    if (!signature) {
-      return res.status(400).json({ error: 'Missing stripe-signature' });
-    }
+    if (!signature) return res.status(400).json({ error: 'Missing stripe-signature' });
 
     try {
       const sig = Array.isArray(signature) ? signature[0] : signature;
-
       if (!Buffer.isBuffer(req.body)) {
-        console.error('STRIPE WEBHOOK ERROR: req.body is not a Buffer');
         return res.status(500).json({ error: 'Webhook processing error' });
       }
-
       await WebhookHandlers.processWebhook(req.body as Buffer, sig);
-
       res.status(200).json({ received: true });
     } catch (error: any) {
       console.error('Webhook error:', error.message);
@@ -199,7 +207,6 @@ export function log(message: string, source = "express") {
     second: "2-digit",
     hour12: true,
   });
-
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
@@ -221,7 +228,6 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
       log(logLine);
     }
   });
@@ -230,7 +236,6 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Run all Smoke Tests in parallel
   console.log("--- Starting System Checks ---");
   await Promise.all([
     checkGhostscript(),
@@ -241,15 +246,12 @@ app.use((req, res, next) => {
 
   await registerRoutes(httpServer, app);
 
-  // 3. SENTRY ERROR HANDLER (Replaces app.use(Sentry.Handlers.errorHandler))
   Sentry.setupExpressErrorHandler(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
     res.status(status).json({ message });
-    // throw err; // <-- REMOVED THIS to prevent duplicate header sending/crashing
   });
 
   if (process.env.NODE_ENV === "production") {
