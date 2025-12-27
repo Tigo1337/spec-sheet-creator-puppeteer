@@ -28,11 +28,12 @@ const logSystemStats = (id: string, stage: string) => {
 };
 
 // --- BROWSER ROTATION SYSTEM ---
-// Frequent rotation to prevent memory crashes during bulk exports.
-// Chrome accumulates memory even after page.close(), so we restart periodically.
+// Very aggressive rotation to prevent Chrome OS-level memory exhaustion.
+// Chrome accumulates memory at the OS level even after context.close().
+// Replit has per-process limits that kill Chrome around 10-12 exports.
 let sharedBrowser: puppeteer.Browser | null = null;
 let browserUsageCount = 0;
-const MAX_USES_BEFORE_RESTART = 5; // Restart every 5 PDFs - balances memory vs stability
+const MAX_USES_BEFORE_RESTART = 2; // Restart every 2 PDFs - very aggressive to prevent crashes
 
 // Kill any orphaned Chrome processes from previous crashes
 async function killOrphanedChrome() {
@@ -76,29 +77,52 @@ async function getBrowser() {
     await killOrphanedChrome();
   }
 
-  // 2. Launch new instance if needed
+  // 2. Launch new instance if needed (with retry logic)
   if (!sharedBrowser || !sharedBrowser.isConnected()) {
     console.log("[Puppeteer] Launching New Browser Instance...");
-    sharedBrowser = await puppeteer.launch({
-      headless: true,
-      executablePath: process.env.NIX_CHROMIUM_WRAPPER || puppeteer.executablePath(),
-      args: [
-        '--no-sandbox', 
-        '--disable-setuid-sandbox', 
-        '--disable-gpu', 
-        '--disable-dev-shm-usage',
-        '--font-render-hinting=none',
-        '--disable-extensions',
-        '--no-first-run',
-        '--no-zygote',
-        '--js-flags=--max-old-space-size=512', // Limit JS heap to 512MB
-        '--disable-background-networking',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-      ],
-    });
-    browserUsageCount = 0;
+    
+    // Retry up to 3 times if launch fails
+    let lastError: Error | null = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        // Kill orphaned processes before launch attempt
+        await killOrphanedChrome();
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        sharedBrowser = await puppeteer.launch({
+          headless: true,
+          executablePath: process.env.NIX_CHROMIUM_WRAPPER || puppeteer.executablePath(),
+          args: [
+            '--no-sandbox', 
+            '--disable-setuid-sandbox', 
+            '--disable-gpu', 
+            '--disable-dev-shm-usage',
+            '--font-render-hinting=none',
+            '--disable-extensions',
+            '--no-first-run',
+            '--no-zygote',
+            '--js-flags=--max-old-space-size=256', // Reduced to 256MB to stay under limits
+            '--disable-background-networking',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding',
+          ],
+        });
+        browserUsageCount = 0;
+        console.log(`[Puppeteer] Browser launched successfully on attempt ${attempt}`);
+        break;
+      } catch (e) {
+        lastError = e as Error;
+        console.error(`[Puppeteer] Launch attempt ${attempt} failed:`, e);
+        await killOrphanedChrome();
+        forceGC();
+        await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+      }
+    }
+    
+    if (!sharedBrowser) {
+      throw new Error(`Failed to launch browser after 3 attempts: ${lastError?.message}`);
+    }
   }
 
   browserUsageCount++;
