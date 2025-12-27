@@ -36,16 +36,25 @@ Sentry.init({
 const httpServer = createServer(app);
 
 // --- RATE LIMITING CONFIGURATION ---
-// 1. Strict Limiter: For expensive routes (AI, Export, Auth)
+// 1. Strict Limiter: For AI routes (expensive API calls)
 const strictLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  limit: 10, // Limit each IP to 10 requests per minute
+  limit: 30, // Limit each IP to 30 AI requests per minute
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests. Please slow down to prevent abuse." }
 });
 
-// 2. General API Limiter: For standard usage (saving, fetching)
+// 2. Export Limiter: Higher limit for bulk PDF exports (paid feature)
+const exportLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  limit: 100, // Allow 100 PDF exports per minute for bulk operations
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Export rate limit reached. Please wait a moment." }
+});
+
+// 3. General API Limiter: For standard usage (saving, fetching)
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   limit: 300, // Limit each IP to 300 requests per 15 mins (approx 1 every 3 sec)
@@ -54,9 +63,13 @@ const apiLimiter = rateLimit({
   message: { error: "Too many requests, please try again later." }
 });
 
-// Apply Strict Limits to expensive routes immediately
+// Apply Strict Limits to expensive AI routes
 app.use("/api/ai", strictLimiter);
-app.use("/api/export", strictLimiter);
+
+// Apply Export Limiter to PDF export (higher limit for bulk operations)
+app.use("/api/export", exportLimiter);
+
+// Apply Strict Limits to upload routes
 app.use("/api/objects/upload", strictLimiter);
 
 // Apply General Limits to all other API routes
