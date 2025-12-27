@@ -30,7 +30,6 @@ export default function Pricing() {
     );
   }
 
-  // --- UPDATED FORMATTER ---
   const formatPrice = (planId: string, fallback: string, divideByMonth = false) => {
     const price = getPrice(planId);
     if (!price || !price.unit_amount) return fallback;
@@ -47,16 +46,13 @@ export default function Pricing() {
       maximumFractionDigits: 2, 
     }).format(amount);
   };
-  // -------------------------
 
   const handlePlanSelect = (plan: string, planIdMetadata: string) => {
     const price = getPrice(planIdMetadata);
-
     if (!price) {
       console.error(`Price not found for ${planIdMetadata}`);
       return; 
     }
-
     sessionStorage.setItem("checkoutPlan", plan);
     sessionStorage.setItem("checkoutPriceId", price.id);
     setLocation(`/registration`);
@@ -127,10 +123,10 @@ export default function Pricing() {
               <ul className="space-y-4 mb-8 text-sm">
                 {[
                   '50 PDFs / month', 
+                  '50 AI Credits / month',
                   'Digital Ready Export', 
                   'CSV & Excel Import', 
                   'Basic QR Codes',
-                  'Multi-page Product Templates',
                   'Watermarked Exports'
                 ].map((feat, i) => (
                   <li key={i} className="flex items-start gap-3">
@@ -149,10 +145,7 @@ export default function Pricing() {
             </div>
 
             {/* 2. PRO */}
-            <div className={`p-8 border-2 ${accentBorder} rounded-2xl bg-white relative shadow-xl transform scale-105 z-10`}>
-              <div className={`absolute -top-4 left-1/2 -translate-x-1/2 ${accentBg} text-white px-4 py-1 rounded-full text-xs font-bold tracking-wide uppercase shadow-sm`}>
-                Most Popular
-              </div>
+            <div className="p-8 border-2 border-slate-200 rounded-2xl bg-white relative shadow-sm hover:shadow-md hover:border-[#2A9D90] transition-all">
               <h3 className="font-semibold text-xl mb-2 text-slate-900">Pro</h3>
               <p className="text-slate-500 mb-6">For professionals</p>
 
@@ -178,11 +171,11 @@ export default function Pricing() {
               <ul className="space-y-4 mb-8 text-sm">
                 {[
                   'Unlimited PDFs', 
+                  '1,000 AI Credits / month',
                   'Print Ready Exports', 
                   'Manageable QR Codes', 
-                  'Full Catalog Assembly', 
-                  'Priority Rendering Queue',
-                  'Watermark Removal'
+                  'Watermark Removal',
+                  'Priority Rendering Queue'
                 ].map((feat, i) => (
                   <li key={i} className="flex items-start gap-3">
                     <Check className={`h-5 w-5 ${accentText} shrink-0`} />
@@ -192,7 +185,8 @@ export default function Pricing() {
               </ul>
 
               <Button 
-                className={`w-full h-12 text-base ${accentBg} hover:bg-[#2A9D90]/90 text-white shadow-lg shadow-[#2A9D90]/20 transition-all`}
+                variant="outline"
+                className={`w-full h-12 text-base border-slate-300 hover:border-[#2A9D90] hover:text-[#2A9D90] transition-all`}
                 onClick={() => handlePlanSelect(
                   isAnnual ? "pro_annual" : "pro_monthly", 
                   isAnnual ? "prod_pro_annual" : "prod_pro_monthly"
@@ -203,35 +197,59 @@ export default function Pricing() {
               </Button>
             </div>
 
-            {/* 3. ENTERPRISE */}
-            <div className="p-8 border border-slate-200 rounded-2xl bg-white shadow-sm hover:shadow-md transition-shadow">
-              <h3 className="font-semibold text-xl mb-2 text-slate-900">Enterprise</h3>
-              <p className="text-slate-500 mb-6">For large teams</p>
-              <div className="mb-6 h-[60px] flex items-end">
-                <span className="text-4xl font-bold text-slate-900">Custom</span>
+            {/* 3. SCALE (Renamed from Business) */}
+            <div className={`p-8 border-2 ${accentBorder} rounded-2xl bg-white relative shadow-xl transform scale-105 z-10`}>
+              <div className={`absolute -top-4 left-1/2 -translate-x-1/2 ${accentBg} text-white px-4 py-1 rounded-full text-xs font-bold tracking-wide uppercase shadow-sm`}>
+                Best Value
               </div>
+              <h3 className="font-semibold text-xl mb-2 text-slate-900">Scale</h3>
+              <p className="text-slate-500 mb-6">For high volume teams</p>
+
+              <div className="mb-6 h-[60px] flex flex-col justify-end">
+                <div className="flex items-end">
+                    <span className="text-4xl font-bold text-slate-900 transition-all duration-300">
+                    {isAnnual 
+                        ? formatPrice("prod_scale_annual", "$58.33", true) 
+                        : formatPrice("prod_scale_monthly", "$69.99", false)
+                    }
+                    </span>
+                    <span className="text-slate-500 mb-1 ml-1 transition-all duration-300">
+                    /month
+                    </span>
+                </div>
+                {isAnnual && (
+                    <span className="text-xs text-slate-400 mt-1">
+                        Billed {formatPrice("prod_scale_annual", "$699.99", false)} yearly
+                    </span>
+                )}
+              </div>
+
               <ul className="space-y-4 mb-8 text-sm">
                 {[
+                  'Everything in Pro',
+                  '10,000 AI Credits / month', 
+                  'AI Product Memory', 
                   'Dedicated Rendering Server', 
                   'Custom Font Uploads', 
-                  'Template Migration Services', 
-                  'API Access', 
                   'SLA Support'
                 ].map((feat, i) => (
                   <li key={i} className="flex items-start gap-3">
                     <Check className={`h-5 w-5 ${accentText} shrink-0`} />
-                    <span className="text-slate-700">{feat}</span>
+                    <span className="text-slate-700 font-bold">{feat}</span>
                   </li>
                 ))}
               </ul>
-              <a href="mailto:sales@doculoom.io" className="block w-full">
-                <Button 
-                  variant="outline" 
-                  className={`w-full h-12 text-base border-slate-200 hover:border-[#2A9D90] hover:text-[#2A9D90]`}
-                >
-                  Contact Sales <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </a>
+
+               <Button 
+                className={`w-full h-12 text-base ${accentBg} hover:bg-[#2A9D90]/90 text-white shadow-lg shadow-[#2A9D90]/20 transition-all`}
+                onClick={() => handlePlanSelect(
+                  isAnnual ? "scale_annual" : "scale_monthly", 
+                  isAnnual ? "prod_scale_annual" : "prod_scale_monthly"
+                )}
+                disabled={!getPrice(isAnnual ? "prod_scale_annual" : "prod_scale_monthly")}
+              >
+                {isAnnual ? "Start Scale Annual" : "Start Scale Monthly"}
+              </Button>
             </div>
 
           </div>

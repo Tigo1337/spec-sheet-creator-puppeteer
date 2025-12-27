@@ -114,7 +114,7 @@ export default function Homepage() {
           <div className="text-center space-y-8 max-w-4xl mx-auto">
             <div className={`inline-flex items-center rounded-full border border-[#2A9D90]/30 bg-[#2A9D90]/10 px-3 py-1 text-sm font-medium ${accentColor} mb-4`}>
               <span className={`flex h-2 w-2 rounded-full ${accentBg} mr-2`}></span>
-              New: CMYK Print Export & Dynamic QRs
+              New: AI Product Memory & Data Enrichment
             </div>
 
             <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900">
@@ -420,7 +420,7 @@ export default function Homepage() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             {/* Free Tier */}
             <PricingCard 
               name="Starter"
@@ -428,10 +428,10 @@ export default function Homepage() {
               period="/mo"
               features={[
                 '50 PDFs / month', 
+                '50 AI Credits / month',
                 'Digital Ready Export', 
                 'CSV & Excel Import', 
                 'Basic QR Codes',
-                'Multi-page Product Templates',
                 'Watermarked Exports'
               ]}
               cta="Start Free"
@@ -455,38 +455,45 @@ export default function Homepage() {
               subtext={isAnnual ? `Billed ${formatPrice("prod_pro_annual", "$399.99", false)} yearly` : undefined}
               features={[
                 'Unlimited PDFs', 
+                '1,000 AI Credits / month',
                 'Print Ready Exports', 
                 'Manageable QR Codes', 
-                'Full Catalog Assembly', 
-                'Priority Rendering Queue',
-                'Watermark Removal'
+                'Watermark Removal',
               ]}
               cta={isAnnual ? "Start Pro Annual" : "Start Pro Monthly"}
-              variant="filled"
-              popular
-              accentBg={accentBg}
+              variant="outline"
+              accentColor={accentColor}
               onAction={() => handlePlanSelect(
                 isAnnual ? "pro_annual" : "pro_monthly", 
                 isAnnual ? "prod_pro_annual" : "prod_pro_monthly"
               )}
             />
 
-            {/* Team Tier */}
-            <PricingCard 
-              name="Enterprise"
-              price="Custom"
-              period=""
+            {/* Scale Tier (Dynamic) */}
+             <PricingCard 
+              name="Scale"
+              price={isAnnual 
+                ? formatPrice("prod_scale_annual", "$58.33", true) 
+                : formatPrice("prod_scale_monthly", "$69.99", false)
+              }
+              period="/mo"
+              // SHOW YEARLY COST SUBTEXT
+              subtext={isAnnual ? `Billed ${formatPrice("prod_scale_annual", "$699.99", false)} yearly` : undefined}
               features={[
+                'Everything in Pro',
+                '10,000 AI Credits / month',
+                'AI Product Memory', 
                 'Dedicated Rendering Server', 
-                'Custom Font Uploads', 
-                'Template Migration Services', 
-                'API Access', 
                 'SLA Support'
               ]}
-              cta="Contact Sales"
-              variant="outline"
-              accentColor={accentColor}
-              onAction={() => window.location.href = "mailto:sales@doculoom.io"}
+              cta={isAnnual ? "Start Scale Annual" : "Start Scale Monthly"}
+              variant="filled"
+              popular
+              accentBg={accentBg}
+              onAction={() => handlePlanSelect(
+                isAnnual ? "scale_annual" : "scale_monthly", 
+                isAnnual ? "prod_scale_annual" : "prod_scale_monthly"
+              )}
             />
           </div>
         </div>

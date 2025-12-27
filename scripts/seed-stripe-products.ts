@@ -12,28 +12,54 @@ interface PlanConfig {
 }
 
 const plans: PlanConfig[] = [
+  // 1. PRO Monthly
   {
     name: 'Pro Monthly',
     productId: 'prod_pro_monthly',
-    priceAmount: 3999, // Updated to $39.99
+    priceAmount: 3999, // $39.99
     interval: 'month',
     features: [
       'Unlimited spec sheets',
-      'Unlimited data imports',
-      'Custom branding',
-      'Priority support',
-      'Advanced export options'
+      'Remove Watermarks',
+      '1,000 AI Credits / month',
+      'Priority support'
     ]
   },
+  // 2. PRO Annual
   {
     name: 'Pro Annual',
     productId: 'prod_pro_annual',
-    priceAmount: 39999, // Updated to $399.99
+    priceAmount: 39999, // $399.99
     interval: 'year',
     features: [
       'Everything in Pro Monthly',
-      '2 months free', // You might want to update this text if the math changes, but $399.99 vs $479.88 (39.99*12) is roughly ~2 months free (17% off).
+      '2 months free', 
       'Priority onboarding'
+    ]
+  },
+  // 3. SCALE Monthly (Previously Business)
+  {
+    name: 'Scale Monthly',
+    productId: 'prod_scale_monthly',
+    priceAmount: 6999, // $69.99
+    interval: 'month',
+    features: [
+      'Everything in Pro',
+      '10,000 AI Credits / month',
+      'AI Product Memory',
+      'Dedicated Rendering Queue'
+    ]
+  },
+  // 4. SCALE Annual (Previously Business)
+  {
+    name: 'Scale Annual',
+    productId: 'prod_scale_annual',
+    priceAmount: 69999, // $699.99
+    interval: 'year',
+    features: [
+      'Everything in Scale Monthly',
+      '2 months free',
+      'Dedicated Rendering Queue'
     ]
   }
 ];

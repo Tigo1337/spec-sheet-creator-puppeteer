@@ -5,9 +5,7 @@ import Stripe from 'stripe';
 export class WebhookHandlers {
   static async processWebhook(payload: Buffer, signature: string): Promise<void> {
     if (!Buffer.isBuffer(payload)) {
-      throw new Error(
-        'STRIPE WEBHOOK ERROR: Payload must be a Buffer.'
-      );
+      throw new Error('STRIPE WEBHOOK ERROR: Payload must be a Buffer.');
     }
 
     const stripe = await getUncachableStripeClient();
@@ -18,7 +16,6 @@ export class WebhookHandlers {
     }
 
     let event: Stripe.Event;
-
     try {
       event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
     } catch (err: any) {
@@ -54,13 +51,20 @@ export class WebhookHandlers {
     }
   }
 
+  // --- HELPER TO DETERMINE CREDITS BASED ON PLAN ---
+  // Returns credit limit in CENTS (x100)
+  static getCreditLimitForPlan(plan: string): number {
+    switch(plan) {
+        case 'business': return 10000 * 100; // 1,000,000 cents (10k credits)
+        case 'pro': return 1000 * 100;       // 100,000 cents (1k credits)
+        case 'free': 
+        default: return 50 * 100;            // 5,000 cents (50 credits)
+    }
+  }
+
   static async handleCheckoutCompleted(session: Stripe.Checkout.Session, stripe: Stripe): Promise<void> {
     console.log('Checkout session completed:', session.id);
-
-    if (session.mode !== 'subscription') {
-      console.log('Checkout is not a subscription, skipping');
-      return;
-    }
+    if (session.mode !== 'subscription') return;
 
     const userId = session.metadata?.clerk_user_id;
     if (!userId) {
@@ -73,15 +77,22 @@ export class WebhookHandlers {
 
     try {
       const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-      const priceId = subscription.items.data[0]?.price.id;
       const productId = subscription.items.data[0]?.price.product as string;
       const product = await stripe.products.retrieve(productId);
 
-      // FIXED: Normalize plan name to 'pro' if it matches specific IDs
       let planName = product.metadata?.planId || 'pro';
-      if (planName === 'prod_pro_monthly' || planName === 'prod_pro_annual') {
-        planName = 'pro';
+
+      // LOGIC: Check for your specific metadata keys
+      if (planName === 'prod_business_monthly' || planName === 'prod_business_annual') {
+          planName = 'business';
+      } else if (planName.includes('pro')) {
+          planName = 'pro';
+      } else {
+          planName = 'free'; // Default fallback
       }
+
+      // DETERMINE CREDITS
+      const creditLimit = WebhookHandlers.getCreditLimitForPlan(planName);
 
       await storage.updateUserStripeInfo(userId, {
         stripeCustomerId: customerId,
@@ -90,7 +101,14 @@ export class WebhookHandlers {
         planStatus: subscription.status,
       });
 
-      console.log(`Updated user ${userId} with subscription ${subscriptionId}, plan: ${planName}`);
+      // Reset Credits on Upgrade/Checkout
+      await storage.updateUser(userId, {
+          aiCredits: creditLimit,
+          aiCreditsLimit: creditLimit,
+          aiCreditsResetDate: new Date()
+      });
+
+      console.log(`Updated user ${userId}: Plan ${planName}, Credits ${creditLimit}`);
     } catch (error) {
       console.error('Error handling checkout completed:', error);
     }
@@ -98,41 +116,79 @@ export class WebhookHandlers {
 
   static async handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
     console.log('Subscription updated:', subscription.id);
-
     const customerId = subscription.customer as string;
 
     try {
       const user = await WebhookHandlers.findUserByCustomerId(customerId);
-      if (!user) {
-        console.log('No user found for customer:', customerId);
-        return;
+      if (!user) return;
+
+      const stripe = await getUncachableStripeClient();
+      const productId = subscription.items.data[0]?.price.product as string;
+      const product = await stripe.products.retrieve(productId);
+
+      let planName = product.metadata?.planId || 'pro';
+
+      // LOGIC: Check for your specific metadata keys
+      if (planName === 'prod_business_monthly' || planName === 'prod_business_annual') {
+          planName = 'business';
+      } else if (planName.includes('pro')) {
+          planName = 'pro';
+      } else {
+          planName = 'free';
       }
 
       const status = subscription.status;
       const planStatus = ['active', 'trialing'].includes(status) ? 'active' : status;
 
+      const creditLimit = WebhookHandlers.getCreditLimitForPlan(planName);
+
       await storage.updateUserStripeInfo(user.id, {
         stripeSubscriptionId: subscription.id,
         planStatus: planStatus,
+        plan: planName // Ensure plan is updated in DB
       });
 
-      console.log(`Updated subscription status for user ${user.id}: ${planStatus}`);
+      // Update Limit immediately
+      await storage.updateUser(user.id, {
+          aiCreditsLimit: creditLimit
+      });
+
+      console.log(`Updated subscription for ${user.id}: ${planName} (${planStatus})`);
     } catch (error) {
       console.error('Error handling subscription update:', error);
     }
   }
 
+  static async handleInvoicePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
+    console.log('Invoice payment succeeded:', invoice.id);
+    const customerId = invoice.customer as string;
+
+    // REFILL CREDITS ON PAYMENT
+    try {
+        const user = await storage.getUserByStripeCustomerId(customerId);
+        if (!user) return;
+
+        // If it is a subscription invoice
+        if (invoice.subscription) {
+            const limit = WebhookHandlers.getCreditLimitForPlan(user.plan);
+
+            await storage.updateUser(user.id, {
+                aiCredits: limit, // Full reset to max
+                aiCreditsResetDate: new Date(),
+                planStatus: 'active'
+            });
+            console.log(`Refilled credits for user ${user.id} to ${limit}`);
+        }
+    } catch (error) {
+        console.error("Error processing invoice payment:", error);
+    }
+  }
+
   static async handleSubscriptionDeleted(subscription: Stripe.Subscription): Promise<void> {
-    console.log('Subscription deleted:', subscription.id);
-
     const customerId = subscription.customer as string;
-
     try {
       const user = await WebhookHandlers.findUserByCustomerId(customerId);
-      if (!user) {
-        console.log('No user found for customer:', customerId);
-        return;
-      }
+      if (!user) return;
 
       await storage.updateUserStripeInfo(user.id, {
         stripeSubscriptionId: null,
@@ -140,40 +196,24 @@ export class WebhookHandlers {
         planStatus: 'canceled',
       });
 
-      console.log(`Canceled subscription for user ${user.id}`);
-    } catch (error) {
-      console.error('Error handling subscription deletion:', error);
-    }
-  }
-
-  static async handleInvoicePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
-    console.log('Invoice payment succeeded:', invoice.id);
+      // Reset to Free limits
+      await storage.updateUser(user.id, {
+          aiCredits: 50 * 100,
+          aiCreditsLimit: 50 * 100
+      });
+    } catch (error) { console.error(error); }
   }
 
   static async handleInvoicePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
-    console.log('Invoice payment failed:', invoice.id);
-
-    const customerId = invoice.customer as string;
-
-    try {
-      const user = await WebhookHandlers.findUserByCustomerId(customerId);
-      if (!user) {
-        console.log('No user found for customer:', customerId);
-        return;
-      }
-
-      await storage.updateUserStripeInfo(user.id, {
-        planStatus: 'past_due',
-      });
-
-      console.log(`Marked user ${user.id} as past_due due to failed payment`);
-    } catch (error) {
-      console.error('Error handling failed payment:', error);
-    }
+     const customerId = invoice.customer as string;
+     try {
+         const user = await WebhookHandlers.findUserByCustomerId(customerId);
+         if(user) await storage.updateUserStripeInfo(user.id, { planStatus: 'past_due' });
+     } catch(e) { console.error(e); }
   }
 
-  static async findUserByCustomerId(customerId: string): Promise<{ id: string } | null> {
+  static async findUserByCustomerId(customerId: string): Promise<{ id: string; plan: string } | null> {
     const user = await storage.getUserByStripeCustomerId(customerId);
-    return user ? { id: user.id } : null;
+    return user ? { id: user.id, plan: user.plan } : null;
   }
 }

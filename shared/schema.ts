@@ -233,7 +233,7 @@ export const availableFonts = [
   "Lora", 
   "Ubuntu",
   "Kanit",
-  "Fira Sans", // Correct spelling
+  "Fira Sans",
   "Quicksand",
   "Barlow",
   "Inconsolata",
@@ -284,7 +284,6 @@ export const savedDesignsTable = pgTable("saved_designs", {
   backgroundColor: varchar("background_color", { length: 50 }).notNull().default("#ffffff"),
   elements: jsonb("elements").notNull().default([]),
 
-  // NEW COLUMNS - Ensure your DB has these!
   type: varchar("type", { length: 20 }).notNull().default("single"),
   catalogData: jsonb("catalog_data"), 
 
@@ -306,17 +305,25 @@ export const templatesTable = pgTable("templates", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// --- UPDATED USERS TABLE ---
 export const usersTable = pgTable("users", {
   id: varchar("id", { length: 255 }).primaryKey(),
   email: varchar("email", { length: 255 }).notNull(),
   stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
   stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
-  plan: varchar("plan", { length: 50 }).notNull().default("free"),
+
+  // Updated Enum to include 'business'
+  plan: varchar("plan", { length: 50 }).notNull().default("free"), 
   planStatus: varchar("plan_status", { length: 50 }).notNull().default("active"),
 
-  // NEW: Usage Tracking for Free Tier
+  // PDF Usage
   pdfUsageCount: integer("pdf_usage_count").default(0),
   pdfUsageResetDate: timestamp("pdf_usage_reset_date").defaultNow(),
+
+  // NEW: AI Credits System (Stored as Cent-Credits. 100 = 1 Credit)
+  aiCredits: integer("ai_credits").default(0),
+  aiCreditsLimit: integer("ai_credits_limit").default(5000), // Default Free: 50 Credits * 100
+  aiCreditsResetDate: timestamp("ai_credits_reset_date").defaultNow(),
 
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -330,7 +337,8 @@ export const dbUserSchema = z.object({
   email: z.string().email(),
   stripeCustomerId: z.string().nullable(),
   stripeSubscriptionId: z.string().nullable(),
-  plan: z.enum(["free", "pro"]).default("free"),
+  // Updated Zod Enum
+  plan: z.enum(["free", "pro", "business"]).default("free"), 
   planStatus: z.enum(["active", "canceled", "past_due"]).default("active"),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -339,7 +347,7 @@ export const dbUserSchema = z.object({
 export const insertDbUserSchema = dbUserSchema.omit({ createdAt: true, updatedAt: true });
 
 export const qrCodesTable = pgTable("qr_codes", {
-  id: varchar("id", { length: 12 }).primaryKey(), // Short code (e.g. "abc12")
+  id: varchar("id", { length: 12 }).primaryKey(), 
   userId: varchar("user_id", { length: 255 }).notNull(),
   designId: varchar("design_id", { length: 36 }),
   destinationUrl: text("destination_url").notNull(),
@@ -348,7 +356,6 @@ export const qrCodesTable = pgTable("qr_codes", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Added Types for QR Codes
 export type QrCode = typeof qrCodesTable.$inferSelect;
 export type InsertQrCode = typeof qrCodesTable.$inferInsert;
 
@@ -357,28 +364,20 @@ export const insertQrCodeSchema = z.object({
   designId: z.string().optional(),
 });
 
-// --- NEW: PRODUCT KNOWLEDGE BASE (AI MEMORY) ---
 export const productKnowledgeTable = pgTable("product_knowledge", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id", { length: 255 }).notNull(),
-
-  // NEW: Store the Column Name (e.g., "SKU", "Part#")
   keyName: varchar("key_name", { length: 255 }).notNull().default("id"), 
-
-  productKey: varchar("product_key", { length: 255 }).notNull(), // The SKU or Name (Anchor)
-  fieldType: varchar("field_type", { length: 50 }).notNull(),    // e.g. 'marketing', 'seo'
+  productKey: varchar("product_key", { length: 255 }).notNull(), 
+  fieldType: varchar("field_type", { length: 50 }).notNull(),   
   content: text("content").notNull(),
-
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-}, (t) => ({
-  // Optional: Add unique index to prevent duplicates if DB supports it easily
-  // uniqueEntry: uniqueIndex("user_product_field_unique").on(t.userId, t.productKey, t.fieldType)
-}));
+}, (t) => ({}));
 
 export type ProductKnowledge = typeof productKnowledgeTable.$inferSelect;
 export const insertProductKnowledgeSchema = z.object({
-  keyName: z.string(), // NEW
+  keyName: z.string(), 
   productKey: z.string(),
   fieldType: z.string(),
   content: z.string(),
