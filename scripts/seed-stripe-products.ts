@@ -15,7 +15,7 @@ const plans: PlanConfig[] = [
   {
     name: 'Pro Monthly',
     productId: 'prod_pro_monthly',
-    priceAmount: 1999,
+    priceAmount: 3999, // Updated to $39.99
     interval: 'month',
     features: [
       'Unlimited spec sheets',
@@ -28,11 +28,11 @@ const plans: PlanConfig[] = [
   {
     name: 'Pro Annual',
     productId: 'prod_pro_annual',
-    priceAmount: 15990,
+    priceAmount: 39999, // Updated to $399.99
     interval: 'year',
     features: [
       'Everything in Pro Monthly',
-      '2 months free',
+      '2 months free', // You might want to update this text if the math changes, but $399.99 vs $479.88 (39.99*12) is roughly ~2 months free (17% off).
       'Priority onboarding'
     ]
   }
@@ -42,7 +42,7 @@ async function findOrCreateProduct(plan: PlanConfig): Promise<Stripe.Product> {
   try {
     const products = await stripe.products.list({ limit: 100 });
     const existing = products.data.find(p => p.metadata?.planId === plan.productId);
-    
+
     if (existing) {
       console.log(`Found existing product: ${existing.name} (${existing.id})`);
       return existing;

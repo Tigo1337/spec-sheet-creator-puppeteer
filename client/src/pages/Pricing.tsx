@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { PublicHeader } from "@/components/layout/PublicHeader";
-import { Footer } from "@/components/layout/Footer"; // <--- Imported Footer
+import { Footer } from "@/components/layout/Footer"; 
 import { Button } from "@/components/ui/button";
 import { Check, ArrowRight, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
@@ -108,7 +108,7 @@ export default function Pricing() {
               >
                 Annual 
                 <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
-                  Save ~30%
+                  Save ~17%
                 </span>
               </Label>
             </div>
@@ -160,8 +160,8 @@ export default function Pricing() {
                 <div className="flex items-end">
                     <span className="text-4xl font-bold text-slate-900 transition-all duration-300">
                     {isAnnual 
-                        ? formatPrice("prod_pro_annual", "$13", true) 
-                        : formatPrice("prod_pro_monthly", "$29", false)
+                        ? formatPrice("prod_pro_annual", "$33.33", true) 
+                        : formatPrice("prod_pro_monthly", "$39.99", false)
                     }
                     </span>
                     <span className="text-slate-500 mb-1 ml-1 transition-all duration-300">
@@ -170,7 +170,7 @@ export default function Pricing() {
                 </div>
                 {isAnnual && (
                     <span className="text-xs text-slate-400 mt-1">
-                        Billed {formatPrice("prod_pro_annual", "$159", false)} yearly
+                        Billed {formatPrice("prod_pro_annual", "$399.99", false)} yearly
                     </span>
                 )}
               </div>

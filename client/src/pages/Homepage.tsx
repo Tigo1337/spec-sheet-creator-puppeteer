@@ -414,7 +414,7 @@ export default function Homepage() {
               >
                 Annual 
                 <span className="bg-[#2A9D90]/20 text-[#2A9D90] text-xs px-2 py-0.5 rounded-full font-medium border border-[#2A9D90]/30">
-                  Save ~30%
+                  Save ~17%
                 </span>
               </Label>
             </div>
@@ -444,13 +444,15 @@ export default function Homepage() {
             <PricingCard 
               name="Pro"
               // DYNAMIC PRICE (Divided by 12 for annual)
+              // UPDATED FALLBACKS HERE: $29 -> $39.99, $13 -> $33.33
               price={isAnnual 
-                ? formatPrice("prod_pro_annual", "$13", true) 
-                : formatPrice("prod_pro_monthly", "$29", false)
+                ? formatPrice("prod_pro_annual", "$33.33", true) 
+                : formatPrice("prod_pro_monthly", "$39.99", false)
               }
               period="/mo"
               // SHOW YEARLY COST SUBTEXT
-              subtext={isAnnual ? `Billed ${formatPrice("prod_pro_annual", "$159", false)} yearly` : undefined}
+              // UPDATED FALLBACK HERE: $159 -> $399.99
+              subtext={isAnnual ? `Billed ${formatPrice("prod_pro_annual", "$399.99", false)} yearly` : undefined}
               features={[
                 'Unlimited PDFs', 
                 'Print Ready Exports', 
