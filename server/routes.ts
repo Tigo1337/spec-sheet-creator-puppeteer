@@ -387,9 +387,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const browser = await getBrowser();
         if (!browser) throw new Error("Failed to initialize browser");
 
+        // Use incognito context for full memory isolation
+        let context;
         let page;
         try {
-          page = await browser.newPage();
+          context = await browser.createBrowserContext();
+          page = await context.newPage();
 
           await page.setRequestInterception(true);
           page.on('request', (request) => {
@@ -424,8 +427,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             forceGC();
             throw err;
         } finally {
-          if (page) await page.close().catch(() => {});
-          logSystemStats(reqId, "Page Closed");
+          // Close context (which closes page too) for full memory release
+          if (context) await context.close().catch(() => {});
+          logSystemStats(reqId, "Context Closed");
         }
       });
 
@@ -470,9 +474,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const base64String = await pdfQueue.add(async () => {
         // Use rotated browser for preview too
         const browser = await getBrowser();
+        let context;
         let page;
         try {
-          page = await browser.newPage();
+          context = await browser.createBrowserContext();
+          page = await context.newPage();
           await page.setRequestInterception(true);
           page.on('request', (request) => {
              const url = request.url().toLowerCase();
@@ -494,7 +500,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
            forceGC();
            throw e;
         } finally {
-           if (page) await page.close().catch(() => {});
+           if (context) await context.close().catch(() => {});
         }
       });
       res.json({ image: `data:image/jpeg;base64,${base64String}` });
