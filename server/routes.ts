@@ -28,23 +28,52 @@ const logSystemStats = (id: string, stage: string) => {
 };
 
 // --- BROWSER ROTATION SYSTEM ---
-// We reuse the browser for performance, but restart it periodically 
-// to prevent the "OOM Killer" crash that happens around ~10 requests.
+// AGGRESSIVE rotation to prevent memory crashes during bulk exports.
+// Chrome accumulates memory even after page.close(), so we restart frequently.
 let sharedBrowser: puppeteer.Browser | null = null;
 let browserUsageCount = 0;
-const MAX_USES_BEFORE_RESTART = 5; // Restart every 5 PDFs to clear Chrome memory leaks
+const MAX_USES_BEFORE_RESTART = 2; // Restart every 2 PDFs - aggressive to prevent OOM
+
+// Kill any orphaned Chrome processes from previous crashes
+async function killOrphanedChrome() {
+  try {
+    await execAsync("pkill -f 'chrome.*--headless' || true");
+  } catch {
+    // Ignore errors - process may not exist
+  }
+}
+
+// Force garbage collection if available (Node --expose-gc flag)
+function forceGC() {
+  if (global.gc) {
+    console.log("[GC] Forcing garbage collection...");
+    global.gc();
+  }
+}
 
 async function getBrowser() {
   // 1. Check if we need to rotate the browser
   if (sharedBrowser && browserUsageCount >= MAX_USES_BEFORE_RESTART) {
     console.log(`[Puppeteer] Maintenance: Rotating browser after ${browserUsageCount} uses...`);
     try {
+      // Close all pages first to release resources
+      const pages = await sharedBrowser.pages();
+      for (const page of pages) {
+        await page.close().catch(() => {});
+      }
       await sharedBrowser.close();
     } catch (e) {
       console.error("Error closing browser for rotation:", e);
     }
     sharedBrowser = null;
     browserUsageCount = 0;
+    
+    // Force garbage collection and give system time to release memory
+    forceGC();
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Kill any orphaned processes
+    await killOrphanedChrome();
   }
 
   // 2. Launch new instance if needed
@@ -62,6 +91,12 @@ async function getBrowser() {
         '--disable-extensions',
         '--no-first-run',
         '--no-zygote',
+        '--single-process', // Run all Chrome in single process to prevent memory fragmentation
+        '--js-flags=--max-old-space-size=256', // Limit JS heap to 256MB
+        '--disable-background-networking',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
       ],
     });
     browserUsageCount = 0;
@@ -386,9 +421,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                 sharedBrowser = null;
                 browserUsageCount = 0;
             }
+            await killOrphanedChrome();
+            forceGC();
             throw err;
         } finally {
-          if (page) await page.close().catch(e => console.warn(`[${reqId}] Error closing page:`, e));
+          if (page) await page.close().catch(() => {});
           logSystemStats(reqId, "Page Closed");
         }
       });
@@ -413,9 +450,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.set({ "Content-Type": "application/pdf", "Content-Disposition": "attachment; filename=export.pdf", "Content-Length": String(finalBuffer.length), "X-Color-Model": usedColorModel });
       res.send(finalBuffer);
       console.log(`[${reqId}] Success Response Sent`);
+      
+      // Trigger GC after each export to prevent memory buildup during bulk exports
+      forceGC();
 
     } catch (error) {
       console.error(`[${reqId}] PDF Export Fail:`, error);
+      forceGC(); // Also GC on failure to recover memory
       if (!res.headersSent) res.status(500).json({ error: "Failed to generate PDF" });
     }
   });
@@ -444,11 +485,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           await page.evaluate(async () => { await document.fonts.ready; });
           return await page.screenshot({ type: "jpeg", quality: 70, fullPage: true, encoding: "base64" });
         } catch (e) {
-           // Reset browser on error
-           if (sharedBrowser) { try { await sharedBrowser.close(); } catch {} sharedBrowser = null; browserUsageCount = 0; }
+           // Reset browser on error and kill orphaned processes
+           if (sharedBrowser) { 
+             try { await sharedBrowser.close(); } catch {} 
+             sharedBrowser = null; 
+             browserUsageCount = 0; 
+           }
+           await killOrphanedChrome();
+           forceGC();
            throw e;
         } finally {
-           if (page) await page.close().catch(e => console.warn("Page close error", e));
+           if (page) await page.close().catch(() => {});
         }
       });
       res.json({ image: `data:image/jpeg;base64,${base64String}` });
