@@ -301,7 +301,7 @@ export function SavedDesignsTab() {
             catalogData: {
                 sections: finalSections,
                 chapterDesigns: finalChapterDesigns,
-                excelData: excelData // Save Data
+                // excelData: excelData // REMOVED: Data should not be saved with the design
             }
         });
     } else {
@@ -315,10 +315,7 @@ export function SavedDesignsTab() {
             pageCount,
             backgroundColor,
             elements,
-            // FIX: Save excelData inside catalogData even for 'single' mode
-            catalogData: {
-                excelData: excelData 
-            }
+            // REMOVED: catalogData: { excelData: excelData } // Data should not be saved with the design
         });
     }
   };
