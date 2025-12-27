@@ -28,11 +28,11 @@ const logSystemStats = (id: string, stage: string) => {
 };
 
 // --- BROWSER ROTATION SYSTEM ---
-// AGGRESSIVE rotation to prevent memory crashes during bulk exports.
-// Chrome accumulates memory even after page.close(), so we restart frequently.
+// Frequent rotation to prevent memory crashes during bulk exports.
+// Chrome accumulates memory even after page.close(), so we restart periodically.
 let sharedBrowser: puppeteer.Browser | null = null;
 let browserUsageCount = 0;
-const MAX_USES_BEFORE_RESTART = 2; // Restart every 2 PDFs - aggressive to prevent OOM
+const MAX_USES_BEFORE_RESTART = 5; // Restart every 5 PDFs - balances memory vs stability
 
 // Kill any orphaned Chrome processes from previous crashes
 async function killOrphanedChrome() {
@@ -91,8 +91,7 @@ async function getBrowser() {
         '--disable-extensions',
         '--no-first-run',
         '--no-zygote',
-        '--single-process', // Run all Chrome in single process to prevent memory fragmentation
-        '--js-flags=--max-old-space-size=256', // Limit JS heap to 256MB
+        '--js-flags=--max-old-space-size=512', // Limit JS heap to 512MB
         '--disable-background-networking',
         '--disable-background-timer-throttling',
         '--disable-backgrounding-occluded-windows',
