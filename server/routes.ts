@@ -27,105 +27,28 @@ const logSystemStats = (id: string, stage: string) => {
   console.log(`[${id}] ${stage} | Node RSS: ${rss}MB`);
 };
 
-// --- BROWSER ROTATION SYSTEM ---
-// Very aggressive rotation to prevent Chrome OS-level memory exhaustion.
-// Chrome accumulates memory at the OS level even after context.close().
-// Replit has per-process limits that kill Chrome around 10-12 exports.
+// --- BROWSER INSTANCE MANAGEMENT (SINGLETON) ---
+// Optimized for 8GB RAM: Reuse one browser instance.
 let sharedBrowser: puppeteer.Browser | null = null;
-let browserUsageCount = 0;
-const MAX_USES_BEFORE_RESTART = 2; // Restart every 2 PDFs - very aggressive to prevent crashes
-
-// Kill any orphaned Chrome processes from previous crashes
-async function killOrphanedChrome() {
-  try {
-    await execAsync("pkill -f 'chrome.*--headless' || true");
-  } catch {
-    // Ignore errors - process may not exist
-  }
-}
-
-// Force garbage collection if available (Node --expose-gc flag)
-function forceGC() {
-  if (global.gc) {
-    console.log("[GC] Forcing garbage collection...");
-    global.gc();
-  }
-}
 
 async function getBrowser() {
-  // 1. Check if we need to rotate the browser
-  if (sharedBrowser && browserUsageCount >= MAX_USES_BEFORE_RESTART) {
-    console.log(`[Puppeteer] Maintenance: Rotating browser after ${browserUsageCount} uses...`);
-    try {
-      // Close all pages first to release resources
-      const pages = await sharedBrowser.pages();
-      for (const page of pages) {
-        await page.close().catch(() => {});
-      }
-      await sharedBrowser.close();
-    } catch (e) {
-      console.error("Error closing browser for rotation:", e);
-    }
-    sharedBrowser = null;
-    browserUsageCount = 0;
-    
-    // Force garbage collection and give system time to release memory
-    forceGC();
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Kill any orphaned processes
-    await killOrphanedChrome();
-  }
-
-  // 2. Launch new instance if needed (with retry logic)
   if (!sharedBrowser || !sharedBrowser.isConnected()) {
-    console.log("[Puppeteer] Launching New Browser Instance...");
-    
-    // Retry up to 3 times if launch fails
-    let lastError: Error | null = null;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        // Kill orphaned processes before launch attempt
-        await killOrphanedChrome();
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        sharedBrowser = await puppeteer.launch({
-          headless: true,
-          executablePath: process.env.NIX_CHROMIUM_WRAPPER || puppeteer.executablePath(),
-          args: [
-            '--no-sandbox', 
-            '--disable-setuid-sandbox', 
-            '--disable-gpu', 
-            '--disable-dev-shm-usage',
-            '--font-render-hinting=none',
-            '--disable-extensions',
-            '--no-first-run',
-            '--no-zygote',
-            '--js-flags=--max-old-space-size=256', // Reduced to 256MB to stay under limits
-            '--disable-background-networking',
-            '--disable-background-timer-throttling',
-            '--disable-backgrounding-occluded-windows',
-            '--disable-renderer-backgrounding',
-          ],
-        });
-        browserUsageCount = 0;
-        console.log(`[Puppeteer] Browser launched successfully on attempt ${attempt}`);
-        break;
-      } catch (e) {
-        lastError = e as Error;
-        console.error(`[Puppeteer] Launch attempt ${attempt} failed:`, e);
-        await killOrphanedChrome();
-        forceGC();
-        await new Promise(resolve => setTimeout(resolve, 500 * attempt));
-      }
-    }
-    
-    if (!sharedBrowser) {
-      throw new Error(`Failed to launch browser after 3 attempts: ${lastError?.message}`);
-    }
+    console.log("[Puppeteer] Launching Singleton Browser...");
+    sharedBrowser = await puppeteer.launch({
+      headless: true,
+      executablePath: process.env.NIX_CHROMIUM_WRAPPER || puppeteer.executablePath(),
+      args: [
+        '--no-sandbox', 
+        '--disable-setuid-sandbox', 
+        '--disable-gpu', 
+        '--disable-dev-shm-usage',
+        '--font-render-hinting=none',
+        '--disable-extensions',
+        '--no-first-run',
+        '--no-zygote',
+      ],
+    });
   }
-
-  browserUsageCount++;
   return sharedBrowser;
 }
 
@@ -134,33 +57,75 @@ process.on('exit', async () => {
   if (sharedBrowser) await sharedBrowser.close();
 });
 
-// --- STRICT QUEUE SYSTEM ---
-const pdfQueue = {
+// --- LEVEL 1: FAIR ROUND-ROBIN QUEUE ---
+const fairQueue = {
   active: 0,
-  limit: 1, // STRICTLY 1: Sequential processing is mandatory
-  queue: [] as (() => void)[],
+  limit: 1, // Global Concurrency Limit (1 = Safe Mode)
+  users: new Map<string, Array<() => Promise<void>>>(),
+  userOrder: [] as string[],
 
-  async add<T>(task: () => Promise<T>): Promise<T> {
-    if (this.active >= this.limit) {
-      await new Promise<void>((resolve) => this.queue.push(resolve));
+  // Add task to a specific user's queue
+  async add<T>(userId: string, task: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const work = async () => {
+        try {
+          const result = await task();
+          resolve(result);
+        } catch (err) {
+          reject(err);
+        }
+      };
+
+      if (!this.users.has(userId)) {
+        this.users.set(userId, []);
+        this.userOrder.push(userId);
+      }
+      this.users.get(userId)?.push(work);
+
+      // Trigger processing
+      this.process();
+    });
+  },
+
+  async process() {
+    if (this.active >= this.limit) return;
+    if (this.userOrder.length === 0) return;
+
+    // Round Robin: Pick next user
+    const userId = this.userOrder.shift(); 
+    if (!userId) return;
+
+    const userQueue = this.users.get(userId);
+    if (!userQueue || userQueue.length === 0) {
+      this.users.delete(userId);
+      this.process(); // Recurse to find next user
+      return;
     }
-    this.active++;
-    try {
-      return await task();
-    } finally {
-      this.active--;
-      if (this.queue.length > 0) {
-        // 1s Delay between items to let system stabilize
-        setTimeout(() => {
-            const next = this.queue.shift();
-            next?.();
-        }, 1000); 
+
+    // Get the task
+    const task = userQueue.shift();
+
+    // Rotate user to back of line if they have more jobs
+    if (userQueue.length > 0) {
+      this.userOrder.push(userId);
+    } else {
+      this.users.delete(userId);
+    }
+
+    if (task) {
+      this.active++;
+      try {
+        await task();
+      } finally {
+        this.active--;
+        // Cooldown for system stability
+        setTimeout(() => this.process(), 500); 
       }
     }
   }
 };
 
-// Helper to check admin status via Env Var OR Clerk Role
+// Helper to check admin status
 async function checkAdmin(userId: string): Promise<boolean> {
   if (process.env.ADMIN_USER_ID && process.env.ADMIN_USER_ID.trim().length > 0 && userId === process.env.ADMIN_USER_ID) {
     return true;
@@ -187,7 +152,6 @@ async function checkAndDeductAiCredits(userId: string, costCents: number): Promi
 
   if (daysSinceReset >= 30) {
       const limit = user.aiCreditsLimit || 0;
-      console.log(`[AI Limit] Monthly reset triggered for ${userId}. Refilling to ${limit}`);
       currentCredits = limit; 
       if (currentCredits < costCents) return false;
       await storage.updateUser(userId, { 
@@ -267,7 +231,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // API Routes (AI)
   app.post("/api/ai/enrich-data", async (req, res) => {
     const auth = getAuth(req);
-    if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
+    if (!auth.userId) return res.status(401).json({ error: "Auth required" });
     const { rows, config, anchorColumn, customFieldName } = req.body;
     if (!rows || !Array.isArray(rows) || rows.length === 0) return res.status(400).json({ error: "No data rows provided" });
 
@@ -379,7 +343,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ============================================
-  // PDF EXPORT (WITH BROWSER ROTATION)
+  // PDF EXPORT (WITH FAIR QUEUE + SINGLETON)
   // ============================================
   app.post("/api/export/pdf", async (req, res) => {
     const auth = getAuth(req);
@@ -389,7 +353,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!html || !width || !height) return res.status(400).json({ error: "Missing required parameters" });
 
     const reqId = Math.random().toString(36).substring(7);
-    console.log(`[${reqId}] Received PDF Export Request`);
+    console.log(`[${reqId}] Received PDF Export Request from ${auth.userId}`);
 
     try {
       const user = await storage.getUser(auth.userId);
@@ -398,25 +362,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!isPaid) {
         if (colorModel === 'cmyk') colorModel = 'rgb';
         const usage = await storage.checkAndIncrementUsage(auth.userId);
-        if (!usage.allowed) return res.status(403).json({ error: "Limit reached." });
+        if (!usage.allowed) return res.status(403).json({ error: "Limit reached. Upgrade to Pro." });
         if (!html.includes("Created with <b>Doculoom</b>")) {
            html = html.replace("</body>", `<div style="position:fixed;bottom:16px;right:16px;opacity:0.5;z-index:9999;font-family:sans-serif;font-size:12px;color:#000;background:rgba(255,255,255,0.7);padding:4px 8px;border-radius:4px;pointer-events:none;">Created with <b>Doculoom</b></div></body>`);
         }
       }
 
-      const pdfBuffer = await pdfQueue.add(async () => {
+      const pdfBuffer = await fairQueue.add(auth.userId, async () => {
         logSystemStats(reqId, "Start Queue Task");
 
-        // Use Rotated Browser
+        // Use Singleton Browser
         const browser = await getBrowser();
         if (!browser) throw new Error("Failed to initialize browser");
 
-        // Use incognito context for full memory isolation
-        let context;
         let page;
         try {
-          context = await browser.createBrowserContext();
-          page = await context.newPage();
+          // Re-use browser, just open a new page (tab)
+          page = await browser.newPage();
 
           await page.setRequestInterception(true);
           page.on('request', (request) => {
@@ -441,19 +403,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
         } catch (err) {
             console.error(`[${reqId}] Render Error:`, err);
-            // CRITICAL: If crash occurs, force next request to get a new browser
+            // CRITICAL: If singleton crashes, reset it
             if (sharedBrowser) {
                 try { await sharedBrowser.close(); } catch {}
                 sharedBrowser = null;
-                browserUsageCount = 0;
             }
-            await killOrphanedChrome();
-            forceGC();
             throw err;
         } finally {
-          // Close context (which closes page too) for full memory release
-          if (context) await context.close().catch(() => {});
-          logSystemStats(reqId, "Context Closed");
+          // Only close the page
+          if (page) await page.close().catch(e => console.warn(`[${reqId}] Error closing page:`, e));
+          logSystemStats(reqId, "Page Closed");
         }
       });
 
@@ -477,13 +436,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.set({ "Content-Type": "application/pdf", "Content-Disposition": "attachment; filename=export.pdf", "Content-Length": String(finalBuffer.length), "X-Color-Model": usedColorModel });
       res.send(finalBuffer);
       console.log(`[${reqId}] Success Response Sent`);
-      
-      // Trigger GC after each export to prevent memory buildup during bulk exports
-      forceGC();
 
     } catch (error) {
       console.error(`[${reqId}] PDF Export Fail:`, error);
-      forceGC(); // Also GC on failure to recover memory
       if (!res.headersSent) res.status(500).json({ error: "Failed to generate PDF" });
     }
   });
@@ -495,14 +450,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!html || !width || !height) return res.status(400).json({ error: "Missing params" });
 
     try {
-      const base64String = await pdfQueue.add(async () => {
-        // Use rotated browser for preview too
+      const base64String = await fairQueue.add(auth.userId, async () => {
         const browser = await getBrowser();
-        let context;
         let page;
         try {
-          context = await browser.createBrowserContext();
-          page = await context.newPage();
+          page = await browser.newPage();
           await page.setRequestInterception(true);
           page.on('request', (request) => {
              const url = request.url().toLowerCase();
@@ -514,17 +466,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           await page.evaluate(async () => { await document.fonts.ready; });
           return await page.screenshot({ type: "jpeg", quality: 70, fullPage: true, encoding: "base64" });
         } catch (e) {
-           // Reset browser on error and kill orphaned processes
-           if (sharedBrowser) { 
-             try { await sharedBrowser.close(); } catch {} 
-             sharedBrowser = null; 
-             browserUsageCount = 0; 
-           }
-           await killOrphanedChrome();
-           forceGC();
+           if (sharedBrowser) { try { await sharedBrowser.close(); } catch {} sharedBrowser = null; }
            throw e;
         } finally {
-           if (context) await context.close().catch(() => {});
+           if (page) await page.close().catch(e => console.warn("Page close error", e));
         }
       });
       res.json({ image: `data:image/jpeg;base64,${base64String}` });

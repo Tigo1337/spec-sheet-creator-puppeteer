@@ -10,25 +10,22 @@ import puppeteer from "puppeteer";
 import { storage } from "./storage";
 import * as Sentry from "@sentry/node";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
-import { rateLimit } from "express-rate-limit"; // --- NEW IMPORT ---
+import { rateLimit } from "express-rate-limit"; 
 
 const execAsync = promisify(exec);
 
 const app = express();
 
 // --- FIX: Trust the Replit proxy ---
-// This ensures that secure cookies (like Clerk's) are accepted even if the 
-// internal Express server sees the request as HTTP.
 app.set("trust proxy", 1); 
 // -----------------------------------
 
-// 1. INITIALIZE SENTRY (Must be the very first thing)
+// 1. INITIALIZE SENTRY
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
   integrations: [
     nodeProfilingIntegration(),
   ],
-  // Performance Monitoring: Capture 100% of transactions for MVP
   tracesSampleRate: 1.0, 
   profilesSampleRate: 1.0, 
 });
@@ -36,42 +33,29 @@ Sentry.init({
 const httpServer = createServer(app);
 
 // --- RATE LIMITING CONFIGURATION ---
-// 1. Strict Limiter: For AI routes (expensive API calls)
+// 1. Strict Limiter: For AI & Auth only (Expensive external APIs)
 const strictLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  limit: 30, // Limit each IP to 30 AI requests per minute
+  limit: 20, 
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests. Please slow down to prevent abuse." }
 });
 
-// 2. Export Limiter: Higher limit for bulk PDF exports (paid feature)
-const exportLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  limit: 100, // Allow 100 PDF exports per minute for bulk operations
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Export rate limit reached. Please wait a moment." }
-});
-
-// 3. General API Limiter: For standard usage (saving, fetching)
+// 2. General API Limiter: For standard usage
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  limit: 300, // Limit each IP to 300 requests per 15 mins (approx 1 every 3 sec)
+  limit: 1000, // Increased to 1000 to allow Bulk Exports
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests, please try again later." }
 });
 
-// Apply Strict Limits to expensive AI routes
+// Apply Strict Limits ONLY to AI and Uploads
 app.use("/api/ai", strictLimiter);
-
-// Apply Export Limiter to PDF export (higher limit for bulk operations)
-app.use("/api/export", exportLimiter);
-
-// Apply Strict Limits to upload routes
 app.use("/api/objects/upload", strictLimiter);
 
+// NOTE: Export routes now use the General Limiter to support bulk operations
 // Apply General Limits to all other API routes
 app.use("/api", apiLimiter);
 // -----------------------------------
@@ -87,7 +71,6 @@ const clerkSecretKey = isDevelopment
   ? (process.env.CLERK_SECRET_KEY_DEV || process.env.CLERK_SECRET_KEY)
   : process.env.CLERK_SECRET_KEY;
 
-// Fail fast if required Clerk keys are missing
 if (!clerkPublishableKey || !clerkSecretKey) {
   const envType = isDevelopment ? 'development' : 'production';
   console.error(`❌ CRITICAL: Missing Clerk keys for ${envType} environment.`);
@@ -192,7 +175,6 @@ app.post(
 );
 
 // --- SECURITY FIX: DoS Protection via Payload Size ---
-// Use strict 1MB limit by default, but allow 50MB for specific heavy routes
 const largePayloadRoutes = ['/api/export/pdf', '/api/export/preview', '/api/objects/upload'];
 
 app.use((req, res, next) => {
