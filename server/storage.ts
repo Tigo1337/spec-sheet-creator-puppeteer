@@ -161,6 +161,11 @@ export class DatabaseStorage implements IStorage {
       planStatus: row.planStatus,
       pdfUsageCount: row.pdfUsageCount,
       pdfUsageResetDate: row.pdfUsageResetDate,
+      // --- CRITICAL FIX: MAP AI CREDITS HERE ---
+      aiCredits: row.aiCredits,
+      aiCreditsLimit: row.aiCreditsLimit,
+      aiCreditsResetDate: row.aiCreditsResetDate,
+      // ----------------------------------------
       createdAt: new Date(row.createdAt).toISOString(),
       updatedAt: new Date(row.updatedAt).toISOString(),
     };
@@ -183,11 +188,12 @@ export class DatabaseStorage implements IStorage {
 
   async createUser(user: InsertDbUser): Promise<DbUser> {
     const now = new Date();
-    // Ensure usage fields are initialized correctly
     const rows = await this.db.insert(usersTable).values({ 
       ...user, 
       pdfUsageCount: 0,
       pdfUsageResetDate: now,
+      // Ensure AI defaults are set if not provided (though Schema handles defaults)
+      aiCredits: 0,
       createdAt: now, 
       updatedAt: now 
     }).returning();
@@ -213,8 +219,8 @@ export class DatabaseStorage implements IStorage {
 
     console.log(`[Usage Check] User: ${userId}, Plan: ${user.plan}, Count: ${user.pdfUsageCount}`);
 
-    // Pro users = Unlimited
-    if (user.plan === "pro") {
+    // Check for 'pro', 'scale', 'business' (partial match logic) for unlimited
+    if (user.plan && (user.plan.includes("pro") || user.plan.includes("scale") || user.plan.includes("business"))) {
       return { allowed: true, count: user.pdfUsageCount || 0, limit: -1 };
     }
 
@@ -222,12 +228,10 @@ export class DatabaseStorage implements IStorage {
     const lastReset = user.pdfUsageResetDate ? new Date(user.pdfUsageResetDate) : new Date(0);
     const limit = 50;
 
-    // Check if new month (Reset Logic)
     const isNewMonth = now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear();
 
     if (isNewMonth) {
       console.log(`[Usage Check] New month detected. Resetting count to 1.`);
-      // Reset logic
       await this.db.update(usersTable)
         .set({ 
           pdfUsageCount: 1, 
@@ -243,7 +247,6 @@ export class DatabaseStorage implements IStorage {
       return { allowed: false, count: user.pdfUsageCount || 0, limit };
     }
 
-    // ATOMIC INCREMENT to prevent race conditions
     const [updatedUser] = await this.db.update(usersTable)
       .set({ 
         pdfUsageCount: sql`${usersTable.pdfUsageCount} + 1`,
@@ -285,7 +288,6 @@ export class DatabaseStorage implements IStorage {
   async batchSaveProductKnowledge(userId: string, items: InsertProductKnowledge[]): Promise<void> {
     if (items.length === 0) return;
 
-    // Simplistic Batch Insert.
     const validItems = items.filter(i => i.content && i.content.trim().length > 0).map(item => ({
         id: randomUUID(),
         userId,
@@ -302,13 +304,12 @@ export class DatabaseStorage implements IStorage {
   async batchGetProductKnowledge(userId: string, productKeys: string[], keyName: string): Promise<ProductKnowledge[]> {
     if (productKeys.length === 0) return [];
 
-    // FIX: Filter by keyName (Column Name) AND productKey (Value)
     const rows = await this.db.select()
         .from(productKnowledgeTable)
         .where(
             and(
                 eq(productKnowledgeTable.userId, userId),
-                eq(productKnowledgeTable.keyName, keyName), // Strict Match on Column Name
+                eq(productKnowledgeTable.keyName, keyName),
                 inArray(productKnowledgeTable.productKey, productKeys)
             )
         )
@@ -349,7 +350,6 @@ export class MemStorage implements IStorage {
   private designs: Map<string, SavedDesign>;
   private qrCodes: Map<string, QrCode>; 
   private users: Map<string, DbUser> = new Map();
-  // New Map for Knowledge: ID -> Object
   private knowledge: Map<string, ProductKnowledge> = new Map();
 
   constructor() {
@@ -358,7 +358,6 @@ export class MemStorage implements IStorage {
     this.qrCodes = new Map();
   }
 
-  // ... (All MemStorage methods must implement the interface, including usage tracking)
   async getTemplates(): Promise<Template[]> { return Array.from(this.templates.values()); }
   async getTemplate(id: string) { return this.templates.get(id); }
   async createTemplate(t: InsertTemplate) { const id = randomUUID(); const now = new Date().toISOString(); const tmpl = { ...t, id, previewImages: t.previewImages || [], createdAt: now, updatedAt: now }; this.templates.set(id, tmpl); return tmpl; }
@@ -374,7 +373,10 @@ export class MemStorage implements IStorage {
   async getUser(id: string) { return this.users.get(id); }
   async getUserByEmail(email: string) { return Array.from(this.users.values()).find(u => u.email === email); }
   async getUserByStripeCustomerId(cid: string) { return Array.from(this.users.values()).find(u => u.stripeCustomerId === cid); }
-  async createUser(u: InsertDbUser) { const now = new Date().toISOString(); const dbUser = { ...u, stripeCustomerId: u.stripeCustomerId||null, stripeSubscriptionId: u.stripeSubscriptionId||null, plan: u.plan||'free', planStatus: u.planStatus||'active', pdfUsageCount: 0, pdfUsageResetDate: new Date(), createdAt: now, updatedAt: now }; this.users.set(u.id, dbUser); return dbUser; }
+
+  // UPDATED MemStorage defaults
+  async createUser(u: InsertDbUser) { const now = new Date().toISOString(); const dbUser = { ...u, stripeCustomerId: u.stripeCustomerId||null, stripeSubscriptionId: u.stripeSubscriptionId||null, plan: u.plan||'free', planStatus: u.planStatus||'active', pdfUsageCount: 0, pdfUsageResetDate: new Date(), aiCredits: 0, aiCreditsLimit: 5000, aiCreditsResetDate: new Date(), createdAt: now, updatedAt: now }; this.users.set(u.id, dbUser); return dbUser; }
+
   async updateUser(id: string, u: Partial<InsertDbUser>) { const e = this.users.get(id); if(!e) return undefined; const n = { ...e, ...u, updatedAt: new Date().toISOString() }; this.users.set(id, n); return n; }
   async updateUserStripeInfo(uid: string, info: any) { return this.updateUser(uid, info); }
 
@@ -387,7 +389,7 @@ export class MemStorage implements IStorage {
   async checkAndIncrementUsage(userId: string) {
     const user = this.users.get(userId);
     if (!user) return { allowed: false, count: 0, limit: 0 };
-    if (user.plan === "pro") return { allowed: true, count: 0, limit: -1 };
+    if (user.plan && (user.plan.includes("pro") || user.plan.includes("scale"))) return { allowed: true, count: 0, limit: -1 };
 
     const count = (user.pdfUsageCount || 0) + 1;
     if (count > 50) return { allowed: false, count: count - 1, limit: 50 };
@@ -396,14 +398,13 @@ export class MemStorage implements IStorage {
     return { allowed: true, count, limit: 50 };
   }
 
-  // --- NEW: PRODUCT KNOWLEDGE (MemStorage) ---
   async batchSaveProductKnowledge(userId: string, items: InsertProductKnowledge[]) {
       items.forEach(item => {
           const id = randomUUID();
           this.knowledge.set(id, {
               id,
               userId,
-              keyName: item.keyName, // Save Key Name
+              keyName: item.keyName,
               productKey: item.productKey,
               fieldType: item.fieldType,
               content: item.content,
@@ -414,11 +415,10 @@ export class MemStorage implements IStorage {
   }
 
   async batchGetProductKnowledge(userId: string, productKeys: string[], keyName: string) {
-      // Filter by User and Keys AND KeyName
       return Array.from(this.knowledge.values())
         .filter(k => 
             k.userId === userId && 
-            k.keyName === keyName && // Check Key Name
+            k.keyName === keyName &&
             productKeys.includes(k.productKey)
         )
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
@@ -449,7 +449,6 @@ export class MemStorage implements IStorage {
   }
 }
 
-// --- FIX: ENFORCE DATABASE IN PRODUCTION ---
 if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL) {
   throw new Error("🚨 FATAL: Production environment detected but DATABASE_URL is missing. Exiting to prevent data loss.");
 }

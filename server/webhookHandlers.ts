@@ -54,12 +54,16 @@ export class WebhookHandlers {
   // --- HELPER TO DETERMINE CREDITS BASED ON PLAN ---
   // Returns credit limit in CENTS (x100)
   static getCreditLimitForPlan(plan: string): number {
-    switch(plan) {
-        case 'business': return 10000 * 100; // 1,000,000 cents (10k credits)
-        case 'pro': return 1000 * 100;       // 100,000 cents (1k credits)
-        case 'free': 
-        default: return 50 * 100;            // 5,000 cents (50 credits)
+    // Check for "scale" keyword in the plan ID (e.g. 'prod_scale_monthly')
+    if (plan.includes('scale') || plan.includes('business')) {
+        return 10000 * 100; // 10k credits (1,000,000 cents)
+    } 
+    // Check for "pro" keyword
+    if (plan.includes('pro')) {
+        return 1000 * 100; // 1k credits
     }
+    // Default Free
+    return 50 * 100; 
   }
 
   static async handleCheckoutCompleted(session: Stripe.Checkout.Session, stripe: Stripe): Promise<void> {
@@ -80,16 +84,8 @@ export class WebhookHandlers {
       const productId = subscription.items.data[0]?.price.product as string;
       const product = await stripe.products.retrieve(productId);
 
-      let planName = product.metadata?.planId || 'pro';
-
-      // LOGIC: Check for your specific metadata keys
-      if (planName === 'prod_business_monthly' || planName === 'prod_business_annual') {
-          planName = 'business';
-      } else if (planName.includes('pro')) {
-          planName = 'pro';
-      } else {
-          planName = 'free'; // Default fallback
-      }
+      // UPDATED: Use the exact planId from metadata without renaming
+      let planName = product.metadata?.planId || 'free';
 
       // DETERMINE CREDITS
       const creditLimit = WebhookHandlers.getCreditLimitForPlan(planName);
@@ -97,7 +93,7 @@ export class WebhookHandlers {
       await storage.updateUserStripeInfo(userId, {
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscriptionId,
-        plan: planName,
+        plan: planName, // Stores exact ID like 'prod_scale_monthly'
         planStatus: subscription.status,
       });
 
@@ -126,16 +122,8 @@ export class WebhookHandlers {
       const productId = subscription.items.data[0]?.price.product as string;
       const product = await stripe.products.retrieve(productId);
 
-      let planName = product.metadata?.planId || 'pro';
-
-      // LOGIC: Check for your specific metadata keys
-      if (planName === 'prod_business_monthly' || planName === 'prod_business_annual') {
-          planName = 'business';
-      } else if (planName.includes('pro')) {
-          planName = 'pro';
-      } else {
-          planName = 'free';
-      }
+      // UPDATED: Use exact planId
+      let planName = product.metadata?.planId || 'free';
 
       const status = subscription.status;
       const planStatus = ['active', 'trialing'].includes(status) ? 'active' : status;
@@ -145,7 +133,7 @@ export class WebhookHandlers {
       await storage.updateUserStripeInfo(user.id, {
         stripeSubscriptionId: subscription.id,
         planStatus: planStatus,
-        plan: planName // Ensure plan is updated in DB
+        plan: planName 
       });
 
       // Update Limit immediately

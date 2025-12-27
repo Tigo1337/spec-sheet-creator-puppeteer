@@ -2,12 +2,18 @@ import { useState } from "react";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { Footer } from "@/components/layout/Footer"; 
 import { Button } from "@/components/ui/button";
-import { Check, ArrowRight, Loader2 } from "lucide-react";
+import { Check, ArrowRight, Loader2, Minus, HelpCircle } from "lucide-react";
 import { useLocation } from "wouter";
 import { Helmet } from "react-helmet-async";
 import { useQuery } from "@tanstack/react-query";
 import { Switch } from "@/components/ui/switch"; 
 import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function Pricing() {
   const [, setLocation] = useLocation();
@@ -197,7 +203,7 @@ export default function Pricing() {
               </Button>
             </div>
 
-            {/* 3. SCALE (Renamed from Business) */}
+            {/* 3. SCALE */}
             <div className={`p-8 border-2 ${accentBorder} rounded-2xl bg-white relative shadow-xl transform scale-105 z-10`}>
               <div className={`absolute -top-4 left-1/2 -translate-x-1/2 ${accentBg} text-white px-4 py-1 rounded-full text-xs font-bold tracking-wide uppercase shadow-sm`}>
                 Best Value
@@ -230,7 +236,6 @@ export default function Pricing() {
                   '10,000 AI Credits / month', 
                   'AI Product Memory', 
                   'Dedicated Rendering Server', 
-                  'Custom Font Uploads', 
                   'SLA Support'
                 ].map((feat, i) => (
                   <li key={i} className="flex items-start gap-3">
@@ -254,6 +259,55 @@ export default function Pricing() {
 
           </div>
 
+          {/* --- NEW COMPARISON TABLE SECTION --- */}
+          <div className="mt-32 max-w-5xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold text-slate-900">Compare Plans</h2>
+              <p className="text-slate-600 mt-2">Find the perfect features for your workflow.</p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="py-4 px-6 text-sm font-semibold text-slate-900 w-1/3">Features</th>
+                    <th className="py-4 px-6 text-sm font-semibold text-slate-900 text-center w-1/6">Starter</th>
+                    <th className="py-4 px-6 text-sm font-semibold text-[#2A9D90] text-center w-1/6">Pro</th>
+                    <th className="py-4 px-6 text-sm font-semibold text-slate-900 text-center w-1/6">Scale</th>
+                  </tr>
+                </thead>
+                <tbody className="text-sm text-slate-600">
+
+                  {/* Usage & Limits */}
+                  <tr className="bg-slate-50/50"><td colSpan={4} className="py-3 px-6 font-semibold text-xs text-slate-400 uppercase tracking-wider">Usage & Limits</td></tr>
+                  <TableRow feature="PDF Exports / mo" starter="50" pro="Unlimited" scale="Unlimited" />
+                  <TableRow feature="AI Credits / mo" starter="50" pro="1,000" scale="10,000" tooltip="Credits are used for AI text generation and standardization." />
+                  <TableRow feature="Projects" starter="Unlimited" pro="Unlimited" scale="Unlimited" />
+
+                  {/* Design & Export */}
+                  <tr className="bg-slate-50/50"><td colSpan={4} className="py-3 px-6 font-semibold text-xs text-slate-400 uppercase tracking-wider">Design & Export</td></tr>
+                  <TableRow feature="Spreadsheet Import" starter={true} pro={true} scale={true} />
+                  <TableRow feature="Watermark-free" starter={false} pro={true} scale={true} />
+                  <TableRow feature="Print Ready (CMYK)" starter={false} pro={true} scale={true} tooltip="Exports converted to CMYK color profile for professional printing." />
+                  <TableRow feature="QR Codes" starter="Static" pro="Dynamic" scale="Dynamic" />
+                  <TableRow feature="Custom Font Uploads" starter={false} pro={false} scale={true} />
+
+                  {/* AI & Automation */}
+                  <tr className="bg-slate-50/50"><td colSpan={4} className="py-3 px-6 font-semibold text-xs text-slate-400 uppercase tracking-wider">AI & Automation</td></tr>
+                  <TableRow feature="AI Text Enrichment" starter={true} pro={true} scale={true} />
+                  <TableRow feature="Data Standardization" starter={true} pro={true} scale={true} />
+                  <TableRow feature="AI Product Memory" starter={false} pro={false} scale={true} tooltip="The AI remembers your product details for consistent descriptions across sheets." />
+
+                  {/* Support */}
+                  <tr className="bg-slate-50/50"><td colSpan={4} className="py-3 px-6 font-semibold text-xs text-slate-400 uppercase tracking-wider">Support & Performance</td></tr>
+                  <TableRow feature="Rendering Queue" starter="Standard" pro="Priority" scale="Dedicated" />
+                  <TableRow feature="Support" starter="Community" pro="Priority" scale="SLA" />
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {/* ---------------------------------- */}
+
           <div className="text-center text-sm text-slate-400 mt-12">
             All plans include a 14-day free trial. Cancel anytime.
           </div>
@@ -262,5 +316,34 @@ export default function Pricing() {
 
       <Footer />
     </div>
+  );
+}
+
+// Helper Component for Table Rows
+function TableRow({ feature, starter, pro, scale, tooltip }: { feature: string, starter: string | boolean, pro: string | boolean, scale: string | boolean, tooltip?: string }) {
+  const renderCell = (value: string | boolean, isPro = false) => {
+    if (typeof value === 'boolean') {
+      return value ? <Check className={`h-5 w-5 mx-auto ${isPro ? "text-[#2A9D90]" : "text-slate-600"}`} /> : <Minus className="h-4 w-4 mx-auto text-slate-300" />;
+    }
+    return <span className={isPro ? "font-semibold text-[#2A9D90]" : ""}>{value}</span>;
+  };
+
+  return (
+    <tr className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+      <td className="py-4 px-6 font-medium text-slate-700 flex items-center gap-2">
+        {feature}
+        {tooltip && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger><HelpCircle className="h-3 w-3 text-slate-400 cursor-help" /></TooltipTrigger>
+              <TooltipContent><p className="max-w-xs">{tooltip}</p></TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </td>
+      <td className="py-4 px-6 text-center">{renderCell(starter)}</td>
+      <td className="py-4 px-6 text-center bg-[#2A9D90]/5">{renderCell(pro, true)}</td>
+      <td className="py-4 px-6 text-center">{renderCell(scale)}</td>
+    </tr>
   );
 }

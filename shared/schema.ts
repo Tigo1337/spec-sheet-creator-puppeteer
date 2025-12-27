@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { pgTable, varchar, text, timestamp, jsonb, integer, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, varchar, text, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 // Canvas Element Types
@@ -233,7 +233,7 @@ export const availableFonts = [
   "Lora", 
   "Ubuntu",
   "Kanit",
-  "Fira Sans",
+  "Fira Sans", 
   "Quicksand",
   "Barlow",
   "Inconsolata",
@@ -312,7 +312,7 @@ export const usersTable = pgTable("users", {
   stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
   stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
 
-  // Updated Enum to include 'business'
+  // UPDATED: 'plan' defaults to 'free', but allows raw Stripe IDs (e.g. 'prod_scale_monthly')
   plan: varchar("plan", { length: 50 }).notNull().default("free"), 
   planStatus: varchar("plan_status", { length: 50 }).notNull().default("active"),
 
@@ -320,9 +320,9 @@ export const usersTable = pgTable("users", {
   pdfUsageCount: integer("pdf_usage_count").default(0),
   pdfUsageResetDate: timestamp("pdf_usage_reset_date").defaultNow(),
 
-  // NEW: AI Credits System (Stored as Cent-Credits. 100 = 1 Credit)
+  // AI Credits System
   aiCredits: integer("ai_credits").default(0),
-  aiCreditsLimit: integer("ai_credits_limit").default(5000), // Default Free: 50 Credits * 100
+  aiCreditsLimit: integer("ai_credits_limit").default(5000), 
   aiCreditsResetDate: timestamp("ai_credits_reset_date").defaultNow(),
 
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -337,8 +337,8 @@ export const dbUserSchema = z.object({
   email: z.string().email(),
   stripeCustomerId: z.string().nullable(),
   stripeSubscriptionId: z.string().nullable(),
-  // Updated Zod Enum
-  plan: z.enum(["free", "pro", "business"]).default("free"), 
+  // CRITICAL UPDATE: Changed to generic string to support raw Stripe IDs
+  plan: z.string().default("free"), 
   planStatus: z.enum(["active", "canceled", "past_due"]).default("active"),
   createdAt: z.string(),
   updatedAt: z.string(),

@@ -17,22 +17,21 @@ import {
   Sun,
   Moon,
   Crown, 
-  Sparkles // Changed from BrainCircuit
+  Sparkles 
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useUser, UserButton } from "@clerk/clerk-react";
 import { QRManagerDialog } from "@/components/dialogs/QRManagerDialog";
-// Imports for Upgrade Flow
 import { useSubscription } from "@/hooks/use-subscription";
 import { UpgradeDialog } from "@/components/dialogs/UpgradeDialog";
-// NEW: Import Knowledge Manager
 import { KnowledgeManagerDialog } from "@/components/dialogs/KnowledgeManagerDialog";
+// NEW: Import Account Dialog
+import { AccountDialog } from "@/components/dialogs/AccountDialog";
 
 export function Header() {
   const { user } = useUser();
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
-  // New State & Hooks
   const { isPro } = useSubscription();
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
 
@@ -157,7 +156,6 @@ export function Header() {
 
       {/* Right Section */}
       <div className="flex items-center gap-2">
-        {/* NEW UPGRADE BUTTON */}
         {!isPro && (
           <Button 
             size="sm" 
@@ -171,14 +169,12 @@ export function Header() {
 
         <QRManagerDialog />
 
-        {/* --- NEW: AI MEMORY MANAGER BUTTON --- */}
         <KnowledgeManagerDialog>
            <Button variant="ghost" size="sm" className="gap-1.5 px-2 text-muted-foreground hover:text-purple-600 hover:bg-purple-50">
-             <Sparkles className="h-4 w-4" /> {/* Updated Icon */}
+             <Sparkles className="h-4 w-4" />
              AI Memory
            </Button>
         </KnowledgeManagerDialog>
-        {/* ------------------------------------ */}
 
         <Separator orientation="vertical" className="h-6" />
 
@@ -189,6 +185,9 @@ export function Header() {
           <FileDown className="h-4 w-4" />
           Export
         </Button>
+
+        {/* NEW: Account/Billing Settings Button */}
+        <AccountDialog />
 
         {/* User Profile / Sign Out Button */}
         <div className="ml-2 flex items-center">

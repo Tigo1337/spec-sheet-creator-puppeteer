@@ -54,36 +54,44 @@ async function checkAdmin(userId: string): Promise<boolean> {
   }
 }
 
-// --- AI CREDIT HELPER ---
+// --- AI CREDIT HELPER (UPDATED) ---
 // Cost is in "Credit Cents". 100 Cents = 1 Credit.
 async function checkAndDeductAiCredits(userId: string, costCents: number): Promise<boolean> {
   const user = await storage.getUser(userId);
   if (!user) return false;
 
-  const currentCredits = user.aiCredits || 0;
+  let currentCredits = user.aiCredits || 0;
+  const lastReset = user.aiCreditsResetDate ? new Date(user.aiCreditsResetDate) : new Date(0);
+  const now = new Date();
 
-  // Check if they have enough
-  if (currentCredits < costCents) {
-    // Optional: Check if we need to auto-reset for free tier (lazy reset)
-    const lastReset = user.aiCreditsResetDate ? new Date(user.aiCreditsResetDate) : new Date(0);
-    const now = new Date();
-    const daysSinceReset = (now.getTime() - lastReset.getTime()) / (1000 * 3600 * 24);
+  // LOGIC FIX: Check for monthly reset for ALL plans (Annual plans need this)
+  const oneDay = 1000 * 60 * 60 * 24;
+  const daysSinceReset = (now.getTime() - lastReset.getTime()) / oneDay;
 
-    if (user.plan === 'free' && daysSinceReset > 30) {
-      // Lazy Reset for Free Tier
-      const newBalance = 5000; // 50 Credits * 100
-      if (newBalance >= costCents) {
-         await storage.updateUser(userId, { 
-             aiCredits: newBalance - costCents,
-             aiCreditsResetDate: now
-         });
-         return true;
-      }
-    }
-    return false;
+  // If > 30 days have passed, refill credits (Lazy Reset)
+  if (daysSinceReset >= 30) {
+      const limit = user.aiCreditsLimit || 0;
+      console.log(`[AI Limit] Monthly reset triggered for ${userId}. Refilling to ${limit}`);
+
+      // Update local variable for immediate check
+      currentCredits = limit; 
+
+      // If they still can't afford it after reset (unlikely unless cost > limit), fail
+      if (currentCredits < costCents) return false;
+
+      // Apply Reset & Deduction atomically
+      await storage.updateUser(userId, { 
+          aiCredits: currentCredits - costCents,
+          aiCreditsResetDate: now
+      });
+      return true;
   }
 
-  // Deduct
+  // Normal Deduction
+  if (currentCredits < costCents) {
+      return false;
+  }
+
   await storage.updateUser(userId, { 
     aiCredits: currentCredits - costCents 
   });
@@ -237,7 +245,7 @@ export async function registerRoutes(
     if (!allowed) {
         return res.status(403).json({ 
             error: "Insufficient AI Credits",
-            message: "You have run out of AI credits. Upgrade to Business for more."
+            message: "You have run out of AI credits. Upgrade to Scale for more."
         });
     }
 
@@ -280,10 +288,11 @@ export async function registerRoutes(
       const cleanText = result.response.text().replace(/```json|```/g, "").trim();
       let generatedContent = JSON.parse(cleanText);
 
-      // --- KNOWLEDGE BASE SAVE (Gate: Business Plan Only) ---
+      // --- KNOWLEDGE BASE SAVE (Gate: Scale Plan Only) ---
       if (anchorColumn && auth.userId) {
          const user = await storage.getUser(auth.userId);
-         if (user?.plan === "business") {
+         // UPDATED: Check if plan includes 'scale'
+         if (user?.plan && (user.plan.includes("scale") || user.plan.includes("business"))) {
              try {
                  const knowledgeItems = limitedRows.map((row: any, i: number) => {
                      const keyVal = row[anchorColumn];
@@ -331,7 +340,7 @@ export async function registerRoutes(
     if (!allowed) {
         return res.status(403).json({ 
             error: "Insufficient AI Credits",
-            message: "You have run out of AI credits. Upgrade to Business for more."
+            message: "You have run out of AI credits. Upgrade to Scale for more."
         });
     }
 
@@ -378,7 +387,7 @@ export async function registerRoutes(
   });
 
   // ============================================
-  // KNOWLEDGE BASE ROUTES (Gate: Business Plan)
+  // KNOWLEDGE BASE ROUTES (Gate: Scale Plan)
   // ============================================
   app.post("/api/ai/knowledge/check", async (req, res) => {
       const auth = getAuth(req);
@@ -386,7 +395,9 @@ export async function registerRoutes(
 
       // Gate Check
       const user = await storage.getUser(auth.userId);
-      if (user?.plan !== 'business') {
+      const hasAccess = user?.plan && (user.plan.includes("scale") || user.plan.includes("business"));
+
+      if (!hasAccess) {
           return res.status(403).json({ error: "Feature locked", matches: {} });
       }
 
@@ -524,7 +535,7 @@ export async function registerRoutes(
 
     try {
       const user = await storage.getUser(auth.userId);
-      const isPaid = user?.plan === "pro" || user?.plan === "business"; 
+      const isPaid = user?.plan && (user.plan.includes("pro") || user.plan.includes("scale") || user.plan.includes("business")); 
 
       if (!isPaid) {
         if (colorModel === 'cmyk') colorModel = 'rgb';
@@ -664,7 +675,7 @@ export async function registerRoutes(
       const auth = getAuth(req);
       if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
       const user = await storage.getUser(auth.userId);
-      const isPaid = user?.plan === "pro" || user?.plan === "business";
+      const isPaid = user?.plan && (user.plan.includes("pro") || user.plan.includes("scale") || user.plan.includes("business"));
       if (!isPaid) return res.status(403).json({ error: "Dynamic QR Codes are a Pro feature." });
 
       const parseResult = insertQrCodeSchema.safeParse(req.body);
@@ -692,7 +703,7 @@ export async function registerRoutes(
       const auth = getAuth(req);
       if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
       const user = await storage.getUser(auth.userId);
-      const isPaid = user?.plan === "pro" || user?.plan === "business";
+      const isPaid = user?.plan && (user.plan.includes("pro") || user.plan.includes("scale") || user.plan.includes("business"));
       if (!isPaid) return res.status(403).json({ error: "Managing QR Codes is a Pro feature." });
 
       const updated = await storage.updateQRCode(req.params.id, auth.userId, req.body.destinationUrl);
@@ -929,6 +940,12 @@ export async function registerRoutes(
         planStatus: user.planStatus,
         stripeCustomerId: user.stripeCustomerId,
         stripeSubscriptionId: user.stripeSubscriptionId,
+        // NEW: Usage Stats
+        aiCredits: user.aiCredits || 0,
+        aiCreditsLimit: user.aiCreditsLimit || 0,
+        aiCreditsResetDate: user.aiCreditsResetDate,
+        pdfUsageCount: user.pdfUsageCount || 0,
+        pdfUsageResetDate: user.pdfUsageResetDate,
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch subscription" });

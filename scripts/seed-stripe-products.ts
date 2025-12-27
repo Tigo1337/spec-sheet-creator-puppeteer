@@ -37,7 +37,7 @@ const plans: PlanConfig[] = [
       'Priority onboarding'
     ]
   },
-  // 3. SCALE Monthly (Previously Business)
+  // 3. SCALE Monthly
   {
     name: 'Scale Monthly',
     productId: 'prod_scale_monthly',
@@ -50,7 +50,7 @@ const plans: PlanConfig[] = [
       'Dedicated Rendering Queue'
     ]
   },
-  // 4. SCALE Annual (Previously Business)
+  // 4. SCALE Annual
   {
     name: 'Scale Annual',
     productId: 'prod_scale_annual',

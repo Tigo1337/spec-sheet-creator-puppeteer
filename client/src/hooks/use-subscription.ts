@@ -1,9 +1,27 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/clerk-react";
 
+export interface SubscriptionDetails {
+  plan: string;
+  planStatus: string;
+  aiCredits: number;
+  aiCreditsLimit: number;
+  aiCreditsResetDate: string | null;
+  pdfUsageCount: number;
+  pdfUsageResetDate: string | null;
+}
+
 export function useSubscription() {
   const { getToken, isLoaded, isSignedIn } = useAuth();
-  const [plan, setPlan] = useState<string>("free");
+  const [details, setDetails] = useState<SubscriptionDetails>({
+    plan: "free",
+    planStatus: "active",
+    aiCredits: 0,
+    aiCreditsLimit: 0,
+    aiCreditsResetDate: null,
+    pdfUsageCount: 0,
+    pdfUsageResetDate: null
+  });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -15,13 +33,12 @@ export function useSubscription() {
 
       try {
         const token = await getToken();
-        // Uses the existing endpoint defined in server/routes.ts
         const res = await fetch("/api/subscription", {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
           const data = await res.json();
-          setPlan(data.plan);
+          setDetails(data);
         }
       } catch (error) {
         console.error("Failed to fetch subscription", error);
@@ -33,16 +50,15 @@ export function useSubscription() {
     fetchSubscription();
   }, [isLoaded, isSignedIn, getToken]);
 
-  // FIXED: Check for both "pro" AND the raw IDs from the seed script
-  const isPro = 
-    plan === "pro" || 
-    plan === "prod_pro_monthly" || 
-    plan === "prod_pro_annual" ||
-    plan.includes("pro");
+  // Helper to check plan level
+  const plan = details.plan;
+  const isPro = plan.includes("pro") || plan.includes("scale") || plan.includes("business");
+  const isScale = plan.includes("scale") || plan.includes("business");
 
   return { 
-    plan, 
+    ...details, // Exposes aiCredits, limits, etc directly
     isPro,
+    isScale,
     isLoading 
   };
 }

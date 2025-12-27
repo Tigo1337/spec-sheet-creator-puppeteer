@@ -108,7 +108,7 @@ export default function Homepage() {
 
       <PublicHeader />
 
-      {/* Hero Section - Text Content Only */}
+      {/* Hero Section */}
       <section className="relative overflow-hidden pt-16 pb-12 lg:pt-32 lg:pb-20">
         <div className="max-w-7xl mx-auto px-4 relative z-10">
           <div className="text-center space-y-8 max-w-4xl mx-auto">
@@ -147,7 +147,6 @@ export default function Homepage() {
                 View Samples
               </Button>
             </div>
-
             <p className="text-sm text-slate-500">No credit card required · Free CMYK conversion test</p>
           </div>
         </div>
@@ -176,13 +175,8 @@ export default function Homepage() {
                   <div className="truncate">IMAGE</div>
                 </div>
 
-                {/* Dynamic Rows Container 
-                    flex-1: takes remaining height
-                    overflow-hidden: cuts off rows that don't fit
-                    mask-image: fades out the bottom for a smooth look 
-                */}
+                {/* Dynamic Rows Container */}
                 <div className="flex-1 overflow-hidden flex flex-col gap-2 relative [mask-image:linear-gradient(to_bottom,black_90%,transparent)]">
-                  {/* We render extra rows (12) to ensure it fills any aspect ratio, overflow hides the rest */}
                   {[...Array(12)].map((_, i) => (
                     <div key={i} className="h-8 w-full bg-slate-800/50 rounded grid grid-cols-4 items-center px-3 gap-2 shrink-0">
                       <div className={`h-1.5 w-8 ${accentBg} opacity-80 rounded`}></div>
@@ -200,21 +194,14 @@ export default function Homepage() {
                   <Palette size={14} /> 2. Map & Design
                 </div>
 
-                {/* Card: flex-1 w-full forces it to fill the panel height/width */}
                 <div className="bg-white rounded shadow-lg flex-1 w-full p-4 relative flex flex-col">
-
-                  {/* Top aligned placeholders */}
                   <div className="flex justify-between mb-3">
                     <div className={`h-2 w-8 ${accentBg} opacity-80 rounded`}></div>
                     <div className={`h-2 w-8 ${accentBg} opacity-80 rounded`}></div>
                   </div>
-
-                  {/* Product Image Box */}
                   <div className="h-24 bg-slate-800 rounded mb-3 flex items-center justify-center border-2 border-dashed border-slate-200 shrink-0">
                     <div className="text-slate-400 text-[10px]">Product Image</div>
                   </div>
-
-                  {/* Body Lines - spread out to fill space if needed */}
                   <div className="flex flex-col gap-2">
                     <div className={`h-2 w-full ${accentBg} opacity-20 rounded`}></div>
                     <div className={`h-2 w-full ${accentBg} opacity-20 rounded`}></div>
@@ -222,8 +209,6 @@ export default function Homepage() {
                     <div className={`h-2 w-full ${accentBg} opacity-20 rounded`}></div>
                     <div className={`h-2 w-2/3 ${accentBg} opacity-20 rounded`}></div>
                   </div>
-
-                  {/* QR Code */}
                   <div className="absolute bottom-4 right-4">
                     <QrCode className="w-8 h-8 text-slate-800 opacity-90" />
                   </div>
@@ -236,17 +221,11 @@ export default function Homepage() {
                   <FileText size={14} /> 3. Generate PDF
                 </div>
 
-                {/* Card: flex-1 w-full forces it to fill the panel height/width */}
                 <div className="bg-white rounded shadow-lg flex-1 w-full p-4 relative flex flex-col border border-slate-200">
-
-                  {/* Header Info */}
                   <div className="flex justify-between mb-3 items-end shrink-0">
                     <span className={`text-[10px] font-bold ${accentColor} opacity-80`}>MODERN BATHTUB</span>
                     <span className={`text-[10px] font-bold ${accentColor} opacity-80`}>MOD-BATH-WHT</span>
                   </div>
-
-                  {/* Image Area - UPDATED to 16:9 */}
-                  {/* Replaced 'h-24' with 'aspect-video' (16:9 ratio) */}
                   <div className="aspect-video w-full bg-slate-800 rounded-sm mb-3 border border-slate-700 overflow-hidden shrink-0">
                       <img 
                         src="https://res.cloudinary.com/olilepage/image/upload/f_auto,q_auto/v1766578632/fluted-gray-modern-bathtub-japandi-ultra-4k-ar-16-9_q6ppsb.png" 
@@ -254,19 +233,14 @@ export default function Homepage() {
                         className="w-full h-full object-cover"
                       />
                   </div>
-
-                  {/* Body Content - flex-1 allows text to sit comfortably */}
                   <div className="flex flex-col gap-1 flex-1">
                     <p className="text-[10px] text-slate-500 leading-[1.4] text-left">
-                      Transform your bathroom into a private sanctuary with this stunning freestanding bathtub. Featuring a sophisticated fluted exterior, the textured design adds architectural depth and modern elegance to any space. The soft gray finish is perfectly offset by brushed gold cylindrical legs, creating a luxurious contrast that captures the essence of contemporary chic.
+                      Transform your bathroom into a private sanctuary with this stunning freestanding bathtub. Featuring a sophisticated fluted exterior, the textured design adds architectural depth and modern elegance to any space.
                     </p>
                   </div>
-
-                  {/* QR Code */}
                   <div className="absolute bottom-4 right-4">
                     <QrCode className="w-8 h-8 text-slate-800 opacity-90" />
                   </div>
-
                 </div>
               </div>
 

@@ -144,7 +144,8 @@ export function KnowledgeManagerDialog({ children }: { children: React.ReactNode
                 <TableHead style={colStyles.anchor} className="text-center">Anchor</TableHead>
                 <TableHead style={colStyles.key} className="text-center">Key Value</TableHead>
                 <TableHead style={colStyles.field} className="text-center">Field Name</TableHead>
-                <TableHead style={colStyles.content}>Content</TableHead>
+                {/* UPDATED: Added text-center */}
+                <TableHead style={colStyles.content} className="text-center">Content</TableHead>
                 <TableHead style={colStyles.updated} className="text-center">Updated</TableHead>
                 <TableHead style={colStyles.actions} className="text-center">Actions</TableHead>
               </TableRow>
@@ -173,46 +174,46 @@ export function KnowledgeManagerDialog({ children }: { children: React.ReactNode
               ) : (
                 filteredItems.map((item) => (
                   <TableRow key={item.id} className="group/row border-b hover:bg-muted/50">
-                    {/* CHANGED: align-top -> align-middle */}
-                    <TableCell style={colStyles.anchor} className="align-middle py-4 font-mono text-xs text-muted-foreground truncate">
+                    {/* UPDATED: text-center */}
+                    <TableCell style={colStyles.anchor} className="align-middle py-4 font-mono text-xs text-muted-foreground truncate text-center">
                       {item.keyName || "id"}
                     </TableCell>
 
-                    {/* CHANGED: align-top -> align-middle */}
-                    <TableCell style={colStyles.key} className="align-middle py-4 font-medium truncate">
+                    {/* UPDATED: text-center */}
+                    <TableCell style={colStyles.key} className="align-middle py-4 font-medium truncate text-center">
                       {item.productKey}
                     </TableCell>
 
-                    {/* CHANGED: align-top -> align-middle */}
-                    <TableCell style={colStyles.field} className="align-middle py-4">
+                    {/* UPDATED: text-center */}
+                    <TableCell style={colStyles.field} className="align-middle py-4 text-center">
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200 truncate max-w-full">
                         {item.fieldType}
                       </span>
                     </TableCell>
 
                     {/* EDITABLE CONTENT CELL */}
-                    <TableCell style={colStyles.content} className="align-middle py-2 pr-4">
+                    {/* UPDATED: text-center */}
+                    <TableCell style={colStyles.content} className="align-middle py-2 pr-4 text-center">
                       {(() => {
-                        // SHARED STYLES: 
-                        // We use a style object to bypass Tailwind specificity wars (md:text-sm vs leading-relaxed).
                         const typographyStyle = {
                             fontSize: "0.875rem",    // Matches text-sm
-                            lineHeight: "1.625",     // Matches leading-relaxed (explicitly forces this height)
-                            fontFamily: "inherit"    // Prevents textarea from switching fonts
+                            lineHeight: "1.625",     // Matches leading-relaxed
+                            fontFamily: "inherit",
+                            textAlign: "center" as const // UPDATED: Force center alignment for text
                         };
 
                         return editingId === item.id ? (
                           <AutoResizeTextarea 
                             value={editContent} 
                             onChange={(e: any) => setEditContent(e.target.value)}
-                            style={typographyStyle} // Apply inline styles
-                            className="min-h-[4.5rem] w-full resize-none overflow-hidden p-3 bg-background"
+                            style={typographyStyle}
+                            className="min-h-[4.5rem] w-full resize-none overflow-hidden p-3 bg-background text-center" // Added text-center
                             autoFocus
                           />
                         ) : (
                           <div 
-                            style={typographyStyle} // Apply exact same inline styles
-                            className="min-h-[4.5rem] p-3 whitespace-pre-wrap border border-transparent text-foreground"
+                            style={typographyStyle} 
+                            className="min-h-[4.5rem] p-3 whitespace-pre-wrap border border-transparent text-foreground flex items-center justify-center" // Added flex centering
                           >
                             {item.content}
                           </div>
@@ -220,16 +221,16 @@ export function KnowledgeManagerDialog({ children }: { children: React.ReactNode
                       })()}
                     </TableCell>
 
-                    {/* CHANGED: align-top -> align-middle */}
-                    <TableCell style={colStyles.updated} className="align-middle py-4 text-xs text-muted-foreground whitespace-nowrap">
+                    {/* UPDATED: text-center */}
+                    <TableCell style={colStyles.updated} className="align-middle py-4 text-xs text-muted-foreground whitespace-nowrap text-center">
                       {format(new Date(item.updatedAt), "MMM d, yyyy")}
                     </TableCell>
 
                     {/* ACTIONS CELL */}
-                    {/* CHANGED: align-top -> align-middle */}
-                    <TableCell style={colStyles.actions} className="align-middle py-3 text-right pr-4">
+                    {/* UPDATED: text-center and justify-center */}
+                    <TableCell style={colStyles.actions} className="align-middle py-3 text-center pr-4">
                       {editingId === item.id ? (
-                        <div className="flex justify-end gap-1">
+                        <div className="flex justify-center gap-1"> {/* Changed justify-end to center */}
                           <Button 
                             size="icon" 
                             variant="ghost" 
@@ -251,7 +252,7 @@ export function KnowledgeManagerDialog({ children }: { children: React.ReactNode
                           </Button>
                         </div>
                       ) : (
-                        <div className="flex justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover/row:opacity-100 transition-opacity">
+                        <div className="flex justify-center gap-1 opacity-100 sm:opacity-0 sm:group-hover/row:opacity-100 transition-opacity"> {/* Changed justify-end to center */}
                           <Button
                             variant="ghost"
                             size="icon"
@@ -291,7 +292,7 @@ export function KnowledgeManagerDialog({ children }: { children: React.ReactNode
 }
 
 // --- Helper Component for Auto-Resizing Textarea ---
-function AutoResizeTextarea({ value, onChange, className, ...props }: any) {
+function AutoResizeTextarea({ value, onChange, className, style, ...props }: any) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -309,6 +310,7 @@ function AutoResizeTextarea({ value, onChange, className, ...props }: any) {
       value={value}
       onChange={onChange}
       className={className}
+      style={style}
     />
   );
 }
