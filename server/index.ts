@@ -33,32 +33,34 @@ Sentry.init({
 const httpServer = createServer(app);
 
 // --- RATE LIMITING CONFIGURATION ---
-// 1. Strict Limiter: For AI & Auth only (Expensive external APIs)
 const strictLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  limit: 20, 
+  windowMs: 1 * 60 * 1000, 
+  limit: 30, 
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests. Please slow down to prevent abuse." }
 });
 
-// 2. General API Limiter: For standard usage
+const exportLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, 
+  limit: 100, 
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Export rate limit reached. Please wait a moment." }
+});
+
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  limit: 1000, // Increased to 1000 to allow Bulk Exports
+  windowMs: 15 * 60 * 1000, 
+  limit: 300, 
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests, please try again later." }
 });
 
-// Apply Strict Limits ONLY to AI and Uploads
 app.use("/api/ai", strictLimiter);
+app.use("/api/export", exportLimiter);
 app.use("/api/objects/upload", strictLimiter);
-
-// NOTE: Export routes now use the General Limiter to support bulk operations
-// Apply General Limits to all other API routes
 app.use("/api", apiLimiter);
-// -----------------------------------
 
 // Add Clerk authentication middleware
 const isDevelopment = process.env.NODE_ENV !== 'production';
@@ -90,7 +92,6 @@ declare module "http" {
   }
 }
 
-// Initialize Stripe
 async function initStripe() {
   if (!process.env.STRIPE_SECRET_KEY) {
     console.log('STRIPE_SECRET_KEY not set, skipping Stripe initialization');
@@ -148,10 +149,8 @@ async function checkDatabase() {
   }
 }
 
-// Initialize Stripe (Async)
 initStripe();
 
-// Register Stripe webhook route BEFORE express.json()
 app.post(
   '/api/stripe/webhook',
   express.raw({ type: 'application/json' }),
@@ -175,7 +174,14 @@ app.post(
 );
 
 // --- SECURITY FIX: DoS Protection via Payload Size ---
-const largePayloadRoutes = ['/api/export/pdf', '/api/export/preview', '/api/objects/upload'];
+// Use strict 1MB limit by default, but allow 50MB for specific heavy routes
+// UPDATED: Added '/api/export/async' to allow bulk payload uploads
+const largePayloadRoutes = [
+  '/api/export/pdf', 
+  '/api/export/preview', 
+  '/api/objects/upload',
+  '/api/export/async' 
+];
 
 app.use((req, res, next) => {
   if (largePayloadRoutes.some(route => req.path.startsWith(route))) {

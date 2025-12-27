@@ -232,7 +232,7 @@ export const availableFonts = [
   "Rubik",
   "Lora", 
   "Ubuntu",
-  "Kanit",
+  "Kanit", 
   "Fira Sans", 
   "Quicksand",
   "Barlow",
@@ -312,7 +312,6 @@ export const usersTable = pgTable("users", {
   stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
   stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
 
-  // UPDATED: 'plan' defaults to 'free', but allows raw Stripe IDs (e.g. 'prod_scale_monthly')
   plan: varchar("plan", { length: 50 }).notNull().default("free"), 
   planStatus: varchar("plan_status", { length: 50 }).notNull().default("active"),
 
@@ -337,7 +336,6 @@ export const dbUserSchema = z.object({
   email: z.string().email(),
   stripeCustomerId: z.string().nullable(),
   stripeSubscriptionId: z.string().nullable(),
-  // CRITICAL UPDATE: Changed to generic string to support raw Stripe IDs
   plan: z.string().default("free"), 
   planStatus: z.enum(["active", "canceled", "past_due"]).default("active"),
   createdAt: z.string(),
@@ -383,3 +381,25 @@ export const insertProductKnowledgeSchema = z.object({
   content: z.string(),
 });
 export type InsertProductKnowledge = z.infer<typeof insertProductKnowledgeSchema>;
+
+// --- NEW: EXPORT JOBS TABLE ---
+export const exportJobsTable = pgTable("export_jobs", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  type: varchar("type", { length: 50 }).notNull(), // 'pdf_single', 'pdf_bulk'
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // pending, processing, completed, failed
+  progress: integer("progress").default(0),
+  resultUrl: text("result_url"),
+  error: text("error"),
+  fileName: text("file_name"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type ExportJob = typeof exportJobsTable.$inferSelect;
+export type InsertExportJob = typeof exportJobsTable.$inferInsert;
+
+export const insertExportJobSchema = z.object({
+  type: z.enum(["pdf_single", "pdf_bulk"]),
+  fileName: z.string().optional(),
+});

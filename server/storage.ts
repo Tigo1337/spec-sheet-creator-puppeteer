@@ -1,5 +1,5 @@
-import type { Template, InsertTemplate, SavedDesign, InsertSavedDesign, CanvasElement, DbUser, InsertDbUser, QrCode, InsertQrCode, ProductKnowledge, InsertProductKnowledge } from "@shared/schema";
-import { savedDesignsTable, templatesTable, usersTable, qrCodesTable, productKnowledgeTable } from "@shared/schema";
+import type { Template, InsertTemplate, SavedDesign, InsertSavedDesign, CanvasElement, DbUser, InsertDbUser, QrCode, InsertQrCode, ProductKnowledge, InsertProductKnowledge, ExportJob, InsertExportJob } from "@shared/schema";
+import { savedDesignsTable, templatesTable, usersTable, qrCodesTable, productKnowledgeTable, exportJobsTable } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
@@ -42,11 +42,14 @@ export interface IStorage {
   // Product Knowledge (AI Memory)
   batchSaveProductKnowledge(userId: string, items: InsertProductKnowledge[]): Promise<void>;
   batchGetProductKnowledge(userId: string, productKeys: string[], keyName: string): Promise<ProductKnowledge[]>;
-
-  // NEW: Knowledge Management
   getAllProductKnowledge(userId: string): Promise<ProductKnowledge[]>;
   deleteProductKnowledge(id: string, userId: string): Promise<boolean>;
   updateProductKnowledge(id: string, userId: string, content: string): Promise<ProductKnowledge | undefined>;
+
+  // NEW: Export Jobs
+  createExportJob(job: InsertExportJob & { userId: string }): Promise<ExportJob>;
+  getExportJob(id: string): Promise<ExportJob | undefined>;
+  updateExportJob(id: string, updates: Partial<ExportJob>): Promise<ExportJob | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -60,6 +63,7 @@ export class DatabaseStorage implements IStorage {
     this.db = drizzle(sql);
   }
 
+  // ... (toSavedDesign and toTemplate helper methods remain same)
   private toSavedDesign(row: typeof savedDesignsTable.$inferSelect): SavedDesign {
     return {
       id: row.id,
@@ -94,7 +98,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  // ... (Template Methods - No Change)
+  // ... (Existing Template and Design methods remain the same)
   async getTemplates(): Promise<Template[]> {
     const rows = await this.db.select().from(templatesTable).orderBy(desc(templatesTable.updatedAt));
     return rows.map(this.toTemplate);
@@ -122,7 +126,6 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  // ... (Design Methods - No Change)
   async getDesignsByUser(userId: string): Promise<SavedDesign[]> {
     const rows = await this.db.select().from(savedDesignsTable).where(eq(savedDesignsTable.userId, userId)).orderBy(desc(savedDesignsTable.updatedAt));
     return rows.map((row) => this.toSavedDesign(row));
@@ -161,11 +164,9 @@ export class DatabaseStorage implements IStorage {
       planStatus: row.planStatus,
       pdfUsageCount: row.pdfUsageCount,
       pdfUsageResetDate: row.pdfUsageResetDate,
-      // --- CRITICAL FIX: MAP AI CREDITS HERE ---
       aiCredits: row.aiCredits,
       aiCreditsLimit: row.aiCreditsLimit,
       aiCreditsResetDate: row.aiCreditsResetDate,
-      // ----------------------------------------
       createdAt: new Date(row.createdAt).toISOString(),
       updatedAt: new Date(row.updatedAt).toISOString(),
     };
@@ -192,7 +193,6 @@ export class DatabaseStorage implements IStorage {
       ...user, 
       pdfUsageCount: 0,
       pdfUsageResetDate: now,
-      // Ensure AI defaults are set if not provided (though Schema handles defaults)
       aiCredits: 0,
       createdAt: now, 
       updatedAt: now 
@@ -209,7 +209,6 @@ export class DatabaseStorage implements IStorage {
     return this.updateUser(userId, stripeInfo);
   }
 
-  // --- USAGE ENFORCEMENT LOGIC (ATOMIC) ---
   async checkAndIncrementUsage(userId: string): Promise<{ allowed: boolean; count: number; limit: number }> {
     const user = await this.getUser(userId);
     if (!user) {
@@ -217,9 +216,6 @@ export class DatabaseStorage implements IStorage {
       return { allowed: false, count: 0, limit: 0 };
     }
 
-    console.log(`[Usage Check] User: ${userId}, Plan: ${user.plan}, Count: ${user.pdfUsageCount}`);
-
-    // Check for 'pro', 'scale', 'business' (partial match logic) for unlimited
     if (user.plan && (user.plan.includes("pro") || user.plan.includes("scale") || user.plan.includes("business"))) {
       return { allowed: true, count: user.pdfUsageCount || 0, limit: -1 };
     }
@@ -227,34 +223,18 @@ export class DatabaseStorage implements IStorage {
     const now = new Date();
     const lastReset = user.pdfUsageResetDate ? new Date(user.pdfUsageResetDate) : new Date(0);
     const limit = 50;
-
     const isNewMonth = now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear();
 
     if (isNewMonth) {
-      console.log(`[Usage Check] New month detected. Resetting count to 1.`);
-      await this.db.update(usersTable)
-        .set({ 
-          pdfUsageCount: 1, 
-          pdfUsageResetDate: now,
-          updatedAt: now 
-        })
-        .where(eq(usersTable.id, userId));
+      await this.db.update(usersTable).set({ pdfUsageCount: 1, pdfUsageResetDate: now, updatedAt: now }).where(eq(usersTable.id, userId));
       return { allowed: true, count: 1, limit };
     }
 
     if ((user.pdfUsageCount || 0) >= limit) {
-      console.log(`[Usage Check] Limit reached (${user.pdfUsageCount}/${limit}).`);
       return { allowed: false, count: user.pdfUsageCount || 0, limit };
     }
 
-    const [updatedUser] = await this.db.update(usersTable)
-      .set({ 
-        pdfUsageCount: sql`${usersTable.pdfUsageCount} + 1`,
-        updatedAt: now 
-      })
-      .where(eq(usersTable.id, userId))
-      .returning();
-
+    const [updatedUser] = await this.db.update(usersTable).set({ pdfUsageCount: sql`${usersTable.pdfUsageCount} + 1`, updatedAt: now }).where(eq(usersTable.id, userId)).returning();
     return { allowed: true, count: updatedUser.pdfUsageCount || 0, limit };
   }
 
@@ -284,10 +264,9 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  // --- NEW: PRODUCT KNOWLEDGE IMPLEMENTATION (UPDATED) ---
+  // AI & Knowledge
   async batchSaveProductKnowledge(userId: string, items: InsertProductKnowledge[]): Promise<void> {
     if (items.length === 0) return;
-
     const validItems = items.filter(i => i.content && i.content.trim().length > 0).map(item => ({
         id: randomUUID(),
         userId,
@@ -295,53 +274,42 @@ export class DatabaseStorage implements IStorage {
         createdAt: new Date(),
         updatedAt: new Date()
     }));
-
-    if (validItems.length > 0) {
-        await this.db.insert(productKnowledgeTable).values(validItems);
-    }
+    if (validItems.length > 0) { await this.db.insert(productKnowledgeTable).values(validItems); }
   }
 
   async batchGetProductKnowledge(userId: string, productKeys: string[], keyName: string): Promise<ProductKnowledge[]> {
     if (productKeys.length === 0) return [];
-
-    const rows = await this.db.select()
-        .from(productKnowledgeTable)
-        .where(
-            and(
-                eq(productKnowledgeTable.userId, userId),
-                eq(productKnowledgeTable.keyName, keyName),
-                inArray(productKnowledgeTable.productKey, productKeys)
-            )
-        )
-        .orderBy(desc(productKnowledgeTable.createdAt));
-
-    return rows;
+    return await this.db.select().from(productKnowledgeTable).where(and(eq(productKnowledgeTable.userId, userId), eq(productKnowledgeTable.keyName, keyName), inArray(productKnowledgeTable.productKey, productKeys))).orderBy(desc(productKnowledgeTable.createdAt));
   }
 
-  // --- NEW: MANAGEMENT METHODS ---
   async getAllProductKnowledge(userId: string): Promise<ProductKnowledge[]> {
-    return await this.db.select()
-      .from(productKnowledgeTable)
-      .where(eq(productKnowledgeTable.userId, userId))
-      .orderBy(desc(productKnowledgeTable.createdAt));
+    return await this.db.select().from(productKnowledgeTable).where(eq(productKnowledgeTable.userId, userId)).orderBy(desc(productKnowledgeTable.createdAt));
   }
 
   async deleteProductKnowledge(id: string, userId: string): Promise<boolean> {
-    const result = await this.db.delete(productKnowledgeTable)
-      .where(and(
-        eq(productKnowledgeTable.id, id),
-        eq(productKnowledgeTable.userId, userId)
-      ))
-      .returning();
+    const result = await this.db.delete(productKnowledgeTable).where(and(eq(productKnowledgeTable.id, id), eq(productKnowledgeTable.userId, userId))).returning();
     return result.length > 0;
   }
 
   async updateProductKnowledge(id: string, userId: string, content: string): Promise<ProductKnowledge | undefined> {
-    const [row] = await this.db.update(productKnowledgeTable)
-      .set({ content, updatedAt: new Date() })
-      .where(and(eq(productKnowledgeTable.id, id), eq(productKnowledgeTable.userId, userId)))
-      .returning();
+    const [row] = await this.db.update(productKnowledgeTable).set({ content, updatedAt: new Date() }).where(and(eq(productKnowledgeTable.id, id), eq(productKnowledgeTable.userId, userId))).returning();
     return row;
+  }
+
+  // --- NEW: Export Jobs Implementation ---
+  async createExportJob(job: InsertExportJob & { userId: string }): Promise<ExportJob> {
+    const [newJob] = await this.db.insert(exportJobsTable).values({ ...job, status: "pending", progress: 0 }).returning();
+    return newJob;
+  }
+
+  async getExportJob(id: string): Promise<ExportJob | undefined> {
+    const [job] = await this.db.select().from(exportJobsTable).where(eq(exportJobsTable.id, id));
+    return job;
+  }
+
+  async updateExportJob(id: string, updates: Partial<ExportJob>): Promise<ExportJob | undefined> {
+    const [updatedJob] = await this.db.update(exportJobsTable).set({ ...updates, updatedAt: new Date() }).where(eq(exportJobsTable.id, id)).returning();
+    return updatedJob;
   }
 }
 
@@ -351,6 +319,7 @@ export class MemStorage implements IStorage {
   private qrCodes: Map<string, QrCode>; 
   private users: Map<string, DbUser> = new Map();
   private knowledge: Map<string, ProductKnowledge> = new Map();
+  private jobs: Map<string, ExportJob> = new Map(); // NEW
 
   constructor() {
     this.templates = new Map();
@@ -358,6 +327,7 @@ export class MemStorage implements IStorage {
     this.qrCodes = new Map();
   }
 
+  // ... (Existing methods remain the same)
   async getTemplates(): Promise<Template[]> { return Array.from(this.templates.values()); }
   async getTemplate(id: string) { return this.templates.get(id); }
   async createTemplate(t: InsertTemplate) { const id = randomUUID(); const now = new Date().toISOString(); const tmpl = { ...t, id, previewImages: t.previewImages || [], createdAt: now, updatedAt: now }; this.templates.set(id, tmpl); return tmpl; }
@@ -373,10 +343,7 @@ export class MemStorage implements IStorage {
   async getUser(id: string) { return this.users.get(id); }
   async getUserByEmail(email: string) { return Array.from(this.users.values()).find(u => u.email === email); }
   async getUserByStripeCustomerId(cid: string) { return Array.from(this.users.values()).find(u => u.stripeCustomerId === cid); }
-
-  // UPDATED MemStorage defaults
   async createUser(u: InsertDbUser) { const now = new Date().toISOString(); const dbUser = { ...u, stripeCustomerId: u.stripeCustomerId||null, stripeSubscriptionId: u.stripeSubscriptionId||null, plan: u.plan||'free', planStatus: u.planStatus||'active', pdfUsageCount: 0, pdfUsageResetDate: new Date(), aiCredits: 0, aiCreditsLimit: 5000, aiCreditsResetDate: new Date(), createdAt: now, updatedAt: now }; this.users.set(u.id, dbUser); return dbUser; }
-
   async updateUser(id: string, u: Partial<InsertDbUser>) { const e = this.users.get(id); if(!e) return undefined; const n = { ...e, ...u, updatedAt: new Date().toISOString() }; this.users.set(id, n); return n; }
   async updateUserStripeInfo(uid: string, info: any) { return this.updateUser(uid, info); }
 
@@ -390,62 +357,37 @@ export class MemStorage implements IStorage {
     const user = this.users.get(userId);
     if (!user) return { allowed: false, count: 0, limit: 0 };
     if (user.plan && (user.plan.includes("pro") || user.plan.includes("scale"))) return { allowed: true, count: 0, limit: -1 };
-
     const count = (user.pdfUsageCount || 0) + 1;
     if (count > 50) return { allowed: false, count: count - 1, limit: 50 };
-
     user.pdfUsageCount = count;
     return { allowed: true, count, limit: 50 };
   }
 
-  async batchSaveProductKnowledge(userId: string, items: InsertProductKnowledge[]) {
-      items.forEach(item => {
-          const id = randomUUID();
-          this.knowledge.set(id, {
-              id,
-              userId,
-              keyName: item.keyName,
-              productKey: item.productKey,
-              fieldType: item.fieldType,
-              content: item.content,
-              createdAt: new Date(),
-              updatedAt: new Date()
-          });
-      });
+  async batchSaveProductKnowledge(userId: string, items: InsertProductKnowledge[]) { items.forEach(item => { const id = randomUUID(); this.knowledge.set(id, { id, userId, keyName: item.keyName, productKey: item.productKey, fieldType: item.fieldType, content: item.content, createdAt: new Date(), updatedAt: new Date() }); }); }
+  async batchGetProductKnowledge(userId: string, productKeys: string[], keyName: string) { return Array.from(this.knowledge.values()).filter(k => k.userId === userId && k.keyName === keyName && productKeys.includes(k.productKey)).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()); }
+  async getAllProductKnowledge(userId: string) { return Array.from(this.knowledge.values()).filter(k => k.userId === userId).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()); }
+  async deleteProductKnowledge(id: string, userId: string) { const item = this.knowledge.get(id); if (item && item.userId === userId) { return this.knowledge.delete(id); } return false; }
+  async updateProductKnowledge(id: string, userId: string, content: string) { const item = this.knowledge.get(id); if (item && item.userId === userId) { const updated = { ...item, content, updatedAt: new Date() }; this.knowledge.set(id, updated); return updated; } return undefined; }
+
+  // --- NEW: Export Jobs Implementation ---
+  async createExportJob(job: InsertExportJob & { userId: string }): Promise<ExportJob> {
+    const id = randomUUID();
+    const now = new Date();
+    const newJob: ExportJob = { id, userId: job.userId, type: job.type, status: "pending", progress: 0, resultUrl: null, error: null, fileName: job.fileName || null, createdAt: now, updatedAt: now };
+    this.jobs.set(id, newJob);
+    return newJob;
   }
 
-  async batchGetProductKnowledge(userId: string, productKeys: string[], keyName: string) {
-      return Array.from(this.knowledge.values())
-        .filter(k => 
-            k.userId === userId && 
-            k.keyName === keyName &&
-            productKeys.includes(k.productKey)
-        )
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  async getExportJob(id: string): Promise<ExportJob | undefined> {
+    return this.jobs.get(id);
   }
 
-  async getAllProductKnowledge(userId: string) {
-    return Array.from(this.knowledge.values())
-      .filter(k => k.userId === userId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-  }
-
-  async deleteProductKnowledge(id: string, userId: string) {
-    const item = this.knowledge.get(id);
-    if (item && item.userId === userId) {
-      return this.knowledge.delete(id);
-    }
-    return false;
-  }
-
-  async updateProductKnowledge(id: string, userId: string, content: string) {
-    const item = this.knowledge.get(id);
-    if (item && item.userId === userId) {
-      const updated = { ...item, content, updatedAt: new Date() };
-      this.knowledge.set(id, updated);
-      return updated;
-    }
-    return undefined;
+  async updateExportJob(id: string, updates: Partial<ExportJob>): Promise<ExportJob | undefined> {
+    const job = this.jobs.get(id);
+    if (!job) return undefined;
+    const updatedJob = { ...job, ...updates, updatedAt: new Date() };
+    this.jobs.set(id, updatedJob);
+    return updatedJob;
   }
 }
 

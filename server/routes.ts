@@ -16,9 +16,16 @@ import { exec, execFile } from "child_process";
 import { promisify } from "util";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import os from "os";
+import JSZip from "jszip";
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
+
+// Ensure exports directory exists
+const EXPORTS_DIR = path.join(process.cwd(), "exports");
+if (!fs.existsSync(EXPORTS_DIR)) {
+  fs.mkdirSync(EXPORTS_DIR, { recursive: true });
+}
 
 // --- DEBUG LOGGER ---
 const logSystemStats = (id: string, stage: string) => {
@@ -30,10 +37,30 @@ const logSystemStats = (id: string, stage: string) => {
 // --- BROWSER INSTANCE MANAGEMENT (SINGLETON) ---
 // Optimized for 8GB RAM: Reuse one browser instance.
 let sharedBrowser: puppeteer.Browser | null = null;
+let browserUsageCount = 0;
+const MAX_USES_BEFORE_RESTART = 5; 
+
+async function killOrphanedChrome() {
+  try { await execAsync("pkill -f 'chrome.*--headless' || true"); } catch {}
+}
+
+function forceGC() {
+  if (global.gc) { global.gc(); }
+}
 
 async function getBrowser() {
+  if (sharedBrowser && browserUsageCount >= MAX_USES_BEFORE_RESTART) {
+    console.log(`[Puppeteer] Rotating browser...`);
+    try { await sharedBrowser.close(); } catch {}
+    sharedBrowser = null;
+    browserUsageCount = 0;
+    forceGC();
+    await killOrphanedChrome();
+  }
+
   if (!sharedBrowser || !sharedBrowser.isConnected()) {
     console.log("[Puppeteer] Launching Singleton Browser...");
+    await killOrphanedChrome();
     sharedBrowser = await puppeteer.launch({
       headless: true,
       executablePath: process.env.NIX_CHROMIUM_WRAPPER || puppeteer.executablePath(),
@@ -46,9 +73,12 @@ async function getBrowser() {
         '--disable-extensions',
         '--no-first-run',
         '--no-zygote',
+        '--js-flags=--max-old-space-size=512'
       ],
     });
+    browserUsageCount = 0;
   }
+  browserUsageCount++;
   return sharedBrowser;
 }
 
@@ -57,7 +87,7 @@ process.on('exit', async () => {
   if (sharedBrowser) await sharedBrowser.close();
 });
 
-// --- LEVEL 1: FAIR ROUND-ROBIN QUEUE ---
+// --- LEVEL 1: FAIR ROUND-ROBIN QUEUE (PRESERVED) ---
 const fairQueue = {
   active: 0,
   limit: 1, // Global Concurrency Limit (1 = Safe Mode)
@@ -124,6 +154,77 @@ const fairQueue = {
     }
   }
 };
+
+// --- NEW: BACKGROUND JOB PROCESSOR ---
+async function processExportJob(jobId: string, data: any) {
+  console.log(`[Job ${jobId}] Starting background processing...`);
+
+  try {
+    await storage.updateExportJob(jobId, { status: "processing", progress: 5 });
+
+    const browser = await getBrowser();
+    const { html, htmlItems, type, width, height, scale = 2, colorModel = 'rgb' } = data;
+
+    // Helper to generate a single PDF buffer
+    const generateSinglePdf = async (pageHtml: string) => {
+      const context = await browser.createBrowserContext();
+      const page = await context.newPage();
+      try {
+        await page.setViewport({ width: Math.ceil(width), height: Math.ceil(height), deviceScaleFactor: Number(scale) });
+        await page.setContent(pageHtml, { waitUntil: ["load", "networkidle0"], timeout: 60000 });
+        await page.evaluate(async () => { await document.fonts.ready; });
+        return await page.pdf({ printBackground: true, preferCSSPageSize: true });
+      } finally {
+        await context.close().catch(() => {});
+      }
+    };
+
+    let finalFileName = "";
+
+    if (type === "pdf_single") {
+      const pdfBuffer = await generateSinglePdf(html);
+      finalFileName = `${jobId}.pdf`;
+      await fs.promises.writeFile(path.join(EXPORTS_DIR, finalFileName), Buffer.from(pdfBuffer));
+
+    } else if (type === "pdf_bulk") {
+      const zip = new JSZip();
+      const items = htmlItems || [];
+      const total = items.length;
+
+      for (let i = 0; i < total; i++) {
+        const item = items[i];
+        const percent = Math.round(((i + 1) / total) * 90);
+        await storage.updateExportJob(jobId, { progress: percent });
+
+        const pdfBuffer = await generateSinglePdf(item.html);
+        zip.file(`${item.filename}.pdf`, pdfBuffer);
+
+        await new Promise(r => setTimeout(r, 200)); // Rate limiting
+      }
+
+      const zipContent = await zip.generateAsync({ type: "nodebuffer" });
+      finalFileName = `${jobId}.zip`;
+      await fs.promises.writeFile(path.join(EXPORTS_DIR, finalFileName), zipContent);
+    }
+
+    await storage.updateExportJob(jobId, { 
+      status: "completed", 
+      progress: 100,
+      resultUrl: `/api/downloads/${finalFileName}`,
+      fileName: finalFileName
+    });
+    console.log(`[Job ${jobId}] Completed successfully.`);
+
+  } catch (error: any) {
+    console.error(`[Job ${jobId}] Failed:`, error);
+    await storage.updateExportJob(jobId, { 
+      status: "failed", 
+      error: error.message || "Unknown error during generation" 
+    });
+  } finally {
+    forceGC();
+  }
+}
 
 // Helper to check admin status
 async function checkAdmin(userId: string): Promise<boolean> {
@@ -342,8 +443,103 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch { res.status(500).send("Error"); }
   });
 
+  // --- NEW: ASYNC JOB ROUTES ---
+
+  // 1. Check Job Status
+  app.get("/api/jobs/:id", async (req, res) => {
+    const auth = getAuth(req);
+    if (!auth.userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const job = await storage.getExportJob(req.params.id);
+    if (!job) return res.status(404).json({ error: "Job not found" });
+    if (job.userId !== auth.userId) return res.status(403).json({ error: "Forbidden" });
+
+    res.json(job);
+  });
+
+  // 2. Download Result
+  app.get("/api/downloads/:filename", async (req, res) => {
+    const auth = getAuth(req);
+    if (!auth.userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const filename = req.params.filename;
+    // Security check
+    if (filename.includes("/") || filename.includes("\\") || filename.includes("..")) {
+      return res.status(400).send("Invalid filename");
+    }
+
+    const filePath = path.join(EXPORTS_DIR, filename);
+    if (!fs.existsSync(filePath)) return res.status(404).send("File not found or expired");
+
+    // UPDATED: Delete file after download
+    res.download(filePath, (err) => {
+      if (err) {
+        console.error("Download error:", err);
+      } else {
+        // File sent successfully, delete it to clean up Replit environment
+        fs.unlink(filePath, (unlinkErr) => {
+          if (unlinkErr) console.error("Error cleaning up export file:", unlinkErr);
+          else console.log(`[Cleanup] Deleted temporary file: ${filename}`);
+        });
+      }
+    });
+  });
+
+  // 3. Async Single PDF Export
+  app.post("/api/export/async/pdf", async (req, res) => {
+    const auth = getAuth(req);
+    if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
+
+    const { html, width, height, scale, colorModel } = req.body;
+    if (!html) return res.status(400).json({ error: "Missing HTML content" });
+
+    try {
+      const job = await storage.createExportJob({
+        userId: auth.userId,
+        type: "pdf_single",
+        fileName: "export.pdf"
+      });
+
+      // Fire and Forget
+      processExportJob(job.id, { 
+        html, width, height, scale, colorModel, type: "pdf_single" 
+      });
+
+      res.json({ jobId: job.id, status: "pending" });
+    } catch (error) {
+      console.error("Export Start Failed:", error);
+      res.status(500).json({ error: "Failed to start export job" });
+    }
+  });
+
+  // 4. Async Bulk Export
+  app.post("/api/export/async/bulk", async (req, res) => {
+    const auth = getAuth(req);
+    if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
+
+    const { items, width, height, scale, colorModel } = req.body;
+    if (!items || !Array.isArray(items)) return res.status(400).json({ error: "Invalid bulk items" });
+    if (items.length > 50) return res.status(400).json({ error: "Max 50 items per bulk export" });
+
+    try {
+      const job = await storage.createExportJob({
+        userId: auth.userId,
+        type: "pdf_bulk",
+        fileName: "bulk_export.zip"
+      });
+
+      processExportJob(job.id, { 
+        htmlItems: items, width, height, scale, colorModel, type: "pdf_bulk" 
+      });
+
+      res.json({ jobId: job.id, status: "pending" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to start bulk export" });
+    }
+  });
+
   // ============================================
-  // PDF EXPORT (WITH FAIR QUEUE + SINGLETON)
+  // PDF EXPORT (WITH FAIR QUEUE + SINGLETON) (PRESERVED)
   // ============================================
   app.post("/api/export/pdf", async (req, res) => {
     const auth = getAuth(req);
