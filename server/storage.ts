@@ -46,10 +46,13 @@ export interface IStorage {
   deleteProductKnowledge(id: string, userId: string): Promise<boolean>;
   updateProductKnowledge(id: string, userId: string, content: string): Promise<ProductKnowledge | undefined>;
 
-  // NEW: Export Jobs
+  // Export Jobs
   createExportJob(job: InsertExportJob & { userId: string }): Promise<ExportJob>;
   getExportJob(id: string): Promise<ExportJob | undefined>;
   updateExportJob(id: string, updates: Partial<ExportJob>): Promise<ExportJob | undefined>;
+
+  // NEW: History Method
+  getExportHistory(userId: string): Promise<ExportJob[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -296,7 +299,7 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  // --- NEW: Export Jobs Implementation ---
+  // Export Jobs Implementation
   async createExportJob(job: InsertExportJob & { userId: string }): Promise<ExportJob> {
     const [newJob] = await this.db.insert(exportJobsTable).values({ ...job, status: "pending", progress: 0 }).returning();
     return newJob;
@@ -311,6 +314,15 @@ export class DatabaseStorage implements IStorage {
     const [updatedJob] = await this.db.update(exportJobsTable).set({ ...updates, updatedAt: new Date() }).where(eq(exportJobsTable.id, id)).returning();
     return updatedJob;
   }
+
+  // NEW: History Implementation
+  async getExportHistory(userId: string): Promise<ExportJob[]> {
+    return await this.db.select()
+      .from(exportJobsTable)
+      .where(eq(exportJobsTable.userId, userId))
+      .orderBy(desc(exportJobsTable.createdAt))
+      .limit(20);
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -319,7 +331,7 @@ export class MemStorage implements IStorage {
   private qrCodes: Map<string, QrCode>; 
   private users: Map<string, DbUser> = new Map();
   private knowledge: Map<string, ProductKnowledge> = new Map();
-  private jobs: Map<string, ExportJob> = new Map(); // NEW
+  private jobs: Map<string, ExportJob> = new Map();
 
   constructor() {
     this.templates = new Map();
@@ -369,7 +381,7 @@ export class MemStorage implements IStorage {
   async deleteProductKnowledge(id: string, userId: string) { const item = this.knowledge.get(id); if (item && item.userId === userId) { return this.knowledge.delete(id); } return false; }
   async updateProductKnowledge(id: string, userId: string, content: string) { const item = this.knowledge.get(id); if (item && item.userId === userId) { const updated = { ...item, content, updatedAt: new Date() }; this.knowledge.set(id, updated); return updated; } return undefined; }
 
-  // --- NEW: Export Jobs Implementation ---
+  // Export Jobs Implementation
   async createExportJob(job: InsertExportJob & { userId: string }): Promise<ExportJob> {
     const id = randomUUID();
     const now = new Date();
@@ -388,6 +400,14 @@ export class MemStorage implements IStorage {
     const updatedJob = { ...job, ...updates, updatedAt: new Date() };
     this.jobs.set(id, updatedJob);
     return updatedJob;
+  }
+
+  // NEW: History Implementation
+  async getExportHistory(userId: string): Promise<ExportJob[]> {
+    return Array.from(this.jobs.values())
+      .filter(j => j.userId === userId)
+      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0))
+      .slice(0, 20);
   }
 }
 

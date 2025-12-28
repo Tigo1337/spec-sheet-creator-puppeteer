@@ -30,7 +30,9 @@ import {
   Book,
   XCircle,
   Lock,
-  Crown
+  Crown,
+  History,
+  RefreshCw
 } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import JSZip from "jszip";
@@ -39,6 +41,16 @@ import { formatContent } from "@/lib/formatter";
 import QRCode from "qrcode";
 import { type CanvasElement, availableFonts, openSourceFontMap } from "@shared/schema";
 import { UpgradeDialog } from "@/components/dialogs/UpgradeDialog";
+
+// History Item Interface
+interface HistoryItem {
+  id: string;
+  status: string;
+  type: string;
+  createdAt: string;
+  fileName: string;
+  downloadUrl: string | null;
+}
 
 export function ExportTab() {
   const [isExporting, setIsExporting] = useState(false);
@@ -54,6 +66,10 @@ export function ExportTab() {
   const [currentAction, setCurrentAction] = useState(""); 
   const [timeRemaining, setTimeRemaining] = useState("");
   const abortRef = useRef(false); // To handle cancellation
+
+  // History State
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const { toast } = useToast();
   // UPDATED: Destructure isLoading to prevent UI flicker
@@ -108,6 +124,26 @@ export function ExportTab() {
 
     checkImageQuality();
   }, [currentElements, excelData, selectedRowIndex, exportMode]);
+
+  // Load History on Mount
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  const fetchHistory = async () => {
+    setLoadingHistory(true);
+    try {
+        const res = await fetch("/api/export/history");
+        if (res.ok) {
+            const data = await res.json();
+            setHistory(data);
+        }
+    } catch (err) {
+        console.error("Failed to load history", err);
+    } finally {
+        setLoadingHistory(false);
+    }
+  };
 
   // --- Helper Functions ---
 
@@ -266,7 +302,7 @@ export function ExportTab() {
               </style>`;
             elementDiv.innerHTML = styles + content;
          } else {
-           elementDiv.textContent = content;
+            elementDiv.textContent = content;
          }
       } 
       // --- SHAPES ---
@@ -542,7 +578,7 @@ export function ExportTab() {
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', filename); 
-      link.setAttribute('target', '_blank');   
+      link.setAttribute('target', '_blank');    
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -613,6 +649,7 @@ export function ExportTab() {
     } finally {
       setIsExporting(false);
       setProgress(100);
+      fetchHistory(); // Refresh history
     }
   };
 
@@ -675,10 +712,11 @@ export function ExportTab() {
       toast({ title: "Bulk Export Failed", description: error.message, variant: "destructive" });
     } finally {
       setIsExporting(false);
+      fetchHistory(); // Refresh history
     }
   };
 
-  // --- NEW: GENERATE CATALOG (CORRECTED STRUCTURE) ---
+  // --- NEW: GENERATE CATALOG (FULL CHUNKING SUPPORT) ---
   const generateCatalogPDF = async () => {
     if (!excelData || excelData.rows.length === 0) {
         toast({ title: "Error", description: "No data available for catalog.", variant: "destructive" });
@@ -691,41 +729,70 @@ export function ExportTab() {
     setCurrentAction("Planning catalog structure...");
 
     try {
-      // 1. STRUCTURE PLANNING (Keep existing logic)
+      // 1. STRUCTURE PLANNING
       let pageIndex = 1;
       const structure: Array<{ type: 'cover' | 'toc' | 'chapter' | 'product' | 'back', data?: any, group?: string }> = [];
       const pageMap: Array<{ title: string, page: number, group?: string }> = [];
 
-      // ... (Keep your existing Structure Planning A, B, C, D code here) ...
-      // (Copy the A-D blocks from previous turn, they are correct)
-      if (catalogSections.cover.elements.length > 0) { structure.push({ type: 'cover' }); pageIndex++; }
-      if (catalogSections.toc.elements.length > 0) { structure.push({ type: 'toc' }); pageIndex++; }
+      // A. COVER PAGE
+      if (catalogSections.cover.elements.length > 0) {
+          structure.push({ type: 'cover' });
+          pageIndex++;
+      }
 
+      // B. TABLE OF CONTENTS
+      if (catalogSections.toc.elements.length > 0) {
+          structure.push({ type: 'toc' });
+          pageIndex++; 
+      }
+
+      // C. PRODUCTS & CHAPTERS
       const tocElement = catalogSections.toc.elements.find(e => e.type === 'toc-list');
       const groupByField = tocElement?.tocSettings?.groupByField; 
       let currentGroup = "";
+
+      // --- FIX 1: SMARTER TITLE COLUMN DETECTION ---
+      const nameCandidates = ["name", "product name", "item name", "title", "model", "product", "description"];
+      let titleKey = excelData.headers.find(h => nameCandidates.includes(h.toLowerCase()));
+
+      if (!titleKey) {
+          if (groupByField && excelData.headers[0] === groupByField && excelData.headers.length > 1) {
+              titleKey = excelData.headers[1];
+          } else {
+              titleKey = excelData.headers[0];
+          }
+      }
+
       for (let i = 0; i < excelData.rows.length; i++) {
           const row = excelData.rows[i];
+
+          // Handle Grouping / Chapter Dividers
           if (groupByField) {
               const groupVal = row[groupByField] || "Uncategorized";
+
               if (groupVal !== currentGroup) {
                   currentGroup = groupVal;
-                  if (catalogSections.chapter.elements.length > 0) {
-                      structure.push({ type: 'chapter', group: groupVal });
-                      pageIndex++;
-                  }
+
+                  // --- FIX 2: FORCE CHAPTER PAGE IF GROUPING IS ENABLED ---
+                  structure.push({ type: 'chapter', group: groupVal });
+                  pageIndex++;
               }
           }
-          const titleKey = excelData.headers[0];
+
           const title = row[titleKey] || `Item ${i+1}`;
+
           pageMap.push({ title, page: pageIndex, group: currentGroup });
           structure.push({ type: 'product', data: row });
           pageIndex++;
       }
-      if (catalogSections.back.elements.length > 0) { structure.push({ type: 'back' }); }
 
-      // 2. CHUNKED RENDERING
-      const CHUNK_SIZE = 5; // Generate 5 pages per chunk (Safe for 4GB RAM)
+      // D. BACK COVER
+      if (catalogSections.back.elements.length > 0) {
+          structure.push({ type: 'back' });
+      }
+
+      // 2. CHUNKED RENDERING (Reduced Size for Stability)
+      const CHUNK_SIZE = 5; 
       const chunks: string[] = [];
 
       let currentChunkHtml = "";
@@ -739,21 +806,38 @@ export function ExportTab() {
               setProgress(Math.round((i / structure.length) * 50));
           }
 
-          // ... (Keep your existing element selection logic) ...
           let elements: CanvasElement[] = [];
           let bg = "#ffffff";
-          let rowData = {};
+          let rowData: any = {};
 
-          if (item.type === 'cover') { elements = catalogSections.cover.elements; bg = catalogSections.cover.backgroundColor; }
-          else if (item.type === 'toc') { elements = catalogSections.toc.elements; bg = catalogSections.toc.backgroundColor; }
-          else if (item.type === 'chapter') {
+          if (item.type === 'cover') { 
+              elements = catalogSections.cover.elements; 
+              bg = catalogSections.cover.backgroundColor; 
+          } else if (item.type === 'toc') { 
+              elements = catalogSections.toc.elements; 
+              bg = catalogSections.toc.backgroundColor; 
+          } else if (item.type === 'chapter') {
               const specificDesign = item.group ? chapterDesigns[item.group] : null;
-              if (specificDesign) { elements = specificDesign.elements; bg = specificDesign.backgroundColor; }
-              else { elements = catalogSections.chapter.elements; bg = catalogSections.chapter.backgroundColor; }
-              rowData = { "Chapter Name": item.group || "Chapter", "Group": item.group || "" }; 
+              if (specificDesign && specificDesign.elements.length > 0) { 
+                  elements = specificDesign.elements; 
+                  bg = specificDesign.backgroundColor; 
+              } else { 
+                  elements = catalogSections.chapter.elements; 
+                  bg = catalogSections.chapter.backgroundColor; 
+              }
+              rowData = { 
+                  [groupByField || "Chapter"]: item.group, 
+                  "Chapter Name": item.group,              
+                  "Group": item.group 
+              }; 
+          } else if (item.type === 'product') { 
+              elements = catalogSections.product.elements; 
+              bg = catalogSections.product.backgroundColor; 
+              rowData = item.data; 
+          } else if (item.type === 'back') { 
+              elements = catalogSections.back.elements; 
+              bg = catalogSections.back.backgroundColor; 
           }
-          else if (item.type === 'product') { elements = catalogSections.product.elements; bg = catalogSections.product.backgroundColor; rowData = item.data; }
-          else if (item.type === 'back') { elements = catalogSections.back.elements; bg = catalogSections.back.backgroundColor; }
 
           const pageHtml = await renderPageHTML(elements, rowData, bg, pageMap);
 
@@ -764,7 +848,6 @@ export function ExportTab() {
           `;
           pagesInChunk++;
 
-          // If chunk is full or this is the last page, push it
           if (pagesInChunk >= CHUNK_SIZE || i === structure.length - 1) {
               chunks.push(wrapHtmlWithStyles(currentChunkHtml, `Chunk`));
               currentChunkHtml = "";
@@ -778,12 +861,11 @@ export function ExportTab() {
 
       setCurrentAction("Uploading chunks...");
 
-      // UPDATED FETCH: Send 'items' (chunks) instead of 'html'
       const res = await fetch("/api/export/async/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: chunks, // <--- SEND CHUNKS
+          items: chunks, // Send chunks instead of full HTML
           width: canvasWidth,
           height: canvasHeight,
           scale: exportMode === 'print' ? 3.125 : 2, 
@@ -808,6 +890,7 @@ export function ExportTab() {
     } finally {
         setIsExporting(false);
         setProgress(100);
+        fetchHistory(); // Refresh history
     }
   };
 
@@ -921,9 +1004,9 @@ export function ExportTab() {
                         ${exportMode === "print" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"}`
                     }
                   >
-                     {!isPro && !isLoading && <Lock className="absolute top-2 right-2 h-3 w-3 text-muted-foreground" />}
-                     <Printer className={`h-5 w-5 ${exportMode === "print" ? "text-primary" : "text-muted-foreground"}`} />
-                     <div className="text-center"><p className="text-xs font-medium">Print Ready</p><p className="text-[10px] text-muted-foreground">High Quality (Big)</p></div>
+                      {!isPro && !isLoading && <Lock className="absolute top-2 right-2 h-3 w-3 text-muted-foreground" />}
+                      <Printer className={`h-5 w-5 ${exportMode === "print" ? "text-primary" : "text-muted-foreground"}`} />
+                      <div className="text-center"><p className="text-xs font-medium">Print Ready</p><p className="text-[10px] text-muted-foreground">High Quality (Big)</p></div>
                   </div>
                </div>
             </div>
@@ -1051,6 +1134,63 @@ export function ExportTab() {
             <li>Text remains selectable in both modes</li>
           </ul>
         </div>
+
+        {/* --- HISTORY SECTION --- */}
+        <div className="mt-8 border-t pt-6">
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <History className="h-4 w-4" />
+                    Recent Exports
+                </h3>
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={fetchHistory} disabled={loadingHistory}>
+                   <RefreshCw className={`h-3 w-3 ${loadingHistory ? "animate-spin" : ""}`} />
+                </Button>
+            </div>
+
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {history.length === 0 && !loadingHistory && (
+                    <p className="text-gray-500 text-xs italic">No export history found.</p>
+                )}
+
+                {history.map((job) => (
+                    <div key={job.id} className="flex items-center justify-between p-2.5 border rounded-lg bg-white/50 hover:bg-white transition-colors">
+                        <div className="flex flex-col">
+                            <span className="font-medium text-xs">
+                                {job.type === 'pdf_catalog' ? '📚 Full Catalog' : '📄 Single Export'}
+                            </span>
+                            <span className="text-[10px] text-gray-400">
+                                {new Date(job.createdAt).toLocaleString()}
+                            </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            {/* Status Badge */}
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full capitalize ${
+                                job.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                job.status === 'failed' ? 'bg-red-100 text-red-700' :
+                                'bg-yellow-100 text-yellow-700'
+                            }`}>
+                                {job.status}
+                            </span>
+
+                            {/* Download Button */}
+                            {job.status === 'completed' && job.downloadUrl && (
+                                <a 
+                                    href={job.downloadUrl} 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="text-xs bg-primary/10 text-primary hover:bg-primary hover:text-white px-2 py-1 rounded transition-colors no-underline"
+                                    title="Download File"
+                                >
+                                    <Download className="h-3 w-3" />
+                                </a>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+
       </div>
     </ScrollArea>
   );

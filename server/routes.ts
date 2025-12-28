@@ -5,13 +5,14 @@ import { storage } from "./storage";
 import {
   ObjectStorageService,
   ObjectNotFoundError,
+  objectStorageClient,
 } from "./objectStorage";
-import { insertTemplateSchema, insertSavedDesignSchema, insertQrCodeSchema } from "@shared/schema";
+import { insertTemplateSchema, insertSavedDesignSchema, insertQrCodeSchema, exportJobsTable } from "@shared/schema";
 import { stripeService } from "./stripeService";
 import { getStripePublishableKey } from "./stripeClient";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Storage } from "@google-cloud/storage";
-import { objectStorageClient } from "./objectStorage";
+import { desc, eq } from "drizzle-orm";
 
 // --- HELPER FUNCTIONS ---
 
@@ -230,6 +231,67 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (qr) { storage.incrementQRCodeScan(req.params.id).catch(console.error); return res.redirect(302, qr.destinationUrl); }
       res.status(404).send("Not found");
     } catch { res.status(500).send("Error"); }
+  });
+
+  // 3. Get Export History (With Signed URLs)
+  app.get("/api/export/history", async (req, res) => {
+    const auth = getAuth(req);
+    if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
+
+    try {
+      // 1. Fetch jobs using STORAGE helper (Fixes the "db is not defined" error)
+      const jobs = await storage.getExportHistory(auth.userId);
+
+      // 2. Setup GCS Client for Signing
+      const gcsKey = process.env.GCLOUD_KEY_JSON;
+      let externalStorage: Storage | null = null;
+      if (gcsKey) {
+          try {
+             externalStorage = new Storage({ credentials: JSON.parse(gcsKey) });
+          } catch (e) { console.error("Bad GCS Key", e); }
+      }
+
+      // 3. Process jobs: Generate valid download links
+      const history = await Promise.all(jobs.map(async (job) => {
+          let downloadUrl = null;
+
+          if (job.status === "completed" && externalStorage) {
+              try {
+                  const bucketName = "doculoom-exports";
+                  const ext = job.type === "pdf_bulk" ? "zip" : "pdf";
+                  // Ensure we look for the file ID, not the friendly name
+                  const gcsPath = `exports/${job.id}.${ext}`;
+
+                  const [url] = await externalStorage
+                      .bucket(bucketName)
+                      .file(gcsPath)
+                      .getSignedUrl({
+                          version: 'v4',
+                          action: 'read',
+                          expires: Date.now() + 60 * 60 * 1000, // 1 hour
+                      });
+                  downloadUrl = url;
+              } catch (e) {
+                  console.error(`Failed to sign URL for job ${job.id}`, e);
+              }
+          }
+
+          return {
+              id: job.id,
+              status: job.status,
+              type: job.type,
+              createdAt: job.createdAt,
+              fileName: job.fileName || "Export",
+              downloadUrl: downloadUrl 
+          };
+      }));
+
+      res.json(history);
+
+    } catch (error) {
+      console.error("History fetch failed:", error);
+      res.status(500).json({ error: "Failed to fetch history" });
+    }
   });
 
   // --- NEW: ASYNC EXPORT WORKFLOW (CLOUD RUN) ---
