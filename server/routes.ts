@@ -30,6 +30,35 @@ async function checkAdmin(userId: string): Promise<boolean> {
   }
 }
 
+// --- GCS SIGNED URL HELPER (UPDATED) ---
+async function generateSignedDownloadUrl(jobId: string, fileName: string, type: string) {
+  const gcsKey = process.env.GCLOUD_KEY_JSON;
+  if (!gcsKey) return null;
+
+  try {
+    const externalStorage = new Storage({ credentials: JSON.parse(gcsKey) });
+    const bucketName = "doculoom-exports";
+    const ext = type === "pdf_bulk" ? "zip" : "pdf";
+    // We still look for the file using the UUID because that's how the worker saves it
+    const gcsPath = `exports/${jobId}.${ext}`;
+
+    const [url] = await externalStorage
+      .bucket(bucketName)
+      .file(gcsPath)
+      .getSignedUrl({
+        version: 'v4',
+        action: 'read',
+        expires: Date.now() + 60 * 60 * 1000, // 1 hour
+        // KEY FIX: We inject the Friendly Name here
+        responseDisposition: `attachment; filename="${fileName.replace(/"/g, '\\"')}"`
+      });
+    return url;
+  } catch (e) {
+    console.error(`Failed to sign URL for job ${jobId}`, e);
+    return null;
+  }
+}
+
 // --- AI CREDIT HELPER ---
 async function checkAndDeductAiCredits(userId: string, costCents: number): Promise<boolean> {
   const user = await storage.getUser(userId);
@@ -233,47 +262,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch { res.status(500).send("Error"); }
   });
 
-  // 3. Get Export History (With Signed URLs)
+  // 3. Get Export History (UPDATED)
   app.get("/api/export/history", async (req, res) => {
     const auth = getAuth(req);
     if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
 
     try {
-      // 1. Fetch jobs using STORAGE helper (Fixes the "db is not defined" error)
       const jobs = await storage.getExportHistory(auth.userId);
 
-      // 2. Setup GCS Client for Signing
-      const gcsKey = process.env.GCLOUD_KEY_JSON;
-      let externalStorage: Storage | null = null;
-      if (gcsKey) {
-          try {
-             externalStorage = new Storage({ credentials: JSON.parse(gcsKey) });
-          } catch (e) { console.error("Bad GCS Key", e); }
-      }
-
-      // 3. Process jobs: Generate valid download links
       const history = await Promise.all(jobs.map(async (job) => {
           let downloadUrl = null;
 
-          if (job.status === "completed" && externalStorage) {
-              try {
-                  const bucketName = "doculoom-exports";
-                  const ext = job.type === "pdf_bulk" ? "zip" : "pdf";
-                  // Ensure we look for the file ID, not the friendly name
-                  const gcsPath = `exports/${job.id}.${ext}`;
+          // PREFER displayFilename (User's choice) -> fileName (Worker's overwrite) -> Fallback
+          const safeName = job.displayFilename || job.fileName || "Export";
 
-                  const [url] = await externalStorage
-                      .bucket(bucketName)
-                      .file(gcsPath)
-                      .getSignedUrl({
-                          version: 'v4',
-                          action: 'read',
-                          expires: Date.now() + 60 * 60 * 1000, // 1 hour
-                      });
-                  downloadUrl = url;
-              } catch (e) {
-                  console.error(`Failed to sign URL for job ${job.id}`, e);
-              }
+          if (job.status === "completed") {
+             downloadUrl = await generateSignedDownloadUrl(
+                 job.id, 
+                 safeName, 
+                 job.type
+             );
           }
 
           return {
@@ -281,8 +289,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               status: job.status,
               type: job.type,
               createdAt: job.createdAt,
-              projectName: job.projectName, // <--- RETURN IT
-              fileName: job.fileName || "Export",
+              projectName: job.projectName, 
+              fileName: safeName, // Send the good name to the frontend
               downloadUrl: downloadUrl 
           };
       }));
@@ -297,7 +305,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // --- NEW: ASYNC EXPORT WORKFLOW (CLOUD RUN) ---
 
-  // 1. Check Job Status
+  // 1. Check Job Status (UPDATED)
   app.get("/api/jobs/:id", async (req, res) => {
     const auth = getAuth(req);
     if (!auth.userId) return res.status(401).json({ error: "Unauthorized" });
@@ -306,7 +314,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!job) return res.status(404).json({ error: "Job not found" });
     if (job.userId !== auth.userId) return res.status(403).json({ error: "Forbidden" });
 
-    res.json(job);
+    // FIX: Ensure we send the safe name, not the UUID the worker might have written
+    const safeName = job.displayFilename || job.fileName || "Export";
+
+    let downloadUrl = job.resultUrl;
+    if (job.status === "completed") {
+        const signedUrl = await generateSignedDownloadUrl(
+            job.id,
+            safeName,
+            job.type
+        );
+        if (signedUrl) downloadUrl = signedUrl;
+    }
+
+    res.json({ 
+        ...job, 
+        fileName: safeName, // Override the DB UUID with our safe name
+        downloadUrl 
+    });
   });
 
   // 2. Trigger Async Single PDF Export (Delegates to Cloud Run)
@@ -331,8 +356,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const job = await storage.createExportJob({
         userId: auth.userId,
         type: jobType,
-        projectName: projectName || "Untitled Project", // <--- SAVE IT
-        fileName: finalFileName // <--- USE THE VARIABLE
+        projectName: projectName || "Untitled Project", 
+        fileName: finalFileName,
+        displayFilename: finalFileName // <--- SAVE THE SAFE NAME HERE
       });
 
       const workerUrl = process.env.PDF_WORKER_URL;
@@ -405,12 +431,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       // Use defaults if not provided (fallback)
       const defaultName = "Bulk_Export_" + new Date().toISOString().slice(0,10);
+      const finalFileName = fileName || `${defaultName}.zip`;
 
       const job = await storage.createExportJob({
         userId: auth.userId,
         type: "pdf_bulk",
         // FIX: Use provided names
-        fileName: fileName || `${defaultName}.zip`, 
+        fileName: finalFileName, 
+        displayFilename: finalFileName, // <--- SAVE SAFE NAME HERE
         projectName: projectName || defaultName
       });
 

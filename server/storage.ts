@@ -301,7 +301,15 @@ export class DatabaseStorage implements IStorage {
 
   // Export Jobs Implementation
   async createExportJob(job: InsertExportJob & { userId: string }): Promise<ExportJob> {
-    const [newJob] = await this.db.insert(exportJobsTable).values({ ...job, status: "pending", progress: 0 }).returning();
+    // UPDATED: Save displayFilename if present, otherwise fallback to fileName
+    const displayFilename = job.displayFilename || job.fileName;
+
+    const [newJob] = await this.db.insert(exportJobsTable).values({ 
+        ...job, 
+        displayFilename, // Save the friendly name here
+        status: "pending", 
+        progress: 0 
+    }).returning();
     return newJob;
   }
 
@@ -315,7 +323,7 @@ export class DatabaseStorage implements IStorage {
     return updatedJob;
   }
 
-  // NEW: History Implementation
+  // History Implementation
   async getExportHistory(userId: string): Promise<ExportJob[]> {
     return await this.db.select()
       .from(exportJobsTable)
@@ -385,7 +393,7 @@ export class MemStorage implements IStorage {
   async createExportJob(job: InsertExportJob & { userId: string }): Promise<ExportJob> {
     const id = randomUUID();
     const now = new Date();
-    // UPDATED: Added projectName to Memory Storage creation
+    // UPDATED: Save displayFilename if present, otherwise fallback
     const newJob: ExportJob = { 
         id, 
         userId: job.userId, 
@@ -396,6 +404,7 @@ export class MemStorage implements IStorage {
         error: null, 
         fileName: job.fileName || null,
         projectName: job.projectName || null, 
+        displayFilename: job.displayFilename || job.fileName || null, // Stored safely here
         createdAt: now, 
         updatedAt: now 
     };
@@ -415,7 +424,7 @@ export class MemStorage implements IStorage {
     return updatedJob;
   }
 
-  // NEW: History Implementation
+  // History Implementation
   async getExportHistory(userId: string): Promise<ExportJob[]> {
     return Array.from(this.jobs.values())
       .filter(j => j.userId === userId)
