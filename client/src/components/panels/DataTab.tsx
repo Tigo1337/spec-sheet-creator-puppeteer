@@ -1,7 +1,6 @@
 import { useRef, useCallback, useState } from "react";
 import { useCanvasStore } from "@/stores/canvas-store";
 import { parseDataFile } from "@/lib/excel-parser";
-import { createDataFieldElement, createImageFieldElement } from "@/lib/canvas-utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -49,15 +48,9 @@ import {
   Save,
   CheckCircle2,
 } from "lucide-react";
-import {
-  DndContext,
-  DragEndEvent,
-  DragOverlay,
-  DragStartEvent,
-  useDraggable,
-} from "@dnd-kit/core";
+import { useDraggable } from "@dnd-kit/core";
 
-// --- Updated DraggableHeader to include Wand Button ---
+// --- DraggableHeader ---
 function DraggableHeader({ header, onStandardize }: { header: string, onStandardize: (h: string) => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `header-${header}`,
@@ -81,10 +74,10 @@ function DraggableHeader({ header, onStandardize }: { header: string, onStandard
       {isAI ? <Sparkles className="h-3 w-3 flex-shrink-0" /> : <Database className="h-3 w-3 flex-shrink-0" />}
       <span className="truncate font-medium">{header}</span>
 
-      {/* Contextual Wand Button (Hidden until hover) */}
+      {/* Wand Button */}
       <div 
         role="button"
-        onPointerDown={(e) => e.stopPropagation()} // Prevent drag start
+        onPointerDown={(e) => e.stopPropagation()} 
         onClick={(e) => {
           e.stopPropagation(); 
           onStandardize(header);
@@ -101,7 +94,6 @@ function DraggableHeader({ header, onStandardize }: { header: string, onStandard
 export function DataTab() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeHeader, setActiveHeader] = useState<string | null>(null);
   const [useAI, setUseAI] = useState(true); 
   const { toast } = useToast();
 
@@ -112,7 +104,7 @@ export function DataTab() {
   const [enrichColumnName, setEnrichColumnName] = useState("Marketing Copy");
   const [enrichAnchor, setEnrichAnchor] = useState<string>("none"); 
 
-  // --- CONFIG SETTINGS (Used by Standardization Dialog) ---
+  // --- CONFIG SETTINGS ---
   const [currencySymbol, setCurrencySymbol] = useState("$");
   const [currencyPlacement, setCurrencyPlacement] = useState("before");
   const [currencySpacing, setCurrencySpacing] = useState(false); 
@@ -124,7 +116,7 @@ export function DataTab() {
   const [measurementFormat, setMeasurementFormat] = useState("abbr");
   const [measurementSpacing, setMeasurementSpacing] = useState(true); 
 
-  // --- Standardization Dialog State ---
+  // --- Standardization State ---
   const [stdOpen, setStdOpen] = useState(false);
   const [stdColumn, setStdColumn] = useState<string | null>(null);
   const [stdType, setStdType] = useState("title_case");
@@ -139,9 +131,6 @@ export function DataTab() {
     updateExcelData, 
     selectedRowIndex,
     setSelectedRowIndex,
-    addElement,
-    canvasWidth,
-    canvasHeight,
     imageFieldNames,
     toggleImageField,
     elements,
@@ -170,11 +159,10 @@ export function DataTab() {
 
         if (knResponse.ok) {
             const { matches } = await knResponse.json();
-
             let finalHeaders = [...excelData.headers];
             let finalRows = [...excelData.rows];
-
             const foundFields = new Set<string>();
+
             Object.values(matches).forEach((fields: any) => {
                 Object.keys(fields).forEach(f => foundFields.add(f));
             });
@@ -210,13 +198,11 @@ export function DataTab() {
     }
   };
 
-  // --- Standardization Handlers ---
   const openStandardize = (header: string) => {
     setStdColumn(header);
     setStdOpen(true);
     setStdPreview([]); 
 
-    // Default preview: Grab 3 rows
     if (excelData) {
         const samples = excelData.rows.slice(0, 3).map(r => ({
             original: r[header] || "",
@@ -238,7 +224,6 @@ export function DataTab() {
         currencySpacing, 
         currencyDecimals, 
         currencyThousandSeparator, 
-        // Send Measurement Settings
         measurementUnit,
         measurementFormat, 
         measurementSpacing
@@ -261,21 +246,16 @@ export function DataTab() {
         const data = await res.json();
 
         if (applyToAll) {
-            // UPDATE ACTUAL DATA
             const newRows = excelData.rows.map((row, i) => ({
                 ...row,
                 [stdColumn]: data.standardized[i] || row[stdColumn]
             }));
 
-            // --- FIX: VISUALLY MARK AS AI FIELD ---
             markAiField(stdColumn); 
-            // -------------------------------------
-
             updateExcelData({ ...excelData, rows: newRows });
             toast({ title: "Success", description: `Updated ${excelData.rows.length} rows in "${stdColumn}".` });
             setStdOpen(false);
         } else {
-            // UPDATE PREVIEW ONLY
             setStdPreview(stdPreview.map((p, i) => ({
                 ...p,
                 new: data.standardized[i] || ""
@@ -298,7 +278,6 @@ export function DataTab() {
         const result = await parseDataFile(file);
 
         if (result.success && result.data) {
-
           let finalHeaders = [...result.data.headers];
           let finalRows = [...result.data.rows];
           let mappedCount = 0;
@@ -322,9 +301,6 @@ export function DataTab() {
                    if (matches) targets.push(...matches.map((m) => m.replace(/{{|}}/g, "").trim()));
                 }
                 return targets;
-              }
-              if (el.type === "toc-list" && el.dataBinding) {
-                 return [el.dataBinding];
               }
               return [];
             });
@@ -440,7 +416,6 @@ export function DataTab() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 rows: excelData.rows,
-                // Only sending Generate-related config here
                 type: enrichType, 
                 tone: enrichTone,
                 anchorColumn: enrichAnchor === "none" ? undefined : enrichAnchor, 
@@ -451,7 +426,6 @@ export function DataTab() {
         if (!response.ok) throw new Error("Generation failed");
 
         const { generatedContent } = await response.json();
-
         const newHeader = enrichColumnName;
 
         const newRows = excelData.rows.map((row, index) => ({
@@ -485,47 +459,6 @@ export function DataTab() {
     setExcelData(null);
   };
 
-  const handleDragStart = (event: DragStartEvent) => {
-    const header = event.active.data.current?.header;
-    if (header) {
-      setActiveHeader(header);
-    }
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const header = event.active.data.current?.header;
-    if (header && excelData) {
-      const x = canvasWidth / 2 - 75;
-      const y = canvasHeight / 2 - 16;
-
-      const isManuallyMarked = imageFieldNames.has(header);
-      const isAutoDetected = header.toLowerCase().includes("image") || 
-                             header.toLowerCase().includes("photo") ||
-                             header.toLowerCase().includes("picture") ||
-                             header.toLowerCase().includes("url") ||
-                             header.toLowerCase().includes("thumbnail") ||
-                             header.toLowerCase().includes("img") ||
-                             header.toLowerCase().includes("avatar") ||
-                             header.toLowerCase().includes("logo");
-      const isImageColumn = isManuallyMarked || isAutoDetected;
-
-      if (isImageColumn) {
-        addElement(createImageFieldElement(x, y, header));
-        toast({
-          title: "Image field added",
-          description: `Added "${header}" image field to the canvas.`,
-        });
-      } else {
-        addElement(createDataFieldElement(x, y, header));
-        toast({
-          title: "Data field added",
-          description: `Added "${header}" field to the canvas.`,
-        });
-      }
-    }
-    setActiveHeader(null);
-  };
-
   const handlePrevRow = () => {
     if (selectedRowIndex > 0) {
       setSelectedRowIndex(selectedRowIndex - 1);
@@ -541,7 +474,7 @@ export function DataTab() {
   return (
     <ScrollArea className="h-full">
       <div className="p-4 space-y-4">
-        {/* ... [Upload UI] ... */}
+        {/* Import UI */}
         <div>
           <div className="flex items-center justify-between mb-3">
              <h3 className="font-medium text-sm">Import Data</h3>
@@ -629,7 +562,7 @@ export function DataTab() {
                     Replace
                   </Button>
 
-                  {/* --- GENERATE BUTTON --- */}
+                  {/* GENERATE BUTTON */}
                   <Dialog open={enrichDialogOpen} onOpenChange={setEnrichDialogOpen}>
                     <DialogTrigger asChild>
                        <Button size="sm" className="flex-1 gap-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white border-0">
@@ -638,7 +571,6 @@ export function DataTab() {
                        </Button>
                     </DialogTrigger>
 
-                    {/* FIXED: Explicit bg-white and text-black for light mode */}
                     <DialogContent className="bg-white dark:bg-zinc-950 text-black dark:text-white">
                        <DialogHeader>
                           <DialogTitle className="flex items-center gap-2 text-black dark:text-white">
@@ -714,9 +646,8 @@ export function DataTab() {
                        </DialogFooter>
                     </DialogContent>
                   </Dialog>
-                  {/* --------------------- */}
 
-                  {/* --- STANDARDIZATION DIALOG (UPDATED WITH CONFIG) --- */}
+                  {/* STANDARDIZATION DIALOG */}
                   <Dialog open={stdOpen} onOpenChange={setStdOpen}>
                     <DialogContent className="sm:max-w-[500px] bg-white dark:bg-zinc-950 text-black dark:text-white">
                         <DialogHeader>
@@ -744,10 +675,7 @@ export function DataTab() {
                                             id="mode-preset" 
                                             className="border-black text-black dark:border-white dark:text-white"
                                         />
-                                        <Label 
-                                            htmlFor="mode-preset" 
-                                            className="font-normal text-xs cursor-pointer text-black dark:text-white"
-                                        >
+                                        <Label htmlFor="mode-preset" className="font-normal text-xs cursor-pointer text-black dark:text-white">
                                             Preset
                                         </Label>
                                     </div>
@@ -757,10 +685,7 @@ export function DataTab() {
                                             id="mode-custom" 
                                             className="border-black text-black dark:border-white dark:text-white"
                                         />
-                                        <Label 
-                                            htmlFor="mode-custom" 
-                                            className="font-normal text-xs cursor-pointer text-black dark:text-white"
-                                        >
+                                        <Label htmlFor="mode-custom" className="font-normal text-xs cursor-pointer text-black dark:text-white">
                                             Custom
                                         </Label>
                                     </div>
@@ -780,7 +705,7 @@ export function DataTab() {
                                         </SelectContent>
                                     </Select>
 
-                                    {/* CONDITIONAL SETTINGS: CURRENCY */}
+                                    {/* CURRENCY SETTINGS */}
                                     {stdType === 'currency' && (
                                         <div className="grid grid-cols-2 gap-4 p-3 bg-slate-100 dark:bg-muted/40 rounded-md animate-in fade-in slide-in-from-top-1 border border-slate-200 dark:border-border">
                                             <div className="space-y-2">
@@ -838,7 +763,7 @@ export function DataTab() {
                                         </div>
                                     )}
 
-                                    {/* CONDITIONAL SETTINGS: MEASUREMENTS */}
+                                    {/* MEASUREMENT SETTINGS */}
                                     {stdType === 'measurements' && (
                                         <div className="grid grid-cols-2 gap-4 p-3 bg-slate-100 dark:bg-muted/40 rounded-md animate-in fade-in slide-in-from-top-1 border border-slate-200 dark:border-border">
                                             <div className="space-y-2">
@@ -949,7 +874,7 @@ export function DataTab() {
           <>
             <Separator />
 
-            {/* --- NEW: Unique Identifier Selector (Dark Mode Fixed) --- */}
+            {/* Unique Identifier Selector */}
             <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-800 p-3 rounded-md space-y-2">
                 <Label className="text-purple-900 dark:text-purple-100 flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
@@ -980,26 +905,16 @@ export function DataTab() {
                 Drag fields onto the canvas to bind them to your design. Hover over a field to see AI tools.
               </p>
 
-              <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-                <div className="flex flex-wrap gap-1.5 mb-4">
-                  {excelData.headers.map((header) => (
-                    <DraggableHeader 
-                        key={header} 
-                        header={header} 
-                        onStandardize={openStandardize} 
-                    />
-                  ))}
-                </div>
-
-                <DragOverlay>
-                  {activeHeader && (
-                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-primary text-primary-foreground rounded-md text-sm shadow-lg">
-                      <Database className="h-3 w-3" />
-                      <span className="font-medium">{activeHeader}</span>
-                    </div>
-                  )}
-                </DragOverlay>
-              </DndContext>
+              {/* REMOVED DndContext from here to allow bubble up to Editor.tsx */}
+              <div className="flex flex-wrap gap-1.5 mb-4">
+                {excelData.headers.map((header) => (
+                  <DraggableHeader 
+                      key={header} 
+                      header={header} 
+                      onStandardize={openStandardize} 
+                  />
+                ))}
+              </div>
 
               <div className="bg-muted/30 rounded-lg p-3 space-y-2">
                 <p className="text-xs font-medium text-foreground">Mark as Image Fields</p>
