@@ -553,7 +553,7 @@ export function ExportTab() {
       const fullHtml = wrapHtmlWithStyles(combinedHtml, getConstructedFilename(selectedRowIndex));
       setCurrentAction("Queuing job...");
 
-      const res = await fetch("/api/export/async/pdf", {
+    const res = await fetch("/api/export/async/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -565,7 +565,10 @@ export function ExportTab() {
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to start export");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to start export");
+      }
       const { jobId } = await res.json();
 
       setCurrentAction("Processing on server...");
@@ -647,6 +650,21 @@ export function ExportTab() {
       setIsExporting(false);
     }
   };
+
+  const handleCancelExport = () => {
+    abortRef.current = true;
+    setIsExporting(false);
+    setExportStatus("cancelled");
+    setCurrentAction("");
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <ScrollArea className="h-full">
