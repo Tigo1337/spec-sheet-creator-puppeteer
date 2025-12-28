@@ -337,7 +337,6 @@ export function ExportTab() {
       }
       // --- TABLE OF CONTENTS (TOC) ---
       else if (element.type === "toc-list") {
-         // ... existing toc logic ...
          const settings = element.tocSettings || { title: "Table of Contents", showTitle: true, columnCount: 1 };
          const columnCount = settings.columnCount || 1;
 
@@ -384,19 +383,12 @@ export function ExportTab() {
              listDiv.style.setProperty("column-fill", "auto");
          }
 
-         if (itemsToRender.length > 0) {
-             itemsToRender.forEach(item => {
-                 if (item.type === "header") {
-                     const chapterDiv = createTocHeaderDiv(item.text, settings);
-                     listDiv.appendChild(chapterDiv);
-                 } else {
-                     const itemDiv = createTocItemDiv(item, element.textStyle || {});
-                     listDiv.appendChild(itemDiv);
-                 }
-             });
-         } else {
+         // FIX: Use the pageMap (calculated structure) if available, falling back to dummy
+         const effectivePageMap = pageMap.length > 0 ? pageMap : itemsToRender;
+
+         if (effectivePageMap.length > 0) {
              const groupBy = settings.groupByField;
-             if (groupBy) {
+             if (groupBy && pageMap.length > 0) {
                  const groups: Record<string, any[]> = {};
                  pageMap.forEach(item => {
                      const key = item.group || "Uncategorized";
@@ -411,8 +403,12 @@ export function ExportTab() {
                      });
                  });
              } else {
-                 pageMap.forEach(item => {
-                     listDiv.appendChild(createTocItemDiv(item, element.textStyle || {}));
+                 effectivePageMap.forEach(item => {
+                     if (item.type === "header") {
+                         listDiv.appendChild(createTocHeaderDiv(item.text, settings));
+                     } else {
+                         listDiv.appendChild(createTocItemDiv(item, element.textStyle || {}));
+                     }
                  });
              }
          }
@@ -497,7 +493,7 @@ export function ExportTab() {
 
   // --- ASYNC POLLING HELPER ---
   const pollJobStatus = async (jobId: string) => {
-    return new Promise<string>((resolve, reject) => {
+    return new Promise<{ resultUrl: string, fileName: string }>((resolve, reject) => {
       const interval = setInterval(async () => {
         try {
           const res = await fetch(`/api/jobs/${jobId}`);
@@ -508,7 +504,7 @@ export function ExportTab() {
 
           if (job.status === "completed") {
             clearInterval(interval);
-            resolve(job.resultUrl);
+            resolve({ resultUrl: job.resultUrl, fileName: job.fileName });
           } else if (job.status === "failed") {
             clearInterval(interval);
             reject(new Error(job.error || "Export failed"));
@@ -519,6 +515,38 @@ export function ExportTab() {
         }
       }, 3000); 
     });
+  };
+
+  // --- DOWNLOAD TRIGGER HELPER (ROBUST) ---
+  const triggerDownload = async (url: string, filename: string) => {
+    // Strategy: Fetch as blob to force download (bypassing browser PDF viewer & cross-origin limits)
+    try {
+      // Note: This relies on CORS being configured on the bucket!
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Network response was not ok");
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute('download', filename); 
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Clean up
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 100);
+    } catch (e) {
+      console.warn("Blob download failed (likely CORS), falling back to direct link", e);
+      // Fallback: Open in new tab (Better than nothing)
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename); 
+      link.setAttribute('target', '_blank');   
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   const wrapHtmlWithStyles = (innerHtml: string, title: string) => {
@@ -550,7 +578,8 @@ export function ExportTab() {
         combinedHtml += `<div class="page-container">${pageHtml}</div>`;
       }
 
-      const fullHtml = wrapHtmlWithStyles(combinedHtml, getConstructedFilename(selectedRowIndex));
+      const desiredFilename = `${getConstructedFilename(selectedRowIndex)}.pdf`;
+      const fullHtml = wrapHtmlWithStyles(combinedHtml, desiredFilename);
       setCurrentAction("Queuing job...");
 
     const res = await fetch("/api/export/async/pdf", {
@@ -572,9 +601,10 @@ export function ExportTab() {
       const { jobId } = await res.json();
 
       setCurrentAction("Processing on server...");
-      const downloadUrl = await pollJobStatus(jobId);
+      const { resultUrl } = await pollJobStatus(jobId);
 
-      window.location.href = downloadUrl;
+      triggerDownload(resultUrl, desiredFilename);
+
       setExportStatus("success");
       toast({ title: "Success", description: "PDF downloaded successfully." });
     } catch (error: any) {
@@ -597,25 +627,21 @@ export function ExportTab() {
       const items: { html: string; filename: string }[] = [];
       const total = Math.min(excelData.rows.length, 50);
 
-      // --- FIX: Track used filenames to ensure uniqueness ---
       const usedFilenames = new Set<string>();
 
       for (let i = 0; i < total; i++) {
         setCurrentAction(`Preparing item ${i + 1}/${total}...`);
         const rowData = excelData.rows[i];
 
-        // --- FIX: Generate Unique Filename ---
         let baseName = getConstructedFilename(i);
         let uniqueName = baseName;
         let counter = 1;
 
-        // Ensure no overwrites if naming pattern creates duplicates (e.g. specsheet-date)
         while (usedFilenames.has(uniqueName)) {
             uniqueName = `${baseName}_${counter}`;
             counter++;
         }
         usedFilenames.add(uniqueName);
-        // -------------------------------------
 
         let itemHtml = "";
         for (let p = 0; p < pageCount; p++) {
@@ -639,15 +665,149 @@ export function ExportTab() {
       const { jobId } = await res.json();
 
       setCurrentAction("Server processing...");
-      const downloadUrl = await pollJobStatus(jobId);
+      const { resultUrl, fileName } = await pollJobStatus(jobId);
 
-      window.location.href = downloadUrl;
+      triggerDownload(resultUrl, fileName || "bulk-export.zip");
+
       setExportStatus("success");
     } catch (error: any) {
       setExportStatus("error");
       toast({ title: "Bulk Export Failed", description: error.message, variant: "destructive" });
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  // --- NEW: GENERATE CATALOG (CORRECTED STRUCTURE) ---
+  const generateCatalogPDF = async () => {
+    if (!excelData || excelData.rows.length === 0) {
+        toast({ title: "Error", description: "No data available for catalog.", variant: "destructive" });
+        return;
+    }
+
+    setIsExporting(true);
+    setProgress(5);
+    setExportStatus("idle");
+    setCurrentAction("Planning catalog structure...");
+
+    try {
+      // 1. STRUCTURE PLANNING (Keep existing logic)
+      let pageIndex = 1;
+      const structure: Array<{ type: 'cover' | 'toc' | 'chapter' | 'product' | 'back', data?: any, group?: string }> = [];
+      const pageMap: Array<{ title: string, page: number, group?: string }> = [];
+
+      // ... (Keep your existing Structure Planning A, B, C, D code here) ...
+      // (Copy the A-D blocks from previous turn, they are correct)
+      if (catalogSections.cover.elements.length > 0) { structure.push({ type: 'cover' }); pageIndex++; }
+      if (catalogSections.toc.elements.length > 0) { structure.push({ type: 'toc' }); pageIndex++; }
+
+      const tocElement = catalogSections.toc.elements.find(e => e.type === 'toc-list');
+      const groupByField = tocElement?.tocSettings?.groupByField; 
+      let currentGroup = "";
+      for (let i = 0; i < excelData.rows.length; i++) {
+          const row = excelData.rows[i];
+          if (groupByField) {
+              const groupVal = row[groupByField] || "Uncategorized";
+              if (groupVal !== currentGroup) {
+                  currentGroup = groupVal;
+                  if (catalogSections.chapter.elements.length > 0) {
+                      structure.push({ type: 'chapter', group: groupVal });
+                      pageIndex++;
+                  }
+              }
+          }
+          const titleKey = excelData.headers[0];
+          const title = row[titleKey] || `Item ${i+1}`;
+          pageMap.push({ title, page: pageIndex, group: currentGroup });
+          structure.push({ type: 'product', data: row });
+          pageIndex++;
+      }
+      if (catalogSections.back.elements.length > 0) { structure.push({ type: 'back' }); }
+
+      // 2. CHUNKED RENDERING
+      const CHUNK_SIZE = 5; // Generate 5 pages per chunk (Safe for 4GB RAM)
+      const chunks: string[] = [];
+
+      let currentChunkHtml = "";
+      let pagesInChunk = 0;
+
+      for (let i = 0; i < structure.length; i++) {
+          const item = structure[i];
+
+          if (i % 5 === 0) {
+              setCurrentAction(`Rendering page ${i + 1}/${structure.length}...`);
+              setProgress(Math.round((i / structure.length) * 50));
+          }
+
+          // ... (Keep your existing element selection logic) ...
+          let elements: CanvasElement[] = [];
+          let bg = "#ffffff";
+          let rowData = {};
+
+          if (item.type === 'cover') { elements = catalogSections.cover.elements; bg = catalogSections.cover.backgroundColor; }
+          else if (item.type === 'toc') { elements = catalogSections.toc.elements; bg = catalogSections.toc.backgroundColor; }
+          else if (item.type === 'chapter') {
+              const specificDesign = item.group ? chapterDesigns[item.group] : null;
+              if (specificDesign) { elements = specificDesign.elements; bg = specificDesign.backgroundColor; }
+              else { elements = catalogSections.chapter.elements; bg = catalogSections.chapter.backgroundColor; }
+              rowData = { "Chapter Name": item.group || "Chapter", "Group": item.group || "" }; 
+          }
+          else if (item.type === 'product') { elements = catalogSections.product.elements; bg = catalogSections.product.backgroundColor; rowData = item.data; }
+          else if (item.type === 'back') { elements = catalogSections.back.elements; bg = catalogSections.back.backgroundColor; }
+
+          const pageHtml = await renderPageHTML(elements, rowData, bg, pageMap);
+
+          currentChunkHtml += `
+              <div class="page-container" style="position: relative; width: ${canvasWidth}px; height: ${canvasHeight}px; page-break-after: always; overflow: hidden;">
+                  ${pageHtml}
+              </div>
+          `;
+          pagesInChunk++;
+
+          // If chunk is full or this is the last page, push it
+          if (pagesInChunk >= CHUNK_SIZE || i === structure.length - 1) {
+              chunks.push(wrapHtmlWithStyles(currentChunkHtml, `Chunk`));
+              currentChunkHtml = "";
+              pagesInChunk = 0;
+          }
+
+          await new Promise(r => setTimeout(r, 0));
+      }
+
+      const filename = `Catalog_${new Date().toISOString().slice(0, 10)}.pdf`;
+
+      setCurrentAction("Uploading chunks...");
+
+      // UPDATED FETCH: Send 'items' (chunks) instead of 'html'
+      const res = await fetch("/api/export/async/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: chunks, // <--- SEND CHUNKS
+          width: canvasWidth,
+          height: canvasHeight,
+          scale: exportMode === 'print' ? 3.125 : 2, 
+          colorModel: exportMode === 'print' ? 'cmyk' : 'rgb',
+          type: "pdf_catalog"
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to start catalog export");
+      const { jobId } = await res.json();
+
+      setCurrentAction("Processing catalog (this may take a few minutes)...");
+      const { resultUrl } = await pollJobStatus(jobId);
+
+      triggerDownload(resultUrl, filename);
+      setExportStatus("success");
+      toast({ title: "Success", description: "Catalog downloaded successfully." });
+
+    } catch (error: any) {
+        setExportStatus("error");
+        toast({ title: "Catalog Error", description: error.message, variant: "destructive" });
+    } finally {
+        setIsExporting(false);
+        setProgress(100);
     }
   };
 
@@ -836,7 +996,7 @@ export function ExportTab() {
           {isCatalogMode ? (
             <Button
               className={`w-full gap-2 ${(isPro || isLoading) ? "bg-purple-600 hover:bg-purple-700" : "bg-slate-200 text-slate-500 hover:bg-slate-200"}`}
-              onClick={(isPro || isLoading) ? () => { /* Add async catalog here if needed, for now standard */ } : () => setShowUpgradeDialog(true)}
+              onClick={(isPro || isLoading) ? generateCatalogPDF : () => setShowUpgradeDialog(true)}
               disabled={isExporting}
             >
               {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : (isPro || isLoading) ? <Book className="h-4 w-4" /> : <Lock className="h-4 w-4" />}

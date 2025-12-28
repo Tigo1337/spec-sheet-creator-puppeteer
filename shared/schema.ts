@@ -386,8 +386,8 @@ export type InsertProductKnowledge = z.infer<typeof insertProductKnowledgeSchema
 export const exportJobsTable = pgTable("export_jobs", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id", { length: 255 }).notNull(),
-  type: varchar("type", { length: 50 }).notNull(), // 'pdf_single', 'pdf_bulk'
-  status: varchar("status", { length: 20 }).notNull().default("pending"), // pending, processing, completed, failed
+  type: varchar("type", { length: 50 }).notNull(), // 'pdf_single', 'pdf_bulk', 'pdf_catalog'
+  status: varchar("status", { length: 20 }).notNull().default("pending"), 
   progress: integer("progress").default(0),
   resultUrl: text("result_url"),
   error: text("error"),
@@ -399,7 +399,8 @@ export const exportJobsTable = pgTable("export_jobs", {
 export type ExportJob = typeof exportJobsTable.$inferSelect;
 export type InsertExportJob = typeof exportJobsTable.$inferInsert;
 
+// UPDATED: Added "pdf_catalog" to the enum
 export const insertExportJobSchema = z.object({
-  type: z.enum(["pdf_single", "pdf_bulk"]),
+  type: z.enum(["pdf_single", "pdf_bulk", "pdf_catalog"]),
   fileName: z.string().optional(),
 });

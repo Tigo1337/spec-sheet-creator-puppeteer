@@ -6,7 +6,7 @@ import { createServer } from "http";
 import { WebhookHandlers } from "./webhookHandlers";
 import { exec } from "child_process";
 import { promisify } from "util";
-import puppeteer from "puppeteer";
+// REMOVED: import puppeteer from "puppeteer"; 
 import { storage } from "./storage";
 import * as Sentry from "@sentry/node";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
@@ -106,37 +106,12 @@ async function checkGhostscript() {
     const { stdout } = await execAsync("gs --version");
     console.log(`✅ Ghostscript detected: v${stdout.trim()} (CMYK Export Ready)`);
   } catch (error) {
-    console.warn("⚠️  Ghostscript NOT found. CMYK exports will fallback to RGB.");
+    // This is less critical now that PDF generation is offloaded, but good to know
+    console.warn("⚠️  Ghostscript NOT found. (If you rely on local image processing, check this).");
   }
 }
 
-function checkPuppeteer() {
-  const timeoutMs = 10000;
-  const checkPromise = (async () => {
-    try {
-      console.log("Testing Puppeteer launch...");
-      const browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--disable-setuid-sandbox']
-      });
-      const version = await browser.version();
-      await browser.close();
-      console.log(`✅ Puppeteer functional: ${version}`);
-    } catch (error) {
-      console.error("❌ Puppeteer failed to launch:", error);
-      Sentry.captureException(error);
-    }
-  })();
-
-  const timeoutPromise = new Promise<void>((resolve) => {
-    setTimeout(() => {
-      console.log("⚠️  Puppeteer check timed out (will retry on first PDF export)");
-      resolve();
-    }, timeoutMs);
-  });
-
-  return Promise.race([checkPromise, timeoutPromise]);
-}
+// REMOVED: function checkPuppeteer() { ... }
 
 async function checkDatabase() {
   try {
@@ -174,8 +149,6 @@ app.post(
 );
 
 // --- SECURITY FIX: DoS Protection via Payload Size ---
-// Use strict 1MB limit by default, but allow 50MB for specific heavy routes
-// UPDATED: Added '/api/export/async' to allow bulk payload uploads
 const largePayloadRoutes = [
   '/api/export/pdf', 
   '/api/export/preview', 
@@ -191,7 +164,7 @@ app.use((req, res, next) => {
       verify: (req, _res, buf) => { req.rawBody = buf; } 
     })(req, res, next);
   } else {
-    // 1MB limit for everything else (Auth, Data saving, etc.)
+    // 1MB limit for everything else
     express.json({ 
       limit: "1mb", 
       verify: (req, _res, buf) => { req.rawBody = buf; } 
@@ -240,7 +213,7 @@ app.use((req, res, next) => {
   console.log("--- Starting System Checks ---");
   await Promise.all([
     checkGhostscript(),
-    checkPuppeteer(),
+    // REMOVED: checkPuppeteer(), 
     checkDatabase(),
   ]);
   console.log("--- System Checks Complete ---");

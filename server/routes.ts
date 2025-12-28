@@ -9,222 +9,11 @@ import {
 import { insertTemplateSchema, insertSavedDesignSchema, insertQrCodeSchema } from "@shared/schema";
 import { stripeService } from "./stripeService";
 import { getStripePublishableKey } from "./stripeClient";
-import puppeteer from "puppeteer";
-import path from "path";
-import fs from "fs";
-import { exec, execFile } from "child_process";
-import { promisify } from "util";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import os from "os";
-import JSZip from "jszip";
+import { Storage } from "@google-cloud/storage";
+import { objectStorageClient } from "./objectStorage";
 
-const execAsync = promisify(exec);
-const execFileAsync = promisify(execFile);
-
-// Ensure exports directory exists
-const EXPORTS_DIR = path.join(process.cwd(), "exports");
-if (!fs.existsSync(EXPORTS_DIR)) {
-  fs.mkdirSync(EXPORTS_DIR, { recursive: true });
-}
-
-// --- DEBUG LOGGER ---
-const logSystemStats = (id: string, stage: string) => {
-  const used = process.memoryUsage();
-  const rss = Math.round(used.rss / 1024 / 1024); 
-  console.log(`[${id}] ${stage} | Node RSS: ${rss}MB`);
-};
-
-// --- BROWSER INSTANCE MANAGEMENT (SINGLETON) ---
-// Optimized for 8GB RAM: Reuse one browser instance.
-let sharedBrowser: puppeteer.Browser | null = null;
-let browserUsageCount = 0;
-const MAX_USES_BEFORE_RESTART = 5; 
-
-async function killOrphanedChrome() {
-  try { await execAsync("pkill -f 'chrome.*--headless' || true"); } catch {}
-}
-
-function forceGC() {
-  if (global.gc) { global.gc(); }
-}
-
-async function getBrowser() {
-  if (sharedBrowser && browserUsageCount >= MAX_USES_BEFORE_RESTART) {
-    console.log(`[Puppeteer] Rotating browser...`);
-    try { await sharedBrowser.close(); } catch {}
-    sharedBrowser = null;
-    browserUsageCount = 0;
-    forceGC();
-    await killOrphanedChrome();
-  }
-
-  if (!sharedBrowser || !sharedBrowser.isConnected()) {
-    console.log("[Puppeteer] Launching Singleton Browser...");
-    await killOrphanedChrome();
-    sharedBrowser = await puppeteer.launch({
-      headless: true,
-      executablePath: process.env.NIX_CHROMIUM_WRAPPER || puppeteer.executablePath(),
-      args: [
-        '--no-sandbox', 
-        '--disable-setuid-sandbox', 
-        '--disable-gpu', 
-        '--disable-dev-shm-usage',
-        '--font-render-hinting=none',
-        '--disable-extensions',
-        '--no-first-run',
-        '--no-zygote',
-        '--js-flags=--max-old-space-size=512'
-      ],
-    });
-    browserUsageCount = 0;
-  }
-  browserUsageCount++;
-  return sharedBrowser;
-}
-
-// Ensure browser closes when server stops
-process.on('exit', async () => {
-  if (sharedBrowser) await sharedBrowser.close();
-});
-
-// --- LEVEL 1: FAIR ROUND-ROBIN QUEUE (PRESERVED) ---
-const fairQueue = {
-  active: 0,
-  limit: 1, // Global Concurrency Limit (1 = Safe Mode)
-  users: new Map<string, Array<() => Promise<void>>>(),
-  userOrder: [] as string[],
-
-  // Add task to a specific user's queue
-  async add<T>(userId: string, task: () => Promise<T>): Promise<T> {
-    return new Promise((resolve, reject) => {
-      const work = async () => {
-        try {
-          const result = await task();
-          resolve(result);
-        } catch (err) {
-          reject(err);
-        }
-      };
-
-      if (!this.users.has(userId)) {
-        this.users.set(userId, []);
-        this.userOrder.push(userId);
-      }
-      this.users.get(userId)?.push(work);
-
-      // Trigger processing
-      this.process();
-    });
-  },
-
-  async process() {
-    if (this.active >= this.limit) return;
-    if (this.userOrder.length === 0) return;
-
-    // Round Robin: Pick next user
-    const userId = this.userOrder.shift(); 
-    if (!userId) return;
-
-    const userQueue = this.users.get(userId);
-    if (!userQueue || userQueue.length === 0) {
-      this.users.delete(userId);
-      this.process(); // Recurse to find next user
-      return;
-    }
-
-    // Get the task
-    const task = userQueue.shift();
-
-    // Rotate user to back of line if they have more jobs
-    if (userQueue.length > 0) {
-      this.userOrder.push(userId);
-    } else {
-      this.users.delete(userId);
-    }
-
-    if (task) {
-      this.active++;
-      try {
-        await task();
-      } finally {
-        this.active--;
-        // Cooldown for system stability
-        setTimeout(() => this.process(), 500); 
-      }
-    }
-  }
-};
-
-// --- NEW: BACKGROUND JOB PROCESSOR ---
-async function processExportJob(jobId: string, data: any) {
-  console.log(`[Job ${jobId}] Starting background processing...`);
-
-  try {
-    await storage.updateExportJob(jobId, { status: "processing", progress: 5 });
-
-    const browser = await getBrowser();
-    const { html, htmlItems, type, width, height, scale = 2, colorModel = 'rgb' } = data;
-
-    // Helper to generate a single PDF buffer
-    const generateSinglePdf = async (pageHtml: string) => {
-      const context = await browser.createBrowserContext();
-      const page = await context.newPage();
-      try {
-        await page.setViewport({ width: Math.ceil(width), height: Math.ceil(height), deviceScaleFactor: Number(scale) });
-        await page.setContent(pageHtml, { waitUntil: ["load", "networkidle0"], timeout: 60000 });
-        await page.evaluate(async () => { await document.fonts.ready; });
-        return await page.pdf({ printBackground: true, preferCSSPageSize: true });
-      } finally {
-        await context.close().catch(() => {});
-      }
-    };
-
-    let finalFileName = "";
-
-    if (type === "pdf_single") {
-      const pdfBuffer = await generateSinglePdf(html);
-      finalFileName = `${jobId}.pdf`;
-      await fs.promises.writeFile(path.join(EXPORTS_DIR, finalFileName), Buffer.from(pdfBuffer));
-
-    } else if (type === "pdf_bulk") {
-      const zip = new JSZip();
-      const items = htmlItems || [];
-      const total = items.length;
-
-      for (let i = 0; i < total; i++) {
-        const item = items[i];
-        const percent = Math.round(((i + 1) / total) * 90);
-        await storage.updateExportJob(jobId, { progress: percent });
-
-        const pdfBuffer = await generateSinglePdf(item.html);
-        zip.file(`${item.filename}.pdf`, pdfBuffer);
-
-        await new Promise(r => setTimeout(r, 200)); // Rate limiting
-      }
-
-      const zipContent = await zip.generateAsync({ type: "nodebuffer" });
-      finalFileName = `${jobId}.zip`;
-      await fs.promises.writeFile(path.join(EXPORTS_DIR, finalFileName), zipContent);
-    }
-
-    await storage.updateExportJob(jobId, { 
-      status: "completed", 
-      progress: 100,
-      resultUrl: `/api/downloads/${finalFileName}`,
-      fileName: finalFileName
-    });
-    console.log(`[Job ${jobId}] Completed successfully.`);
-
-  } catch (error: any) {
-    console.error(`[Job ${jobId}] Failed:`, error);
-    await storage.updateExportJob(jobId, { 
-      status: "failed", 
-      error: error.message || "Unknown error during generation" 
-    });
-  } finally {
-    forceGC();
-  }
-}
+// --- HELPER FUNCTIONS ---
 
 // Helper to check admin status
 async function checkAdmin(userId: string): Promise<boolean> {
@@ -443,7 +232,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch { res.status(500).send("Error"); }
   });
 
-  // --- NEW: ASYNC JOB ROUTES ---
+  // --- NEW: ASYNC EXPORT WORKFLOW (CLOUD RUN) ---
 
   // 1. Check Job Status
   app.get("/api/jobs/:id", async (req, res) => {
@@ -457,69 +246,94 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(job);
   });
 
-  // 2. Download Result
-  app.get("/api/downloads/:filename", async (req, res) => {
-    const auth = getAuth(req);
-    if (!auth.userId) return res.status(401).json({ error: "Unauthorized" });
-
-    const filename = req.params.filename;
-    // Security check
-    if (filename.includes("/") || filename.includes("\\") || filename.includes("..")) {
-      return res.status(400).send("Invalid filename");
-    }
-
-    const filePath = path.join(EXPORTS_DIR, filename);
-    if (!fs.existsSync(filePath)) return res.status(404).send("File not found or expired");
-
-    // UPDATED: Delete file after download
-    res.download(filePath, (err) => {
-      if (err) {
-        console.error("Download error:", err);
-      } else {
-        // File sent successfully, delete it to clean up Replit environment
-        fs.unlink(filePath, (unlinkErr) => {
-          if (unlinkErr) console.error("Error cleaning up export file:", unlinkErr);
-          else console.log(`[Cleanup] Deleted temporary file: ${filename}`);
-        });
-      }
-    });
-  });
-
-  // 3. Async Single PDF Export
+  // 2. Trigger Async Single PDF Export (Delegates to Cloud Run)
   app.post("/api/export/async/pdf", async (req, res) => {
     const auth = getAuth(req);
     if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
 
-    const { html, width, height, scale, colorModel } = req.body;
-    if (!html) return res.status(400).json({ error: "Missing HTML content" });
+    // UPDATED: Accept 'items' (for chunked catalogs) in addition to 'html'
+    const { html, items, width, height, scale, colorModel, type } = req.body;
+
+    // Validation: Need EITHER html (single) OR items (catalog)
+    if (!html && (!items || items.length === 0)) {
+        return res.status(400).json({ error: "Missing content (html or items)" });
+    }
 
     try {
+      const jobType = type === "pdf_catalog" ? "pdf_catalog" : "pdf_single";
+      const defaultName = jobType === "pdf_catalog" ? "catalog.pdf" : "export.pdf";
+
       const job = await storage.createExportJob({
         userId: auth.userId,
-        type: "pdf_single",
-        fileName: "export.pdf"
+        type: jobType as "pdf_single" | "pdf_catalog",
+        fileName: defaultName
       });
 
-      // Fire and Forget
-      processExportJob(job.id, { 
-        html, width, height, scale, colorModel, type: "pdf_single" 
+      const workerUrl = process.env.PDF_WORKER_URL;
+      if (!workerUrl) return res.status(500).json({ error: "Server configuration error" });
+
+      const gcsKey = process.env.GCLOUD_KEY_JSON;
+      if (!gcsKey) return res.status(500).json({ error: "Storage configuration error" });
+
+      const externalStorage = new Storage({ credentials: JSON.parse(gcsKey) });
+      const bucketName = "doculoom-exports";
+
+      let workerData: any = { width, height, scale, colorModel, type: jobType };
+
+      // --- LOGIC FOR SINGLE PDF (HTML string) ---
+      if (html) {
+          const inputPath = `inputs/${job.id}.html`;
+          const inputFile = externalStorage.bucket(bucketName).file(inputPath);
+          console.log(`[Job ${job.id}] Uploading HTML to ${inputPath}...`);
+          await inputFile.save(html, { contentType: "text/html", resumable: false });
+          workerData.htmlStoragePath = inputPath; // Worker loads this single file
+      }
+
+      // --- LOGIC FOR CATALOG CHUNKS (Array of HTML strings) ---
+      else if (items && items.length > 0) {
+          // We upload each chunk to a separate file so we don't blow up RAM here either
+          const uploadedPaths: { htmlStoragePath: string }[] = [];
+
+          console.log(`[Job ${job.id}] Uploading ${items.length} chunks...`);
+
+          // Parallel uploads (limit concurrency if needed, but 10-20 is fine)
+          await Promise.all(items.map(async (chunkHtml: string, index: number) => {
+               const chunkPath = `inputs/${job.id}_part${index}.html`;
+               const chunkFile = externalStorage.bucket(bucketName).file(chunkPath);
+               await chunkFile.save(chunkHtml, { contentType: "text/html", resumable: false });
+               uploadedPaths[index] = { htmlStoragePath: chunkPath }; // Store path object
+          }));
+
+          workerData.items = uploadedPaths; // Worker receives list of paths
+      }
+
+      // Trigger Worker
+      console.log(`[Job ${job.id}] Triggering Worker...`);
+      fetch(`${workerUrl}/process-job`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobId: job.id, data: workerData }),
+          signal: AbortSignal.timeout(900000) 
+      }).catch(err => {
+          console.error("Failed to connect to worker:", err);
+          storage.updateExportJob(job.id, { status: "failed", error: "Worker connection timed out" });
       });
 
       res.json({ jobId: job.id, status: "pending" });
+
     } catch (error) {
       console.error("Export Start Failed:", error);
       res.status(500).json({ error: "Failed to start export job" });
     }
   });
 
-  // 4. Async Bulk Export
+  // 3. Trigger Async Bulk Export (Delegates to Cloud Run)
   app.post("/api/export/async/bulk", async (req, res) => {
     const auth = getAuth(req);
     if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
 
     const { items, width, height, scale, colorModel } = req.body;
     if (!items || !Array.isArray(items)) return res.status(400).json({ error: "Invalid bulk items" });
-    if (items.length > 50) return res.status(400).json({ error: "Max 50 items per bulk export" });
 
     try {
       const job = await storage.createExportJob({
@@ -528,9 +342,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         fileName: "bulk_export.zip"
       });
 
-      processExportJob(job.id, { 
-        htmlItems: items, width, height, scale, colorModel, type: "pdf_bulk" 
-      });
+      const workerUrl = process.env.PDF_WORKER_URL;
+      if (!workerUrl) {
+         console.error("❌ Missing PDF_WORKER_URL in Secrets!");
+         return res.status(500).json({ error: "Server configuration error" });
+      }
+
+      fetch(`${workerUrl}/process-job`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+              jobId: job.id,
+              data: { htmlItems: items, width, height, scale, colorModel, type: "pdf_bulk" }
+          })
+      }).catch(err => console.error("Worker trigger failed:", err));
 
       res.json({ jobId: job.id, status: "pending" });
     } catch (error) {
@@ -538,138 +363,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  // ============================================
-  // PDF EXPORT (WITH FAIR QUEUE + SINGLETON) (PRESERVED)
-  // ============================================
-  app.post("/api/export/pdf", async (req, res) => {
-    const auth = getAuth(req);
-    if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
-
-    let { html, width, height, scale = 2, colorModel = 'rgb' } = req.body;
-    if (!html || !width || !height) return res.status(400).json({ error: "Missing required parameters" });
-
-    const reqId = Math.random().toString(36).substring(7);
-    console.log(`[${reqId}] Received PDF Export Request from ${auth.userId}`);
-
-    try {
-      const user = await storage.getUser(auth.userId);
-      const isPaid = user?.plan && (user.plan.includes("pro") || user.plan.includes("scale") || user.plan.includes("business")); 
-
-      if (!isPaid) {
-        if (colorModel === 'cmyk') colorModel = 'rgb';
-        const usage = await storage.checkAndIncrementUsage(auth.userId);
-        if (!usage.allowed) return res.status(403).json({ error: "Limit reached. Upgrade to Pro." });
-        if (!html.includes("Created with <b>Doculoom</b>")) {
-           html = html.replace("</body>", `<div style="position:fixed;bottom:16px;right:16px;opacity:0.5;z-index:9999;font-family:sans-serif;font-size:12px;color:#000;background:rgba(255,255,255,0.7);padding:4px 8px;border-radius:4px;pointer-events:none;">Created with <b>Doculoom</b></div></body>`);
-        }
-      }
-
-      const pdfBuffer = await fairQueue.add(auth.userId, async () => {
-        logSystemStats(reqId, "Start Queue Task");
-
-        // Use Singleton Browser
-        const browser = await getBrowser();
-        if (!browser) throw new Error("Failed to initialize browser");
-
-        let page;
-        try {
-          // Re-use browser, just open a new page (tab)
-          page = await browser.newPage();
-
-          await page.setRequestInterception(true);
-          page.on('request', (request) => {
-             const url = request.url().toLowerCase();
-             if (url.startsWith('data:')) return request.continue();
-             if (url.startsWith('file:') || url.includes('localhost') || url.includes('127.0.0.1')) return request.abort();
-             request.continue();
-          });
-
-          await page.setViewport({ width: Math.ceil(width), height: Math.ceil(height), deviceScaleFactor: Number(scale) });
-
-          logSystemStats(reqId, "Setting Content");
-          await page.setContent(html, { waitUntil: ["load", "networkidle0"], timeout: 60000 });
-
-          await page.evaluate(async () => { await document.fonts.ready; });
-
-          logSystemStats(reqId, "Generating PDF");
-          const pdf = await page.pdf({ printBackground: true, preferCSSPageSize: true });
-
-          logSystemStats(reqId, "PDF Done");
-          return pdf;
-
-        } catch (err) {
-            console.error(`[${reqId}] Render Error:`, err);
-            // CRITICAL: If singleton crashes, reset it
-            if (sharedBrowser) {
-                try { await sharedBrowser.close(); } catch {}
-                sharedBrowser = null;
-            }
-            throw err;
-        } finally {
-          // Only close the page
-          if (page) await page.close().catch(e => console.warn(`[${reqId}] Error closing page:`, e));
-          logSystemStats(reqId, "Page Closed");
-        }
-      });
-
-      let finalBuffer = Buffer.from(pdfBuffer);
-      let usedColorModel = 'rgb'; 
-
-      if (isPaid && colorModel === 'cmyk') {
-        const id = Math.random().toString(36).substring(7);
-        const inputPath = path.resolve(`/tmp/in_${id}.pdf`);
-        const outputPath = path.resolve(`/tmp/out_${id}.pdf`);
-        try {
-            await fs.promises.writeFile(inputPath, finalBuffer);
-            await execFileAsync('gs', ['-o', outputPath, '-sDEVICE=pdfwrite', '-sColorConversionStrategy=CMYK', '-dProcessColorModel=/DeviceCMYK', '-dPDFSETTINGS=/prepress', '-dSAFER', '-dBATCH', '-dNOPAUSE', inputPath]);
-            finalBuffer = await fs.promises.readFile(outputPath);
-            usedColorModel = 'cmyk';
-            await fs.promises.unlink(inputPath).catch(()=>{});
-            await fs.promises.unlink(outputPath).catch(()=>{});
-        } catch (e) { console.error("CMYK Error", e); if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath); }
-      }
-
-      res.set({ "Content-Type": "application/pdf", "Content-Disposition": "attachment; filename=export.pdf", "Content-Length": String(finalBuffer.length), "X-Color-Model": usedColorModel });
-      res.send(finalBuffer);
-      console.log(`[${reqId}] Success Response Sent`);
-
-    } catch (error) {
-      console.error(`[${reqId}] PDF Export Fail:`, error);
-      if (!res.headersSent) res.status(500).json({ error: "Failed to generate PDF" });
-    }
-  });
-
+  // Note: Previous Sync PDF and Preview routes are removed as they relied on local Puppeteer.
   app.post("/api/export/preview", async (req, res) => {
-    const auth = getAuth(req);
-    if (!auth.userId) return res.status(401).json({ error: "Auth required" });
-    const { html, width, height } = req.body;
-    if (!html || !width || !height) return res.status(400).json({ error: "Missing params" });
-
-    try {
-      const base64String = await fairQueue.add(auth.userId, async () => {
-        const browser = await getBrowser();
-        let page;
-        try {
-          page = await browser.newPage();
-          await page.setRequestInterception(true);
-          page.on('request', (request) => {
-             const url = request.url().toLowerCase();
-             if (url.startsWith('file:') || url.includes('localhost') || url.includes('127.0.0.1')) return request.abort();
-             request.continue();
-          });
-          await page.setViewport({ width: Math.ceil(width), height: Math.ceil(height), deviceScaleFactor: 0.5 });
-          await page.setContent(html, { waitUntil: ["load", "networkidle0"], timeout: 30000 });
-          await page.evaluate(async () => { await document.fonts.ready; });
-          return await page.screenshot({ type: "jpeg", quality: 70, fullPage: true, encoding: "base64" });
-        } catch (e) {
-           if (sharedBrowser) { try { await sharedBrowser.close(); } catch {} sharedBrowser = null; }
-           throw e;
-        } finally {
-           if (page) await page.close().catch(e => console.warn("Page close error", e));
-        }
-      });
-      res.json({ image: `data:image/jpeg;base64,${base64String}` });
-    } catch (error) { res.status(500).json({ error: "Preview failed" }); }
+      res.status(501).json({ error: "Preview is temporarily unavailable during system upgrade." });
   });
 
   // Standard Routes
