@@ -281,6 +281,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               status: job.status,
               type: job.type,
               createdAt: job.createdAt,
+              projectName: job.projectName, // <--- RETURN IT
               fileName: job.fileName || "Export",
               downloadUrl: downloadUrl 
           };
@@ -313,8 +314,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const auth = getAuth(req);
     if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
 
-    // UPDATED: Accept 'items' (for chunked catalogs) in addition to 'html'
-    const { html, items, width, height, scale, colorModel, type } = req.body;
+    // UPDATED: Destructure projectName AND fileName
+    const { html, items, width, height, scale, colorModel, type, projectName, fileName } = req.body;
 
     // Validation: Need EITHER html (single) OR items (catalog)
     if (!html && (!items || items.length === 0)) {
@@ -323,12 +324,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     try {
       const jobType = type === "pdf_catalog" ? "pdf_catalog" : "pdf_single";
-      const defaultName = jobType === "pdf_catalog" ? "catalog.pdf" : "export.pdf";
+
+      // FIX: Use provided fileName, or fallback to default if missing
+      const finalFileName = fileName || (jobType === "pdf_catalog" ? "catalog.pdf" : "export.pdf");
 
       const job = await storage.createExportJob({
         userId: auth.userId,
-        type: jobType as "pdf_single" | "pdf_catalog",
-        fileName: defaultName
+        type: jobType,
+        projectName: projectName || "Untitled Project", // <--- SAVE IT
+        fileName: finalFileName // <--- USE THE VARIABLE
       });
 
       const workerUrl = process.env.PDF_WORKER_URL;
@@ -394,14 +398,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const auth = getAuth(req);
     if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
 
-    const { items, width, height, scale, colorModel } = req.body;
+    // UPDATED: Destructure new fields
+    const { items, width, height, scale, colorModel, projectName, fileName } = req.body;
     if (!items || !Array.isArray(items)) return res.status(400).json({ error: "Invalid bulk items" });
 
     try {
+      // Use defaults if not provided (fallback)
+      const defaultName = "Bulk_Export_" + new Date().toISOString().slice(0,10);
+
       const job = await storage.createExportJob({
         userId: auth.userId,
         type: "pdf_bulk",
-        fileName: "bulk_export.zip"
+        // FIX: Use provided names
+        fileName: fileName || `${defaultName}.zip`, 
+        projectName: projectName || defaultName
       });
 
       const workerUrl = process.env.PDF_WORKER_URL;

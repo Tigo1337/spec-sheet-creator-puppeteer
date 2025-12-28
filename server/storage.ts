@@ -385,7 +385,20 @@ export class MemStorage implements IStorage {
   async createExportJob(job: InsertExportJob & { userId: string }): Promise<ExportJob> {
     const id = randomUUID();
     const now = new Date();
-    const newJob: ExportJob = { id, userId: job.userId, type: job.type, status: "pending", progress: 0, resultUrl: null, error: null, fileName: job.fileName || null, createdAt: now, updatedAt: now };
+    // UPDATED: Added projectName to Memory Storage creation
+    const newJob: ExportJob = { 
+        id, 
+        userId: job.userId, 
+        type: job.type, 
+        status: "pending", 
+        progress: 0, 
+        resultUrl: null, 
+        error: null, 
+        fileName: job.fileName || null,
+        projectName: job.projectName || null, 
+        createdAt: now, 
+        updatedAt: now 
+    };
     this.jobs.set(id, newJob);
     return newJob;
   }

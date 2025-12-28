@@ -49,6 +49,7 @@ interface HistoryItem {
   type: string;
   createdAt: string;
   fileName: string;
+  projectName?: string; // Optional field
   downloadUrl: string | null;
 }
 
@@ -57,6 +58,7 @@ export function ExportTab() {
   const [progress, setProgress] = useState(0);
   const [exportStatus, setExportStatus] = useState<"idle" | "success" | "error" | "cancelled">("idle");
   const [filenamePattern, setFilenamePattern] = useState("");
+  const [projectName, setProjectName] = useState(""); // New State
   const [exportMode, setExportMode] = useState<"digital" | "print">("digital");
   const [hasLowQualityImages, setHasLowQualityImages] = useState(false);
 
@@ -626,7 +628,9 @@ export function ExportTab() {
           width: canvasWidth,
           height: canvasHeight,
           scale: exportMode === 'print' ? 3.125 : 2,
-          colorModel: exportMode === 'print' ? 'cmyk' : 'rgb'
+          colorModel: exportMode === 'print' ? 'cmyk' : 'rgb',
+          projectName: projectName || desiredFilename, // <--- SEND PROJECT NAME
+          fileName: desiredFilename // <--- ADDED: Explicitly send fileName
         }),
       });
 
@@ -691,11 +695,23 @@ export function ExportTab() {
         setProgress(Math.round((i / total) * 30)); 
       }
 
+      // --- FIX: USE PROJECT NAME FOR ZIP ---
+      const defaultBase = `Bulk_Export_${new Date().toISOString().slice(0, 10)}`;
+      const baseName = projectName ? projectName : defaultBase;
+      const zipFileName = `${baseName}.zip`;
+
       setCurrentAction("Uploading job...");
       const res = await fetch("/api/export/async/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, width: canvasWidth, height: canvasHeight, scale: 2 }),
+        body: JSON.stringify({ 
+            items, 
+            width: canvasWidth, 
+            height: canvasHeight, 
+            scale: 2,
+            projectName: baseName, // Pass project name
+            fileName: zipFileName  // Pass zip filename
+        }),
       });
 
       if (!res.ok) throw new Error("Failed to start bulk job");
@@ -704,7 +720,7 @@ export function ExportTab() {
       setCurrentAction("Server processing...");
       const { resultUrl, fileName } = await pollJobStatus(jobId);
 
-      triggerDownload(resultUrl, fileName || "bulk-export.zip");
+      triggerDownload(resultUrl, fileName || zipFileName);
 
       setExportStatus("success");
     } catch (error: any) {
@@ -857,7 +873,9 @@ export function ExportTab() {
           await new Promise(r => setTimeout(r, 0));
       }
 
-      const filename = `Catalog_${new Date().toISOString().slice(0, 10)}.pdf`;
+      // --- FIX: USE FILENAME PATTERN ---
+      const filenameBase = getConstructedFilename(0); 
+      const filename = `${filenameBase}.pdf`;
 
       setCurrentAction("Uploading chunks...");
 
@@ -870,7 +888,9 @@ export function ExportTab() {
           height: canvasHeight,
           scale: exportMode === 'print' ? 3.125 : 2, 
           colorModel: exportMode === 'print' ? 'cmyk' : 'rgb',
-          type: "pdf_catalog"
+          type: "pdf_catalog",
+          projectName: projectName || filenameBase, // <--- SEND PROJECT NAME
+          fileName: filename // <--- ADDED: Explicitly send fileName
         }),
       });
 
@@ -918,11 +938,22 @@ export function ExportTab() {
         <div>
           <h3 className="font-medium text-sm mb-3 flex items-center gap-2">
             <FileSignature className="h-4 w-4" />
-            File Naming
+            Project & File Naming
           </h3>
           <div className="space-y-3">
+             {/* NEW: Project Name Input */}
              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Filename Pattern</Label>
+                <Label className="text-xs text-muted-foreground">Project Name (For History)</Label>
+                <Input 
+                   value={projectName}
+                   onChange={(e) => setProjectName(e.target.value)}
+                   placeholder="e.g. Winter 2025 Collection"
+                   className="font-mono text-xs"
+                />
+             </div>
+
+             <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Filename Pattern (For File)</Label>
                 <Input 
                    value={filenamePattern}
                    onChange={(e) => setFilenamePattern(e.target.value)}
@@ -1155,8 +1186,9 @@ export function ExportTab() {
                 {history.map((job) => (
                     <div key={job.id} className="flex items-center justify-between p-2.5 border rounded-lg bg-white/50 hover:bg-white transition-colors">
                         <div className="flex flex-col">
-                            <span className="font-medium text-xs">
-                                {job.type === 'pdf_catalog' ? '📚 Full Catalog' : '📄 Single Export'}
+                            {/* UPDATED: Show Project Name if available, else show Type */}
+                            <span className="font-medium text-xs truncate max-w-[150px]" title={job.projectName || job.fileName}>
+                                {job.projectName || (job.type === 'pdf_catalog' ? '📚 Full Catalog' : '📄 Single Export')}
                             </span>
                             <span className="text-[10px] text-gray-400">
                                 {new Date(job.createdAt).toLocaleString()}

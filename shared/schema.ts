@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { pgTable, varchar, text, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import { createInsertSchema } from "drizzle-zod";
 
 // Canvas Element Types
 export type ElementType = "text" | "shape" | "image" | "table" | "dataField" | "qrcode" | "toc-list";
@@ -231,7 +232,7 @@ export const availableFonts = [
   "Playfair Display", 
   "Rubik",
   "Lora", 
-  "Ubuntu",
+  "Ubuntu", 
   "Kanit", 
   "Fira Sans", 
   "Quicksand",
@@ -386,6 +387,7 @@ export type InsertProductKnowledge = z.infer<typeof insertProductKnowledgeSchema
 export const exportJobsTable = pgTable("export_jobs", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id", { length: 255 }).notNull(),
+  projectName: text("project_name"), // <--- ADDED COLUMN
   type: varchar("type", { length: 50 }).notNull(), // 'pdf_single', 'pdf_bulk', 'pdf_catalog'
   status: varchar("status", { length: 20 }).notNull().default("pending"), 
   progress: integer("progress").default(0),
@@ -397,10 +399,12 @@ export const exportJobsTable = pgTable("export_jobs", {
 });
 
 export type ExportJob = typeof exportJobsTable.$inferSelect;
+// FIX: Reverted to standard type inference to prevent syntax error
 export type InsertExportJob = typeof exportJobsTable.$inferInsert;
 
 // UPDATED: Added "pdf_catalog" to the enum
 export const insertExportJobSchema = z.object({
   type: z.enum(["pdf_single", "pdf_bulk", "pdf_catalog"]),
   fileName: z.string().optional(),
+  projectName: z.string().optional(), // <--- ADDED TO ZOD
 });
