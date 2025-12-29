@@ -72,6 +72,8 @@ export type TableColumn = z.infer<typeof tableColumnSchema>;
 export const tableSettingsSchema = z.object({
   columns: z.array(tableColumnSchema).default([]),
   groupByField: z.string().optional(),
+  // NEW: Autofit columns setting
+  autoFitColumns: z.boolean().default(false), 
 
   // Styles
   headerStyle: textStyleSchema.default({

@@ -262,6 +262,40 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch { res.status(500).send("Error"); }
   });
 
+  // --- NEW: PROXY DOWNLOAD ROUTE ---
+  // This generates the signed URL on demand and redirects
+  app.get("/api/export/download/:id", async (req, res) => {
+    const auth = getAuth(req);
+    if (!auth.userId) return res.status(401).send("Authentication required");
+
+    try {
+        const job = await storage.getExportJob(req.params.id);
+        if (!job) return res.status(404).send("Export not found");
+
+        // Security check: Ensure the user owns this export
+        if (job.userId !== auth.userId && !(await checkAdmin(auth.userId))) {
+            return res.status(403).send("Forbidden");
+        }
+
+        if (job.status !== "completed") {
+            return res.status(400).send("Export not ready");
+        }
+
+        const safeName = job.displayFilename || job.fileName || "Export";
+
+        // Generate a fresh signed URL with 5 min expiry (short life needed since we redirect immediately)
+        const signedUrl = await generateSignedDownloadUrl(job.id, safeName, job.type);
+
+        if (!signedUrl) return res.status(500).send("Could not retrieve file");
+
+        // 302 Redirect to the actual file
+        res.redirect(302, signedUrl);
+    } catch (e) {
+        console.error("Download proxy failed", e);
+        res.status(500).send("Server Error");
+    }
+  });
+
   // 3. Get Export History (UPDATED)
   app.get("/api/export/history", async (req, res) => {
     const auth = getAuth(req);
@@ -270,19 +304,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const jobs = await storage.getExportHistory(auth.userId);
 
-      const history = await Promise.all(jobs.map(async (job) => {
-          let downloadUrl = null;
-
-          // PREFER displayFilename (User's choice) -> fileName (Worker's overwrite) -> Fallback
+      // We no longer await signed URLs here. We just return the proxy path.
+      const history = jobs.map((job) => {
           const safeName = job.displayFilename || job.fileName || "Export";
-
-          if (job.status === "completed") {
-             downloadUrl = await generateSignedDownloadUrl(
-                 job.id, 
-                 safeName, 
-                 job.type
-             );
-          }
 
           return {
               id: job.id,
@@ -290,10 +314,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               type: job.type,
               createdAt: job.createdAt,
               projectName: job.projectName, 
-              fileName: safeName, // Send the good name to the frontend
-              downloadUrl: downloadUrl 
+              fileName: safeName, 
+              // FIX: Use the clean proxy URL
+              downloadUrl: job.status === "completed" ? `/api/export/download/${job.id}` : null 
           };
-      }));
+      });
 
       res.json(history);
 
@@ -314,22 +339,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!job) return res.status(404).json({ error: "Job not found" });
     if (job.userId !== auth.userId) return res.status(403).json({ error: "Forbidden" });
 
-    // FIX: Ensure we send the safe name, not the UUID the worker might have written
     const safeName = job.displayFilename || job.fileName || "Export";
 
-    let downloadUrl = job.resultUrl;
+    // FIX: Use the clean proxy URL
+    let downloadUrl = null;
     if (job.status === "completed") {
-        const signedUrl = await generateSignedDownloadUrl(
-            job.id,
-            safeName,
-            job.type
-        );
-        if (signedUrl) downloadUrl = signedUrl;
+        downloadUrl = `/api/export/download/${job.id}`;
     }
 
     res.json({ 
         ...job, 
-        fileName: safeName, // Override the DB UUID with our safe name
+        fileName: safeName, 
         downloadUrl 
     });
   });

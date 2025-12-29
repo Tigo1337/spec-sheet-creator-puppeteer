@@ -165,6 +165,57 @@ export function PropertiesTab() {
     }
   };
 
+  // --- Helper to Calculate Autofit Widths for Display ---
+  const getAutofitWidth = (colId: string): number | null => {
+    if (!selectedElement || selectedElement.type !== "table" || !selectedElement.tableSettings?.autoFitColumns) {
+        return null;
+    }
+
+    const tableSettings = selectedElement.tableSettings;
+    const previewRows = [
+        { "Name": "Product A", "Description": "Sample Item", "Price": "$10.00" },
+        { "Name": "Product B", "Description": "Sample Item", "Price": "$20.00" },
+        { "Name": "Product C", "Description": "Sample Item", "Price": "$30.00" }
+    ];
+
+    let displayRows = previewRows;
+
+    if (excelData && excelData.rows.length > 0) {
+        if (tableSettings.groupByField && selectedRowIndex !== undefined) {
+           const currentRow = excelData.rows[selectedRowIndex];
+           const groupValue = currentRow[tableSettings.groupByField];
+           if (groupValue) {
+               displayRows = excelData.rows.filter(r => r[tableSettings.groupByField!] === groupValue);
+           } else {
+               displayRows = [currentRow]; 
+           }
+        } else {
+           displayRows = excelData.rows.slice(0, 5); 
+        }
+    }
+
+    // Calculate weights
+    const colWeights = tableSettings.columns.map(col => {
+        const headerLen = (col.header || "").length;
+        const maxContentLen = displayRows.reduce((max, row) => {
+            const cellValue = row[col.dataField || ""] || "";
+            return Math.max(max, String(cellValue).length);
+        }, 0);
+        return { 
+            id: col.id, 
+            weight: Math.max(headerLen, maxContentLen, 3) 
+        };
+    });
+
+    const totalWeight = colWeights.reduce((sum, c) => sum + c.weight, 0);
+    const targetCol = colWeights.find(c => c.id === colId);
+
+    if (!targetCol || totalWeight === 0) return 0;
+
+    return Math.round((targetCol.weight / totalWeight) * selectedElement.dimension.width);
+  };
+
+
   if (!selectedElement) {
     return (
       <ScrollArea className="h-full">
@@ -636,12 +687,25 @@ export function PropertiesTab() {
 
             {/* 2. Column Manager */}
             <div>
-              <h3 className="font-medium text-sm mb-3 flex items-center gap-2">
-                 <TableIcon className="h-4 w-4" /> Columns
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium text-sm flex items-center gap-2">
+                   <TableIcon className="h-4 w-4" /> Columns
+                </h3>
+                {/* NEW: Autofit Toggle */}
+                <div className="flex items-center gap-2">
+                    <Label className="text-[10px] text-muted-foreground">Autofit</Label>
+                    <Switch
+                        checked={selectedElement.tableSettings.autoFitColumns || false}
+                        onCheckedChange={(checked) => updateElement(selectedElement.id, {
+                            tableSettings: { ...selectedElement.tableSettings!, autoFitColumns: checked }
+                        })}
+                    />
+                </div>
+              </div>
+
               <div className="space-y-2">
                  {selectedElement.tableSettings.columns.map((col, idx) => (
-                    <div key={col.id} className="flex gap-2 items-center p-2 bg-muted/20 rounded border">
+                    <div key={col.id} className="flex gap-2 items-end p-2 bg-muted/20 rounded border"> 
                         <div className="flex-1 space-y-1">
                             <Input 
                                 value={col.header} 
@@ -670,24 +734,26 @@ export function PropertiesTab() {
                             </Select>
                         </div>
 
-                        <div className="w-16">
-                            <Label className="text-[10px] text-muted-foreground">Width</Label>
+                        {/* FIX: Increased width to w-20 to fit numbers */}
+                        <div className="w-20 flex-none space-y-1">
+                            <Label className="text-[10px] text-muted-foreground block text-center">Width</Label>
                             <Input 
                                 type="number"
-                                value={col.width}
+                                value={selectedElement.tableSettings?.autoFitColumns ? getAutofitWidth(col.id) || col.width : col.width}
                                 onChange={(e) => {
                                     const newCols = [...selectedElement.tableSettings!.columns];
                                     newCols[idx].width = Number(e.target.value);
                                     updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
                                 }}
-                                className="h-7 text-xs"
+                                className="h-7 text-xs text-center"
+                                disabled={selectedElement.tableSettings.autoFitColumns} 
                             />
                         </div>
 
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive self-end mb-0.5"
+                            className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive flex-none"
                             onClick={() => {
                                 const newCols = selectedElement.tableSettings!.columns.filter((_, i) => i !== idx);
                                 updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });

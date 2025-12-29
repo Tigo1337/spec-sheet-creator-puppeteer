@@ -478,7 +478,42 @@ export function CanvasElement({
         }
 
         // --- 2. Dynamic Layout Calculations ---
-        const totalConfigWidth = tableSettings.columns.reduce((acc, col) => acc + (col.width || 100), 0);
+
+        // NEW: Column Width Logic (Manual vs Autofit)
+        let columnWidths: Record<string, string> = {}; // map id -> percentage string
+
+        if (tableSettings.autoFitColumns) {
+            // Calculate weights based on character length
+            const colWeights = tableSettings.columns.map(col => {
+                const headerLen = (col.header || "").length;
+
+                // Find max length among all displayed rows for this column
+                const maxContentLen = displayRows.reduce((max, row) => {
+                    const cellValue = row[col.dataField || ""] || "";
+                    return Math.max(max, String(cellValue).length);
+                }, 0);
+
+                // Weight = Max length (min 3 chars to prevent collapse)
+                return { 
+                    id: col.id, 
+                    weight: Math.max(headerLen, maxContentLen, 3) 
+                };
+            });
+
+            const totalWeight = colWeights.reduce((sum, c) => sum + c.weight, 0);
+
+            // Convert to percentages
+            colWeights.forEach(c => {
+                columnWidths[c.id] = `${(c.weight / totalWeight) * 100}%`;
+            });
+
+        } else {
+            // Existing Manual Width Logic
+            const totalConfigWidth = tableSettings.columns.reduce((acc, col) => acc + (col.width || 100), 0);
+            tableSettings.columns.forEach(col => {
+                columnWidths[col.id] = `${((col.width || 100) / totalConfigWidth) * 100}%`;
+            });
+        }
 
         // Map text-align (left/center/right) to flex justify-content (start/center/end)
         const getJustifyContent = (align?: string) => {
@@ -502,8 +537,8 @@ export function CanvasElement({
             <div className="flex w-full" style={{ backgroundColor: tableSettings.headerBackgroundColor }}>
                 {tableSettings.columns.map((col, idx) => (
                     <div key={col.id} className="p-1 px-2 border-r last:border-r-0 flex items-center overflow-hidden" style={{
-                        width: `${(col.width / totalConfigWidth) * 100}%`, // PERCENTAGE WIDTH (Fix for phantom columns)
-                        justifyContent: headerJustify, // FLEX ALIGNMENT (Fix for header alignment)
+                        width: columnWidths[col.id], // FIX: Use calculated width map
+                        justifyContent: headerJustify, 
                         borderColor: tableSettings.borderColor,
                         borderRightWidth: tableSettings.borderWidth * zoom,
                         borderStyle: "solid",
@@ -529,8 +564,8 @@ export function CanvasElement({
                     }}>
                         {tableSettings.columns.map((col, cIdx) => (
                             <div key={col.id} className="p-1 px-2 border-r last:border-r-0 overflow-hidden flex items-center" style={{
-                                width: `${(col.width / totalConfigWidth) * 100}%`, // PERCENTAGE WIDTH
-                                justifyContent: rowJustify, // FLEX ALIGNMENT for rows
+                                width: columnWidths[col.id], // FIX: Use calculated width map
+                                justifyContent: rowJustify, 
                                 borderColor: tableSettings.borderColor,
                                 borderRightWidth: tableSettings.borderWidth * zoom,
                                 borderStyle: "solid",
