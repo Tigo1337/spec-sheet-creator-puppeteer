@@ -1020,7 +1020,12 @@ export function DataTab() {
                           )}
                         </TableCell>
                         <TableCell className="py-2 text-sm break-all">
-                          {excelData.rows[selectedRowIndex]?.[header] || "-"}
+                          {/* UPDATED: Render HTML content */}
+                          <div 
+                            dangerouslySetInnerHTML={{ 
+                              __html: excelData.rows[selectedRowIndex]?.[header] || "-" 
+                            }} 
+                          />
                         </TableCell>
                       </TableRow>
                     ))}
