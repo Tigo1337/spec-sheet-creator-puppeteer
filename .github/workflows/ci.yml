@@ -7,25 +7,32 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
+
     steps:
     - uses: actions/checkout@v3
-    
-    # 1. Setup Node (Change this if you use Python, Go, etc.)
+
     - name: Set up Node.js
       uses: actions/setup-node@v3
       with:
         node-version: '20'
-        
-    # 2. Install Dependencies
+        cache: 'npm' # This speeds up future runs by caching dependencies
+
     - name: Install dependencies
+      # 'npm ci' is faster and safer than 'npm install' for CI environments
       run: npm ci
 
-    # 3. Check if it builds
-    - name: Build
-      run: npm run build --if-present
+    - name: Type Check
+      # This uses the "check": "tsc" script from your package.json
+      # It ensures your code has no TypeScript errors before we even try to build.
+      run: npm run check
 
-    # 4. Run tests (if you have them)
-    - name: Test
-      run: npm test --if-present
+    - name: Build Project
+      # Runs "tsx script/build.ts"
+      run: npm run build
+
+    # You currently don't have a "test" script in package.json, 
+    # so I commented this out to avoid confusion.
+    # - name: Run Tests
+    #   run: npm test
