@@ -24,8 +24,10 @@ function DroppablePage({ pageIndex, children, style, onClick, activePageIndex }:
     <div
       ref={setNodeRef}
       id={`page-${pageIndex}`}
+      // FIX: Added conditional z-index (z-10 for active, z-0 for inactive)
+      // This ensures elements like FloatingToolbar on the active page are not hidden by subsequent pages
       className={`relative shadow-lg transition-all duration-200 ${
-         activePageIndex === pageIndex ? 'ring-2 ring-primary ring-offset-2' : ''
+         activePageIndex === pageIndex ? 'ring-2 ring-primary ring-offset-2 z-10' : 'z-0'
       } ${isOver ? 'ring-2 ring-green-500 ring-offset-2 scale-[1.005]' : ''}`} // Visual feedback on drag over
       style={style}
       onClick={onClick}

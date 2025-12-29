@@ -27,19 +27,33 @@ export function FloatingToolbar({ zoom }: FloatingToolbarProps) {
   const element = elements.find(el => el.id === id);
   if (!element) return null;
 
-  // Calculate Position (Above the element)
-  const top = element.position.y * zoom - 45; 
+  // --- POSITIONING LOGIC ---
+  const TOOLBAR_HEIGHT = 45; // Approximate height of the toolbar including spacing
+  const GAP = 5; // Small gap between element and toolbar
+
+  const elementTopCanvas = element.position.y * zoom;
+  const elementBottomCanvas = (element.position.y + element.dimension.height) * zoom;
   const left = element.position.x * zoom;
+
+  // Default to showing ABOVE
+  let top = elementTopCanvas - TOOLBAR_HEIGHT;
+
+  // Check if there is enough space above (e.g., at least 50px from top of page)
+  // If not, flip it to show BELOW the element
+  if (elementTopCanvas < (TOOLBAR_HEIGHT + GAP)) {
+      top = elementBottomCanvas + GAP;
+  }
 
   const isText = element.type === "text" || element.type === "dataField";
 
   return (
     <div 
-      // FIX: Use semantic colors (bg-popover) instead of hardcoded bg-white
-      className="absolute h-9 bg-popover text-popover-foreground shadow-md border rounded-md flex items-center p-1 gap-1 z-50 animate-in fade-in zoom-in-95 duration-100"
+      // Z-Index: 2147483647 (Max Safe Integer) ensures it is ALWAYS on top of everything
+      className="absolute h-9 bg-popover text-popover-foreground shadow-md border border-border rounded-md flex items-center p-1 gap-1 animate-in fade-in zoom-in-95 duration-100"
       style={{ 
-        top: Math.max(10, top), // Don't go off screen top
-        left: Math.max(10, left)
+        top: top, 
+        left: Math.max(10, left),
+        zIndex: 2147483647 
       }}
       onMouseDown={(e) => e.stopPropagation()}
     >
