@@ -483,9 +483,45 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  // Note: Previous Sync PDF and Preview routes are removed as they relied on local Puppeteer.
+  // --- NEW: PROXY PREVIEW ROUTE (Fixes Broken Template Preview) ---
   app.post("/api/export/preview", async (req, res) => {
-      res.status(501).json({ error: "Preview is temporarily unavailable during system upgrade." });
+    const auth = getAuth(req);
+    if (!auth.userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const { html, width, height } = req.body;
+    if (!html) return res.status(400).json({ error: "Missing HTML content" });
+
+    const workerUrl = process.env.PDF_WORKER_URL;
+    if (!workerUrl) {
+      console.error("Missing PDF_WORKER_URL");
+      return res.status(500).json({ error: "Configuration error" });
+    }
+
+    try {
+      // 1. Forward to Worker
+      const response = await fetch(`${workerUrl}/preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          html, 
+          width: Number(width) || 1200, 
+          height: Number(height) || 800 
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Worker returned ${response.status}`);
+      }
+
+      // 2. Get Buffer & Return as Base64
+      const imageBuffer = await response.arrayBuffer();
+      const base64Image = Buffer.from(imageBuffer).toString('base64');
+      res.json({ image: `data:image/png;base64,${base64Image}` });
+
+    } catch (error) {
+      console.error("Preview Generation Error:", error);
+      res.status(500).json({ error: "Failed to generate preview" });
+    }
   });
 
   // Standard Routes

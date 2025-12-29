@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useUser } from "@clerk/clerk-react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Changed import
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; 
 import { useCanvasStore } from "@/stores/canvas-store";
-// import { queryClient } from "@/lib/queryClient"; // Removed direct import
 import type { SavedDesign, Template } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,12 +50,13 @@ import { formatDistanceToNow } from "date-fns";
 import { isHtmlContent } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
 import QRCode from "qrcode";
+import html2canvas from "html2canvas"; // IMPORT ADDED
 
 export function SavedDesignsTab() {
   const { user } = useUser();
   const { toast } = useToast();
   const { isPro } = useSubscription();
-  const queryClient = useQueryClient(); // Initialize hook here
+  const queryClient = useQueryClient(); 
   const isAdmin = user?.publicMetadata?.role === "admin";
 
   // Dialog States
@@ -86,7 +86,7 @@ export function SavedDesignsTab() {
     clearSelection,
     selectElements,
     hasUnsavedChanges,
-    excelData, // Needed for saving!
+    excelData, 
     selectedRowIndex,
     // Catalog State & Actions
     setCatalogMode,
@@ -128,7 +128,6 @@ export function SavedDesignsTab() {
       return response.json();
     },
     onSuccess: () => {
-      // This will now invalidate the correct instance context
       queryClient.invalidateQueries({ queryKey: ["/api/designs"] });
       toast({ title: "Design saved", description: "Your design has been saved successfully." });
       setSaveDialogOpen(false);
@@ -182,7 +181,6 @@ export function SavedDesignsTab() {
   // --- ACTIONS ---
 
   const handleCreateDesign = (tier: "basic" | "catalog") => {
-    // Restrict Catalog Creation
     if (tier === "catalog" && !isPro) {
       toast({
         title: "Pro Feature Locked",
@@ -225,17 +223,15 @@ export function SavedDesignsTab() {
     }
 
     if (design.type === 'catalog' && design.catalogData) {
-        // Load Catalog
         loadCatalogDesign({
            sections: design.catalogData.sections,
            chapterDesigns: design.catalogData.chapterDesigns,
            canvasWidth: design.canvasWidth,
            canvasHeight: design.canvasHeight,
-           excelData: design.catalogData.excelData // Restore Data
+           excelData: design.catalogData.excelData 
         });
         toast({ title: "Catalog Loaded", description: `"${design.name}" loaded in Catalog Mode.` });
     } else {
-        // Load Single Page
         setCatalogMode(false); 
         loadTemplate({
           id: design.id,
@@ -251,12 +247,10 @@ export function SavedDesignsTab() {
           previewImages: []
         });
 
-        // FIX: Restore Data for Single Page Designs
         if (design.catalogData?.excelData) {
             useCanvasStore.getState().setExcelData(design.catalogData.excelData);
         }
 
-        // Restore image field bindings
         const imageFields = new Set(
           design.elements
             .filter((el) => el.isImageField && el.dataBinding)
@@ -275,7 +269,6 @@ export function SavedDesignsTab() {
     }
 
     if (isCatalogMode) {
-        // === CATALOG SAVE LOGIC ===
         const finalSections = { ...catalogSections };
         const finalChapterDesigns = { ...chapterDesigns };
 
@@ -301,11 +294,9 @@ export function SavedDesignsTab() {
             catalogData: {
                 sections: finalSections,
                 chapterDesigns: finalChapterDesigns,
-                // excelData: excelData // REMOVED: Data should not be saved with the design
             }
         });
     } else {
-        // === SINGLE PAGE SAVE LOGIC ===
         saveDesignMutation.mutate({
             name: designName.trim(),
             description: designDescription.trim() || undefined,
@@ -315,12 +306,10 @@ export function SavedDesignsTab() {
             pageCount,
             backgroundColor,
             elements,
-            // REMOVED: catalogData: { excelData: excelData } // Data should not be saved with the design
         });
     }
   };
 
-  // ... (Keep existing Preview Generation code exactly as is)
   const generateHTMLForPage = async (pageIndex: number) => {
     const container = document.createElement("div");
     container.style.width = `${canvasWidth}px`;
@@ -465,42 +454,48 @@ export function SavedDesignsTab() {
     return container.outerHTML;
   };
 
+  // --- REPLACED: CLIENT-SIDE PREVIEW GENERATION ---
   const generatePagePreviews = async (): Promise<string[]> => {
     const previews: string[] = [];
+
+    // Create a temporary container for rendering
+    const tempContainer = document.createElement("div");
+    tempContainer.style.position = "absolute";
+    tempContainer.style.left = "-9999px";
+    tempContainer.style.top = "-9999px";
+    document.body.appendChild(tempContainer);
+
     try {
       for (let i = 0; i < pageCount; i++) {
+        // 1. Get the page content as HTML string
         const pageHtml = await generateHTMLForPage(i);
-        const fullHtml = `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
-              <style>
-                body { margin: 0; padding: 0; box-sizing: border-box; overflow: hidden; }
-                * { box-sizing: inherit; }
-              </style>
-            </head>
-            <body>${pageHtml}</body>
-          </html>
-        `;
-        const response = await fetch("/api/export/preview", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            html: fullHtml,
-            width: canvasWidth,
-            height: canvasHeight,
-          }),
-        });
-        if (!response.ok) throw new Error("Server preview failed");
-        const data = await response.json();
-        if (data.image && data.image.startsWith("data:image")) {
-          previews.push(data.image);
+
+        // 2. Inject it into the invisible container
+        tempContainer.innerHTML = pageHtml;
+
+        // 3. Use html2canvas to snapshot the container
+        // We target the first child because tempContainer wraps the actual page div
+        const canvasElement = tempContainer.firstElementChild as HTMLElement;
+
+        if (canvasElement) {
+            const canvas = await html2canvas(canvasElement, {
+                scale: 0.5, // Lower scale for thumbnails is faster
+                useCORS: true, // Needed for external images
+                logging: false,
+                backgroundColor: null // Handle transparency if needed
+            });
+
+            // 4. Save as Base64 Data URL
+            previews.push(canvas.toDataURL("image/jpeg", 0.7));
         }
       }
     } catch (e) {
-      console.error("Preview generation error:", e);
+      console.error("Client-side preview generation error:", e);
+    } finally {
+        // Cleanup
+        document.body.removeChild(tempContainer);
     }
+
     return previews;
   };
 
@@ -510,9 +505,10 @@ export function SavedDesignsTab() {
       return;
     }
     setIsGeneratingPreviews(true);
+    // Use timeout to allow UI to show loading spinner
     setTimeout(async () => {
       try {
-        const previewImages = await generatePagePreviews();
+        const previewImages = await generatePagePreviews(); // Now uses client-side logic
         const templateData = saveAsTemplate(newTemplateName, newTemplateDesc, previewImages);
         createTemplateMutation.mutate(templateData);
       } catch (error) {
@@ -556,7 +552,7 @@ export function SavedDesignsTab() {
           )}
         </div>
 
-        {/* ... (Keep existing Dialogs exactly as they are) ... */}
+        {/* ... (Rest of the JSX remains exactly the same) ... */}
         {/* Just make sure the Dialogs below are included in your actual file copy-paste */}
         <Dialog open={newDesignDialogOpen} onOpenChange={setNewDesignDialogOpen}>
           <DialogContent className="max-w-5xl h-[80vh] flex flex-col" style={{ zIndex: 2147483647 }}>
