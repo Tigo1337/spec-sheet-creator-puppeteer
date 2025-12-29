@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useUser } from "@clerk/clerk-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; 
 import { useCanvasStore } from "@/stores/canvas-store";
@@ -50,7 +50,12 @@ import { formatDistanceToNow } from "date-fns";
 import { isHtmlContent } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
 import QRCode from "qrcode";
-import html2canvas from "html2canvas"; // IMPORT ADDED
+import { availableFonts, openSourceFontMap } from "@shared/schema";
+
+// --- PDF.JS IMPORTS ---
+import * as pdfjsLib from 'pdfjs-dist';
+// Set the worker source. Using CDN is the safest way to avoid Vite build issues with the worker file.
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 export function SavedDesignsTab() {
   const { user } = useUser();
@@ -69,7 +74,10 @@ export function SavedDesignsTab() {
   const [designDescription, setDesignDescription] = useState("");
   const [newTemplateName, setNewTemplateName] = useState("");
   const [newTemplateDesc, setNewTemplateDesc] = useState("");
+
+  // Status State
   const [isGeneratingPreviews, setIsGeneratingPreviews] = useState(false);
+  const [previewStatus, setPreviewStatus] = useState("");
 
   const {
     elements,
@@ -310,6 +318,7 @@ export function SavedDesignsTab() {
     }
   };
 
+  // --- HTML GENERATOR (Used to build the PDF payload) ---
   const generateHTMLForPage = async (pageIndex: number) => {
     const container = document.createElement("div");
     container.style.width = `${canvasWidth}px`;
@@ -337,7 +346,11 @@ export function SavedDesignsTab() {
 
       if (element.type === "text" || element.type === "dataField") {
          const textStyle = element.textStyle || {};
-         elementDiv.style.fontFamily = `"${textStyle.fontFamily}", sans-serif`;
+         // Map font
+         const rawFont = textStyle.fontFamily || "Inter";
+         const mappedFont = openSourceFontMap[rawFont] || rawFont;
+         elementDiv.style.fontFamily = `"${mappedFont}", sans-serif`;
+
          elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
          elementDiv.style.fontWeight = String(textStyle.fontWeight || 400);
          elementDiv.style.color = textStyle.color || "#000000";
@@ -353,20 +366,9 @@ export function SavedDesignsTab() {
          elementDiv.style.textAlign = hAlign;
 
          const vAlign = textStyle.verticalAlign || "middle";
-         const justifyMap: Record<string, string> = {
-           top: "flex-start",
-           middle: "center",
-           bottom: "flex-end"
-         };
+         const justifyMap: Record<string, string> = { top: "flex-start", middle: "center", bottom: "flex-end" };
          elementDiv.style.justifyContent = justifyMap[vAlign];
-
-         if (hAlign === "center") {
-           elementDiv.style.alignItems = "center";
-         } else if (hAlign === "right") {
-           elementDiv.style.alignItems = "flex-end";
-         } else {
-           elementDiv.style.alignItems = "flex-start";
-         }
+         elementDiv.style.alignItems = hAlign === "center" ? "center" : hAlign === "right" ? "flex-end" : "flex-start";
 
          let content = element.content || "";
          if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
@@ -376,15 +378,8 @@ export function SavedDesignsTab() {
          content = formatContent(content, element.format);
 
          if (isHtmlContent(content)) {
-            const styles = `
-              <style>
-                ul, ol { margin: 0; padding-left: 1.2em; }
-                li { position: relative; margin: 0.2em 0; }
-                p { margin: 0.2em 0; }
-              </style>
-            `;
+            const styles = `<style> ul, ol { margin: 0; padding-left: 1.2em; } li { position: relative; margin: 0.2em 0; } p { margin: 0.2em 0; } </style>`;
             elementDiv.innerHTML = styles + content;
-            elementDiv.style.display = "flex"; 
          } else {
            elementDiv.textContent = content;
          }
@@ -429,24 +424,40 @@ export function SavedDesignsTab() {
          }
          if (content) {
              try {
-                 const svgString = await QRCode.toString(content, {
-                    type: 'svg',
-                    errorCorrectionLevel: 'M',
-                    margin: 0, 
-                    color: {
-                        dark: element.textStyle?.color || '#000000',
-                        light: '#00000000' 
-                    }
-                 });
+                 const svgString = await QRCode.toString(content, { type: 'svg', margin: 0 });
                  elementDiv.innerHTML = svgString;
                  const svgEl = elementDiv.querySelector("svg");
-                 if (svgEl) {
-                     svgEl.style.width = "100%";
-                     svgEl.style.height = "100%";
-                 }
-             } catch (e) {
-                 console.error("Error generating QR for Preview", e);
-             }
+                 if (svgEl) { svgEl.style.width = "100%"; svgEl.style.height = "100%"; }
+             } catch (e) { console.error("Error generating QR", e); }
+         }
+      } else if (element.type === "table") {
+         // --- FIX: TABLE RENDERING WITH DATA BINDING ---
+         let tableContent = element.content || "";
+
+         // 1. Perform Variable Replacement
+         if (excelData && excelData.rows[selectedRowIndex]) {
+             const row = excelData.rows[selectedRowIndex];
+             tableContent = tableContent.replace(/{{(.*?)}}/g, (match, p1) => {
+                 const fieldName = p1.trim();
+                 return row[fieldName] !== undefined ? row[fieldName] : match; 
+             });
+         }
+
+         elementDiv.innerHTML = tableContent;
+         const table = elementDiv.querySelector('table');
+
+         if (table) {
+             table.style.width = "100%";
+             table.style.borderCollapse = "collapse";
+
+             // 2. Force visible borders/padding so it shows up in PDF
+             // (Puppeteer sometimes collapses empty borders if CSS isn't explicit)
+             const cells = table.querySelectorAll('td, th');
+             cells.forEach((cell) => {
+                 const el = cell as HTMLElement;
+                 if (!el.style.border) el.style.border = "1px solid #000"; 
+                 if (!el.style.padding) el.style.padding = "4px";
+             });
          }
       }
       container.appendChild(elementDiv);
@@ -454,49 +465,108 @@ export function SavedDesignsTab() {
     return container.outerHTML;
   };
 
-  // --- REPLACED: CLIENT-SIDE PREVIEW GENERATION ---
-  const generatePagePreviews = async (): Promise<string[]> => {
-    const previews: string[] = [];
+  const wrapHtmlWithStyles = (innerHtml: string) => {
+     const fontFamilies = availableFonts.map(font => {
+        const googleFont = openSourceFontMap[font] || font;
+        return `family=${googleFont.replace(/\s+/g, '+')}:wght@400;700`;
+    }).join('&');
 
-    // Create a temporary container for rendering
-    const tempContainer = document.createElement("div");
-    tempContainer.style.position = "absolute";
-    tempContainer.style.left = "-9999px";
-    tempContainer.style.top = "-9999px";
-    document.body.appendChild(tempContainer);
+    return `<!DOCTYPE html><html><head>
+          <link href="https://fonts.googleapis.com/css2?${fontFamilies}&display=swap" rel="stylesheet">
+          <style>@page { size: ${canvasWidth}px ${canvasHeight}px; margin: 0; } body { margin: 0; }</style>
+        </head><body>${innerHtml}</body></html>`;
+  };
 
-    try {
-      for (let i = 0; i < pageCount; i++) {
-        // 1. Get the page content as HTML string
-        const pageHtml = await generateHTMLForPage(i);
-
-        // 2. Inject it into the invisible container
-        tempContainer.innerHTML = pageHtml;
-
-        // 3. Use html2canvas to snapshot the container
-        // We target the first child because tempContainer wraps the actual page div
-        const canvasElement = tempContainer.firstElementChild as HTMLElement;
-
-        if (canvasElement) {
-            const canvas = await html2canvas(canvasElement, {
-                scale: 0.5, // Lower scale for thumbnails is faster
-                useCORS: true, // Needed for external images
-                logging: false,
-                backgroundColor: null // Handle transparency if needed
-            });
-
-            // 4. Save as Base64 Data URL
-            previews.push(canvas.toDataURL("image/jpeg", 0.7));
+  const pollJobStatus = async (jobId: string) => {
+    return new Promise<{ resultUrl: string }>((resolve, reject) => {
+      const interval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/jobs/${jobId}`);
+          if (!res.ok) throw new Error("Failed to check status");
+          const job = await res.json();
+          if (job.status === "completed") {
+            clearInterval(interval);
+            resolve({ resultUrl: job.downloadUrl || job.resultUrl });
+          } else if (job.status === "failed") {
+            clearInterval(interval);
+            reject(new Error(job.error || "Generation failed"));
+          }
+        } catch (e) {
+          clearInterval(interval);
+          reject(e);
         }
-      }
-    } catch (e) {
-      console.error("Client-side preview generation error:", e);
-    } finally {
-        // Cleanup
-        document.body.removeChild(tempContainer);
-    }
+      }, 2000); 
+    });
+  };
 
-    return previews;
+  // --- GENERATE PREVIEW USING SERVER-SIDE PDF ---
+  const generatePreviewFromPDF = async (): Promise<string[]> => {
+    try {
+        setPreviewStatus("Generating PDF...");
+
+        // 1. Build the HTML Payload
+        let combinedHtml = "";
+        const pageHtml = await generateHTMLForPage(0); // Only first page for preview
+        combinedHtml += `<div class="page-container">${pageHtml}</div>`;
+        const fullHtml = wrapHtmlWithStyles(combinedHtml);
+
+        // 2. Trigger Worker
+        const res = await fetch("/api/export/async/pdf", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                html: fullHtml,
+                width: canvasWidth,
+                height: canvasHeight,
+                scale: 1, 
+                colorModel: 'rgb',
+                projectName: "Template Preview",
+                fileName: "preview.pdf"
+            }),
+        });
+
+        if (!res.ok) throw new Error("Failed to start preview job");
+        const { jobId } = await res.json();
+
+        // 3. Poll for Completion
+        setPreviewStatus("Waiting for worker...");
+        await pollJobStatus(jobId);
+
+        // 4. Load PDF via PROXY and Render Page 1
+        setPreviewStatus("Rendering image...");
+
+        const proxyUrl = `/api/export/proxy/${jobId}`;
+        const pdfData = await fetch(proxyUrl).then(r => {
+            if (!r.ok) throw new Error(`Proxy error: ${r.statusText}`);
+            return r.arrayBuffer();
+        });
+
+        // Load into PDF.js
+        const loadingTask = pdfjsLib.getDocument({ data: pdfData });
+        const pdf = await loadingTask.promise;
+        const page = await pdf.getPage(1);
+
+        const viewport = page.getViewport({ scale: 0.5 }); // Thumbnail scale
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        if (context) {
+            await page.render({
+                canvasContext: context,
+                viewport: viewport
+            }).promise;
+
+            return [canvas.toDataURL('image/jpeg', 0.8)];
+        }
+
+        return [];
+
+    } catch (e) {
+        console.error("PDF Preview Generation Failed", e);
+        throw e;
+    }
   };
 
   const handleSaveAsTemplate = async () => {
@@ -504,18 +574,22 @@ export function SavedDesignsTab() {
       toast({ title: "Name Required", description: "Please name your template", variant: "destructive" });
       return;
     }
+
     setIsGeneratingPreviews(true);
-    // Use timeout to allow UI to show loading spinner
+    setPreviewStatus("Starting...");
+
     setTimeout(async () => {
       try {
-        const previewImages = await generatePagePreviews(); // Now uses client-side logic
+        const previewImages = await generatePreviewFromPDF();
+
         const templateData = saveAsTemplate(newTemplateName, newTemplateDesc, previewImages);
         createTemplateMutation.mutate(templateData);
       } catch (error) {
         console.error("Failed to generate previews:", error);
-        toast({ title: "Error", description: "Failed to generate template preview", variant: "destructive" });
+        toast({ title: "Error", description: "Failed to generate template preview. Try again.", variant: "destructive" });
       } finally {
         setIsGeneratingPreviews(false);
+        setPreviewStatus("");
       }
     }, 100);
   };
@@ -552,8 +626,8 @@ export function SavedDesignsTab() {
           )}
         </div>
 
-        {/* ... (Rest of the JSX remains exactly the same) ... */}
-        {/* Just make sure the Dialogs below are included in your actual file copy-paste */}
+        {/* ... (Dialogs - Keep existing code) ... */}
+        {/* NEW DESIGN DIALOG */}
         <Dialog open={newDesignDialogOpen} onOpenChange={setNewDesignDialogOpen}>
           <DialogContent className="max-w-5xl h-[80vh] flex flex-col" style={{ zIndex: 2147483647 }}>
             <DialogHeader>
@@ -640,6 +714,7 @@ export function SavedDesignsTab() {
           </DialogContent>
         </Dialog>
 
+        {/* SAVE TEMPLATE DIALOG */}
         <Dialog open={saveTemplateDialogOpen} onOpenChange={setSaveTemplateDialogOpen}>
           <DialogContent style={{ zIndex: 2147483647 }}>
             <DialogHeader>
@@ -658,13 +733,19 @@ export function SavedDesignsTab() {
             <DialogFooter>
               <Button variant="outline" onClick={() => setSaveTemplateDialogOpen(false)}>Cancel</Button>
               <Button onClick={handleSaveAsTemplate} disabled={createTemplateMutation.isPending || isGeneratingPreviews}>
-                {(createTemplateMutation.isPending || isGeneratingPreviews) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Save Template
+                {(createTemplateMutation.isPending || isGeneratingPreviews) && (
+                    <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        {previewStatus || "Saving..."}
+                    </>
+                )}
+                {!isGeneratingPreviews && !createTemplateMutation.isPending && "Save Template"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
+        {/* SAVE DESIGN DIALOG */}
         <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
           <DialogTrigger asChild>
             <Button 

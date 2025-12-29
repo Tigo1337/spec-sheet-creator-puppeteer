@@ -483,6 +483,42 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+    // --- NEW: PDF PROXY FOR PREVIEWS ---
+    // This bypasses CORS by streaming the file through your server
+    app.get("/api/export/proxy/:id", async (req, res) => {
+        const auth = getAuth(req);
+        if (!auth.userId) return res.status(401).json({ error: "Unauthorized" });
+
+        try {
+          const job = await storage.getExportJob(req.params.id);
+          if (!job) return res.status(404).json({ error: "Job not found" });
+          if (job.userId !== auth.userId) return res.status(403).json({ error: "Forbidden" });
+
+          const gcsKey = process.env.GCLOUD_KEY_JSON;
+          if (!gcsKey) return res.status(500).json({ error: "Configuration error" });
+
+          const storageClient = new Storage({ credentials: JSON.parse(gcsKey) });
+          const bucketName = "doculoom-exports";
+          const ext = job.type === "pdf_bulk" ? "zip" : "pdf";
+          const gcsPath = `exports/${job.id}.${ext}`;
+
+          const file = storageClient.bucket(bucketName).file(gcsPath);
+          const [exists] = await file.exists();
+
+          if (!exists) {
+            return res.status(404).json({ error: "File not found in storage" });
+          }
+
+          // Pipe the file stream directly to the response
+          res.setHeader('Content-Type', 'application/pdf');
+          file.createReadStream().pipe(res);
+
+        } catch (error) {
+          console.error("Proxy fetch failed:", error);
+          res.status(500).json({ error: "Failed to fetch file" });
+        }
+      });
+    
   // --- NEW: PROXY PREVIEW ROUTE (Fixes Broken Template Preview) ---
   app.post("/api/export/preview", async (req, res) => {
     const auth = getAuth(req);
