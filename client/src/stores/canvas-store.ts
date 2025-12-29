@@ -89,6 +89,10 @@ interface CanvasState {
   chapterDesigns: Record<string, { elements: CanvasElement[]; backgroundColor: string }>;
   activeChapterGroup: string | null; 
 
+  // --- SUPPORT STATE ---
+  isSupportOpen: boolean;
+  setSupportOpen: (open: boolean) => void;
+
   // Actions
   setCanvasSize: (width: number, height: number) => void;
   setBackgroundColor: (color: string) => void;
@@ -229,6 +233,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
   chapterDesigns: {},
   activeChapterGroup: null,
+
+  // Support State
+  isSupportOpen: false,
+  setSupportOpen: (open) => set({ isSupportOpen: open }),
 
   // Actions
   setCanvasSize: (width, height) => {
@@ -839,6 +847,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       imageFieldNames: new Set(),
       aiFieldNames: new Set(), // Clear AI fields
       uniqueIdColumn: null, // Clear Unique ID
+      isSupportOpen: false, // Reset Support
       catalogSections: {
         cover: { type: "cover", name: "Cover Page", elements: [], backgroundColor: "#ffffff" },
         toc: { type: "toc", name: "Table of Contents", elements: [], backgroundColor: "#ffffff" },

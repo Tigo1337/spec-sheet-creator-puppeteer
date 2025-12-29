@@ -36,7 +36,8 @@ import {
   AlignRight,
   QrCode,
   List,
-  Table as TableIcon 
+  Table as TableIcon,
+  HelpCircle 
 } from "lucide-react";
 import {
   createTextElement,
@@ -58,12 +59,12 @@ export function LeftPanel() {
     elements,
     selectedElementIds,
     updateElement,
-    activeSectionType
+    activeSectionType,
+    setSupportOpen 
   } = useCanvasStore();
 
   const [openSections, setOpenSections] = useState<string[]>(["text", "shapes", "images", "qr", "structure"]);
 
-  // Sync active tool with accordion sections
   useEffect(() => {
     switch (activeTool) {
       case "text":
@@ -168,162 +169,159 @@ export function LeftPanel() {
       </div>
 
       {isTextElement && selectedElement && (
-        <>
-          <div className="p-3 border-b bg-muted/50">
-            <h3 className="font-semibold text-sm text-sidebar-foreground mb-3">
-              Text Formatting
-            </h3>
-            <div className="space-y-3">
-              {/* Font settings */}
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Font</Label>
-                <Select
-                  value={selectedElement.textStyle?.fontFamily || "Inter"}
-                  onValueChange={(value) => {
-                    if (selectedElement.textStyle) {
-                      updateElement(selectedElement.id, {
-                        textStyle: {
-                          ...selectedElement.textStyle,
-                          fontFamily: value,
-                        },
-                      });
-                    }
-                  }}
-                >
-                  <SelectTrigger data-testid="select-font" className="text-sm h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableFonts.map((font) => (
-                      <SelectItem key={font} value={font}>
-                        {font}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Size (px)</Label>
-                <Input
-                  type="number"
-                  min={8}
-                  max={72}
-                  value={selectedElement.textStyle?.fontSize || 16}
-                  onChange={(e) => {
+        <div className="p-3 border-b bg-muted/50">
+          <h3 className="font-semibold text-sm text-sidebar-foreground mb-3">
+            Text Formatting
+          </h3>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Font</Label>
+              <Select
+                value={selectedElement.textStyle?.fontFamily || "Inter"}
+                onValueChange={(value) => {
+                  if (selectedElement.textStyle) {
                     updateElement(selectedElement.id, {
                       textStyle: {
                         ...selectedElement.textStyle,
-                        fontSize: Number(e.target.value),
+                        fontFamily: value,
                       },
                     });
-                  }}
-                  data-testid="input-font-size"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Weight</Label>
-                <Select
-                  value={String(selectedElement.textStyle?.fontWeight || 400)}
-                  onValueChange={(value) => {
-                    updateElement(selectedElement.id, {
-                      textStyle: {
-                        ...selectedElement.textStyle,
-                        fontWeight: Number(value),
-                      },
-                    });
-                  }}
-                >
-                  <SelectTrigger data-testid="select-weight" className="text-sm h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="400">Normal</SelectItem>
-                    <SelectItem value="500">Medium</SelectItem>
-                    <SelectItem value="600">Semibold</SelectItem>
-                    <SelectItem value="700">Bold</SelectItem>
-                    <SelectItem value="800">Extra Bold</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Alignment</Label>
-                <div className="flex gap-1">
-                  {[
-                    { value: "left" as const, icon: AlignLeft, label: "Left" },
-                    {
-                      value: "center" as const,
-                      icon: AlignCenter,
-                      label: "Center",
-                    },
-                    { value: "right" as const, icon: AlignRight, label: "Right" },
-                  ].map(({ value, icon: Icon, label }) => (
-                    <Tooltip key={value}>
-                      <TooltipTrigger asChild>
-                        <Button
-                          size="icon"
-                          variant={
-                            selectedElement.textStyle?.textAlign === value
-                              ? "default"
-                              : "ghost"
-                          }
-                          onClick={() => {
-                            updateElement(selectedElement.id, {
-                              textStyle: {
-                                ...selectedElement.textStyle,
-                                textAlign: value,
-                              },
-                            });
-                          }}
-                          data-testid={`btn-align-${value}`}
-                          className="h-9 w-9"
-                        >
-                          <Icon className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom">{label}</TooltipContent>
-                    </Tooltip>
+                  }
+                }}
+              >
+                <SelectTrigger data-testid="select-font" className="text-sm h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableFonts.map((font) => (
+                    <SelectItem key={font} value={font}>
+                      {font}
+                    </SelectItem>
                   ))}
-                </div>
-              </div>
+                </SelectContent>
+              </Select>
+            </div>
 
-               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Color</Label>
-                <div className="flex gap-2">
-                    <Input
-                    type="color"
-                    value={selectedElement.textStyle?.color || "#000000"}
-                    onChange={(e) => {
-                        updateElement(selectedElement.id, {
-                        textStyle: {
-                            ...selectedElement.textStyle,
-                            color: e.target.value,
-                        },
-                        });
-                    }}
-                    data-testid="input-text-color"
-                    className="h-9 w-9 p-1"
-                    />
-                     <Input
-                        type="text"
-                        value={selectedElement.textStyle?.color || "#000000"}
-                        onChange={(e) => {
-                            updateElement(selectedElement.id, {
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Size (px)</Label>
+              <Input
+                type="number"
+                min={8}
+                max={72}
+                value={selectedElement.textStyle?.fontSize || 16}
+                onChange={(e) => {
+                  updateElement(selectedElement.id, {
+                    textStyle: {
+                      ...selectedElement.textStyle,
+                      fontSize: Number(e.target.value),
+                    },
+                  });
+                }}
+                data-testid="input-font-size"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Weight</Label>
+              <Select
+                value={String(selectedElement.textStyle?.fontWeight || 400)}
+                onValueChange={(value) => {
+                  updateElement(selectedElement.id, {
+                    textStyle: {
+                      ...selectedElement.textStyle,
+                      fontWeight: Number(value),
+                    },
+                  });
+                }}
+              >
+                <SelectTrigger data-testid="select-weight" className="text-sm h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="400">Normal</SelectItem>
+                  <SelectItem value="500">Medium</SelectItem>
+                  <SelectItem value="600">Semibold</SelectItem>
+                  <SelectItem value="700">Bold</SelectItem>
+                  <SelectItem value="800">Extra Bold</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Alignment</Label>
+              <div className="flex gap-1">
+                {[
+                  { value: "left" as const, icon: AlignLeft, label: "Left" },
+                  {
+                    value: "center" as const,
+                    icon: AlignCenter,
+                    label: "Center",
+                  },
+                  { value: "right" as const, icon: AlignRight, label: "Right" },
+                ].map(({ value, icon: Icon, label }) => (
+                  <Tooltip key={value}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant={
+                          selectedElement.textStyle?.textAlign === value
+                            ? "default"
+                            : "ghost"
+                        }
+                        onClick={() => {
+                          updateElement(selectedElement.id, {
                             textStyle: {
-                                ...selectedElement.textStyle,
-                                color: e.target.value,
+                              ...selectedElement.textStyle,
+                              textAlign: value,
                             },
-                            });
+                          });
                         }}
-                        className="h-9 flex-1 font-mono text-xs"
-                    />
-                </div>
+                        data-testid={`btn-align-${value}`}
+                        className="h-9 w-9"
+                      >
+                        <Icon className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">{label}</TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+            </div>
+
+             <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Color</Label>
+              <div className="flex gap-2">
+                  <Input
+                  type="color"
+                  value={selectedElement.textStyle?.color || "#000000"}
+                  onChange={(e) => {
+                      updateElement(selectedElement.id, {
+                      textStyle: {
+                          ...selectedElement.textStyle,
+                          color: e.target.value,
+                      },
+                      });
+                  }}
+                  data-testid="input-text-color"
+                  className="h-9 w-9 p-1"
+                  />
+                   <Input
+                      type="text"
+                      value={selectedElement.textStyle?.color || "#000000"}
+                      onChange={(e) => {
+                          updateElement(selectedElement.id, {
+                          textStyle: {
+                              ...selectedElement.textStyle,
+                              color: e.target.value,
+                          },
+                          });
+                      }}
+                      className="h-9 flex-1 font-mono text-xs"
+                  />
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       <ScrollArea className="flex-1">
@@ -355,7 +353,6 @@ export function LeftPanel() {
                   <span>Add Table of Contents</span>
                 </Button>
               )}
-              {/* Add Table Button */}
               <Button
                 variant="outline"
                 size="sm"
@@ -496,9 +493,6 @@ export function LeftPanel() {
                 <QrCode className="h-4 w-4" />
                 <span>Add QR Code</span>
               </Button>
-              <p className="text-xs text-muted-foreground mt-2 px-1">
-                Generates a scannable QR code. You can link it to dynamic data.
-              </p>
             </AccordionContent>
           </AccordionItem>
         </Accordion>
