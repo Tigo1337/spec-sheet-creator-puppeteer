@@ -72,10 +72,15 @@ export function CanvasElement({
     if (element.textStyle?.fontFamily) loadFont(element.textStyle.fontFamily);
     if (element.tocSettings?.titleStyle?.fontFamily) loadFont(element.tocSettings.titleStyle.fontFamily);
     if (element.tocSettings?.chapterStyle?.fontFamily) loadFont(element.tocSettings.chapterStyle.fontFamily);
+    // Table fonts
+    if (element.tableSettings?.headerStyle?.fontFamily) loadFont(element.tableSettings.headerStyle.fontFamily);
+    if (element.tableSettings?.rowStyle?.fontFamily) loadFont(element.tableSettings.rowStyle.fontFamily);
   }, [
       element.textStyle?.fontFamily, 
       element.tocSettings?.titleStyle?.fontFamily,
-      element.tocSettings?.chapterStyle?.fontFamily
+      element.tocSettings?.chapterStyle?.fontFamily,
+      element.tableSettings?.headerStyle?.fontFamily,
+      element.tableSettings?.rowStyle?.fontFamily
   ]);
 
   const handleClick = (e: React.MouseEvent) => {
@@ -404,11 +409,6 @@ export function CanvasElement({
               className="relative w-full h-full" 
               style={{ opacity: element.shapeStyle?.opacity ?? 1 }}
             >
-              {/* FIX: 
-                  1. Removed crossOrigin="anonymous" to prevent browser cache corruption (glitchy/colored noise).
-                  2. Added loading="eager" to force immediate decode.
-                  3. Added transform: translateZ(0) to force GPU composition layer.
-              */}
               <img
                 src={displayImageUrl}
                 alt=""
@@ -417,7 +417,7 @@ export function CanvasElement({
                 draggable={false}
                 style={{ 
                     objectPosition: "center",
-                    transform: "translateZ(0)", // Force GPU layer
+                    transform: "translateZ(0)", 
                     backfaceVisibility: "hidden"
                 }}
               />
@@ -446,6 +446,107 @@ export function CanvasElement({
             className="w-full h-full"
             dangerouslySetInnerHTML={{ __html: qrSvg }}
           />
+        );
+
+      case "table":
+        const tableSettings = element.tableSettings;
+        if (!tableSettings) return null;
+
+        // --- 1. Data Processing ---
+        const previewRows = [
+            { "Name": "Product A", "Description": "Sample Item", "Price": "$10.00" },
+            { "Name": "Product B", "Description": "Sample Item", "Price": "$20.00" },
+            { "Name": "Product C", "Description": "Sample Item", "Price": "$30.00" }
+        ];
+
+        let displayRows = previewRows;
+
+        if (excelData && excelData.rows.length > 0) {
+            if (tableSettings.groupByField && selectedRowIndex !== undefined) {
+               // Grouping Logic
+               const currentRow = excelData.rows[selectedRowIndex];
+               const groupValue = currentRow[tableSettings.groupByField];
+
+               if (groupValue) {
+                   displayRows = excelData.rows.filter(r => r[tableSettings.groupByField!] === groupValue);
+               } else {
+                   displayRows = [currentRow]; 
+               }
+            } else {
+               displayRows = excelData.rows.slice(0, 5); 
+            }
+        }
+
+        // --- 2. Dynamic Layout Calculations ---
+        const totalConfigWidth = tableSettings.columns.reduce((acc, col) => acc + (col.width || 100), 0);
+
+        // Map text-align (left/center/right) to flex justify-content (start/center/end)
+        const getJustifyContent = (align?: string) => {
+            switch(align) {
+                case 'center': return 'center';
+                case 'right': return 'flex-end';
+                default: return 'flex-start';
+            }
+        };
+
+        const headerJustify = getJustifyContent(tableSettings.headerStyle?.textAlign);
+        const rowJustify = getJustifyContent(tableSettings.rowStyle?.textAlign);
+
+        return (
+          <div className="w-full h-full overflow-hidden flex flex-col bg-white" style={{
+              borderColor: tableSettings.borderColor,
+              borderWidth: tableSettings.borderWidth * zoom,
+              borderStyle: "solid"
+          }}>
+            {/* Table Header */}
+            <div className="flex w-full" style={{ backgroundColor: tableSettings.headerBackgroundColor }}>
+                {tableSettings.columns.map((col, idx) => (
+                    <div key={col.id} className="p-1 px-2 border-r last:border-r-0 flex items-center overflow-hidden" style={{
+                        width: `${(col.width / totalConfigWidth) * 100}%`, // PERCENTAGE WIDTH (Fix for phantom columns)
+                        justifyContent: headerJustify, // FLEX ALIGNMENT (Fix for header alignment)
+                        borderColor: tableSettings.borderColor,
+                        borderRightWidth: tableSettings.borderWidth * zoom,
+                        borderStyle: "solid",
+                        fontFamily: tableSettings.headerStyle?.fontFamily || "Inter",
+                        fontSize: (tableSettings.headerStyle?.fontSize || 14) * zoom,
+                        fontWeight: tableSettings.headerStyle?.fontWeight || 700,
+                        color: tableSettings.headerStyle?.color,
+                        minHeight: 30 * zoom 
+                    }}>
+                        {col.header}
+                    </div>
+                ))}
+            </div>
+
+            {/* Table Body - Scalable Rows */}
+            <div className="flex-1 flex flex-col w-full overflow-hidden">
+                {displayRows.map((row, rIdx) => (
+                    <div key={rIdx} className="flex w-full border-t flex-1" style={{  // flex-1 forces equal scaling
+                        backgroundColor: (tableSettings.alternateRowColor && rIdx % 2 === 1) ? tableSettings.alternateRowColor : tableSettings.rowBackgroundColor,
+                        borderColor: tableSettings.borderColor,
+                        borderTopWidth: tableSettings.borderWidth * zoom,
+                        borderStyle: "solid"
+                    }}>
+                        {tableSettings.columns.map((col, cIdx) => (
+                            <div key={col.id} className="p-1 px-2 border-r last:border-r-0 overflow-hidden flex items-center" style={{
+                                width: `${(col.width / totalConfigWidth) * 100}%`, // PERCENTAGE WIDTH
+                                justifyContent: rowJustify, // FLEX ALIGNMENT for rows
+                                borderColor: tableSettings.borderColor,
+                                borderRightWidth: tableSettings.borderWidth * zoom,
+                                borderStyle: "solid",
+                                fontFamily: tableSettings.rowStyle?.fontFamily || "Inter",
+                                fontSize: (tableSettings.rowStyle?.fontSize || 12) * zoom,
+                                fontWeight: tableSettings.rowStyle?.fontWeight || 400,
+                                color: tableSettings.rowStyle?.color,
+                                padding: (tableSettings.cellPadding || 8) * zoom
+                            }}>
+                                <span className="truncate w-full">{row[col.dataField || ""] || "-"}</span>
+                            </div>
+                        ))}
+                    </div>
+                ))}
+            </div>
+          </div>
         );
 
       case "toc-list":

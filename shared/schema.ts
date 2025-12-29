@@ -58,6 +58,54 @@ export const formatSchema = z.object({
 
 export type ElementFormat = z.infer<typeof formatSchema>;
 
+// --- Table Column Schema ---
+export const tableColumnSchema = z.object({
+  id: z.string(),
+  header: z.string(),
+  dataField: z.string().optional(),
+  width: z.number().default(100),
+});
+
+export type TableColumn = z.infer<typeof tableColumnSchema>;
+
+// --- Table Settings Schema ---
+export const tableSettingsSchema = z.object({
+  columns: z.array(tableColumnSchema).default([]),
+  groupByField: z.string().optional(),
+
+  // Styles
+  headerStyle: textStyleSchema.default({
+    fontFamily: "Inter",
+    fontSize: 14,
+    fontWeight: 700,
+    color: "#000000",
+    textAlign: "left",
+    verticalAlign: "middle",
+    lineHeight: 1.2,
+    letterSpacing: 0,
+  }),
+  rowStyle: textStyleSchema.default({
+    fontFamily: "Inter",
+    fontSize: 12,
+    fontWeight: 400,
+    color: "#000000",
+    textAlign: "left",
+    verticalAlign: "middle",
+    lineHeight: 1.2,
+    letterSpacing: 0,
+  }),
+
+  // Visuals
+  headerBackgroundColor: z.string().default("#f3f4f6"),
+  rowBackgroundColor: z.string().default("#ffffff"),
+  alternateRowColor: z.string().optional(),
+  borderColor: z.string().default("#e5e7eb"),
+  borderWidth: z.number().default(1),
+  cellPadding: z.number().default(8),
+});
+
+export type TableSettings = z.infer<typeof tableSettingsSchema>;
+
 // --- TOC Settings Schema ---
 export const tocSettingsSchema = z.object({
   title: z.string().default("Table of Contents"),
@@ -115,7 +163,9 @@ export const canvasElementSchema = z.object({
   shapeStyle: shapeStyleSchema.optional(),
   format: formatSchema.optional(),
 
+  // Specialized Settings
   tocSettings: tocSettingsSchema.optional(),
+  tableSettings: tableSettingsSchema.optional(),
 
   shapeType: z.enum(["rectangle", "circle", "line"]).optional(),
   imageSrc: z.string().optional(),

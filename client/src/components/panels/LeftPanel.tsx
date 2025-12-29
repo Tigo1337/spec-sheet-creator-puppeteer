@@ -35,14 +35,16 @@ import {
   AlignCenter,
   AlignRight,
   QrCode,
-  List
+  List,
+  Table as TableIcon 
 } from "lucide-react";
 import {
   createTextElement,
   createShapeElement,
   createImageElement,
   createQRCodeElement,
-  createTOCElement
+  createTOCElement,
+  createTableElement
 } from "@/lib/canvas-utils";
 import { availableFonts } from "@shared/schema";
 
@@ -120,6 +122,13 @@ export function LeftPanel() {
     addElement(createTOCElement(x, y));
     setActiveTool("select");
   }
+
+  const handleAddTable = () => {
+    const x = canvasWidth / 2 - 200;
+    const y = canvasHeight / 2 - 100;
+    addElement(createTableElement(x, y));
+    setActiveTool("select");
+  };
 
   const toolButtons = [
     { id: "select" as const, icon: MousePointer2, label: "Select (V)" },
@@ -325,16 +334,16 @@ export function LeftPanel() {
           className="px-2"
         >
 
-          {/* New "Structure" Section for TOC - Only visible in TOC mode */}
-          {activeSectionType === "toc" && (
-            <AccordionItem value="structure" className="border-b-0">
-              <AccordionTrigger className="py-2 text-sm hover:no-underline">
-                <div className="flex items-center gap-2">
-                  <List className="h-4 w-4" />
-                  <span>Structure</span>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="pt-1 pb-3">
+          {/* Structure Section */}
+          <AccordionItem value="structure" className="border-b-0">
+            <AccordionTrigger className="py-2 text-sm hover:no-underline">
+              <div className="flex items-center gap-2">
+                <List className="h-4 w-4" />
+                <span>Structure</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pt-1 pb-3 space-y-2">
+              {activeSectionType === "toc" && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -345,9 +354,20 @@ export function LeftPanel() {
                   <List className="h-4 w-4" />
                   <span>Add Table of Contents</span>
                 </Button>
-              </AccordionContent>
-            </AccordionItem>
-          )}
+              )}
+              {/* Add Table Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start gap-2"
+                onClick={handleAddTable}
+                data-testid="add-table"
+              >
+                <TableIcon className="h-4 w-4" />
+                <span>Add Data Table</span>
+              </Button>
+            </AccordionContent>
+          </AccordionItem>
 
           <AccordionItem value="text" className="border-b-0">
             <AccordionTrigger className="py-2 text-sm hover:no-underline">

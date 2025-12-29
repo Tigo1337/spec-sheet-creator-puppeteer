@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { loadFont } from "@/lib/font-loader"; 
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@clerk/clerk-react";
+import { nanoid } from "nanoid";
 import {
   Select,
   SelectContent,
@@ -57,9 +58,10 @@ import {
   Activity,
   Database,
   Image as ImageIcon,
-  ExternalLink // Added for the URL preview label
+  ExternalLink,
+  Table as TableIcon
 } from "lucide-react";
-import { availableFonts, openSourceFontMap, type CanvasElement } from "@shared/schema";
+import { availableFonts, openSourceFontMap, type CanvasElement, type TextStyle } from "@shared/schema";
 
 export function PropertiesTab() {
   const [imageLoadingId, setImageLoadingId] = useState<string | null>(null);
@@ -201,6 +203,7 @@ export function PropertiesTab() {
     );
   }
 
+  // --- Handlers for Text ---
   const handleTextStyleChange = async (
     key: keyof NonNullable<CanvasElement["textStyle"]>,
     value: string | number
@@ -214,6 +217,29 @@ export function PropertiesTab() {
         ...selectedElement.textStyle,
         [key]: value,
       },
+    });
+  };
+
+  // --- NEW: Handlers for Table Styles ---
+  const handleTableStyleChange = async (
+    section: "headerStyle" | "rowStyle",
+    key: keyof TextStyle,
+    value: any
+  ) => {
+    if (!selectedElement.tableSettings) return;
+
+    if (key === 'fontFamily' && typeof value === 'string') {
+        await loadFont(value);
+    }
+
+    updateElement(selectedElement.id, {
+      tableSettings: {
+        ...selectedElement.tableSettings,
+        [section]: {
+          ...selectedElement.tableSettings[section],
+          [key]: value
+        }
+      }
     });
   };
 
@@ -575,6 +601,322 @@ export function PropertiesTab() {
         </div>
 
         <Separator />
+
+        {/* --- NEW: TABLE CONFIGURATION --- */}
+        {selectedElement.type === "table" && selectedElement.tableSettings && (
+          <div className="space-y-6">
+
+            {/* 1. Grouping Configuration */}
+            <div>
+               <h3 className="font-medium text-sm mb-3 flex items-center gap-2 text-primary">
+                  <Database className="h-4 w-4" />
+                  Data Grouping
+               </h3>
+               <div className="space-y-1.5 p-3 bg-primary/5 rounded-md border border-primary/20">
+                  <Label className="text-xs text-muted-foreground">Group Products By</Label>
+                  <Select
+                    value={selectedElement.tableSettings.groupByField || "none"}
+                    onValueChange={(val) => updateElement(selectedElement.id, { 
+                        tableSettings: { ...selectedElement.tableSettings!, groupByField: val === "none" ? undefined : val } 
+                    })}
+                  >
+                    <SelectTrigger className="bg-white"><SelectValue placeholder="None (Show all)" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="none">None (Single/All)</SelectItem>
+                        {excelData?.headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    If set, the table will only show rows that match this column value for the current page's product.
+                  </p>
+               </div>
+            </div>
+
+            <Separator />
+
+            {/* 2. Column Manager */}
+            <div>
+              <h3 className="font-medium text-sm mb-3 flex items-center gap-2">
+                 <TableIcon className="h-4 w-4" /> Columns
+              </h3>
+              <div className="space-y-2">
+                 {selectedElement.tableSettings.columns.map((col, idx) => (
+                    <div key={col.id} className="flex gap-2 items-center p-2 bg-muted/20 rounded border">
+                        <div className="flex-1 space-y-1">
+                            <Input 
+                                value={col.header} 
+                                onChange={(e) => {
+                                    const newCols = [...selectedElement.tableSettings!.columns];
+                                    newCols[idx].header = e.target.value;
+                                    updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
+                                }}
+                                className="h-7 text-xs"
+                                placeholder="Header"
+                            />
+                            <Select
+                                value={col.dataField}
+                                onValueChange={(val) => {
+                                    const newCols = [...selectedElement.tableSettings!.columns];
+                                    newCols[idx].dataField = val;
+                                    updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
+                                }}
+                            >
+                                <SelectTrigger className="h-7 text-xs bg-white">
+                                    <SelectValue placeholder="Bind Field" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {excelData?.headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="w-16">
+                            <Label className="text-[10px] text-muted-foreground">Width</Label>
+                            <Input 
+                                type="number"
+                                value={col.width}
+                                onChange={(e) => {
+                                    const newCols = [...selectedElement.tableSettings!.columns];
+                                    newCols[idx].width = Number(e.target.value);
+                                    updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
+                                }}
+                                className="h-7 text-xs"
+                            />
+                        </div>
+
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive self-end mb-0.5"
+                            onClick={() => {
+                                const newCols = selectedElement.tableSettings!.columns.filter((_, i) => i !== idx);
+                                updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
+                            }}
+                        >
+                            <Trash2 className="h-3 w-3" />
+                        </Button>
+                    </div>
+                 ))}
+                 <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full text-xs gap-2"
+                    onClick={() => {
+                        const newCols = [...selectedElement.tableSettings!.columns, { id: nanoid(), header: "New Col", width: 100 }];
+                        updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
+                    }}
+                 >
+                    + Add Column
+                 </Button>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* 3. Style Configuration */}
+            <div>
+               <h3 className="font-medium text-sm mb-3">Table Design</h3>
+               <div className="space-y-4">
+
+                  {/* Header Style */}
+                  <div className="space-y-2 p-3 bg-muted/20 rounded border">
+                      <Label className="text-xs font-semibold">Header Row</Label>
+
+                      {/* Typography Controls for Header */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Font</Label>
+                        <Select
+                          value={selectedElement.tableSettings.headerStyle?.fontFamily || "Inter"}
+                          onValueChange={(val) => handleTableStyleChange("headerStyle", "fontFamily", val)}
+                        >
+                          <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {availableFonts.map((font) => (
+                              <SelectItem key={font} value={font} style={{ fontFamily: font }}>{font}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Size</Label>
+                          <Input 
+                            type="number" 
+                            className="h-7 text-xs" 
+                            value={selectedElement.tableSettings.headerStyle?.fontSize} 
+                            onChange={(e) => handleTableStyleChange("headerStyle", "fontSize", Number(e.target.value))} 
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Weight</Label>
+                          <Select
+                            value={String(selectedElement.tableSettings.headerStyle?.fontWeight || 700)}
+                            onValueChange={(val) => handleTableStyleChange("headerStyle", "fontWeight", Number(val))}
+                          >
+                            <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="400">Regular</SelectItem>
+                              <SelectItem value="600">Semibold</SelectItem>
+                              <SelectItem value="700">Bold</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* Alignment for Header */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Alignment</Label>
+                        <div className="flex gap-1">
+                          {["left", "center", "right"].map((align) => (
+                            <Button
+                              key={align}
+                              size="sm"
+                              variant={selectedElement.tableSettings?.headerStyle?.textAlign === align ? "default" : "outline"}
+                              onClick={() => handleTableStyleChange("headerStyle", "textAlign", align)}
+                              className="flex-1 h-6 text-xs capitalize"
+                            >
+                              {align === "left" && <AlignLeft className="h-3 w-3" />}
+                              {align === "center" && <AlignCenter className="h-3 w-3" />}
+                              {align === "right" && <AlignRight className="h-3 w-3" />}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <Separator className="my-2" />
+
+                      <div className="grid grid-cols-2 gap-2">
+                          <div>
+                              <Label className="text-[10px] text-muted-foreground">Bg Color</Label>
+                              <div className="flex gap-1">
+                                  <Input type="color" className="w-6 h-6 p-0" value={selectedElement.tableSettings.headerBackgroundColor} onChange={(e) => updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, headerBackgroundColor: e.target.value } })} />
+                              </div>
+                          </div>
+                          <div>
+                              <Label className="text-[10px] text-muted-foreground">Text Color</Label>
+                              <div className="flex gap-1">
+                                  <Input type="color" className="w-6 h-6 p-0" value={selectedElement.tableSettings.headerStyle?.color} onChange={(e) => handleTableStyleChange("headerStyle", "color", e.target.value)} />
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* Body Style */}
+                  <div className="space-y-2 p-3 bg-muted/20 rounded border">
+                      <Label className="text-xs font-semibold">Body Rows</Label>
+
+                      {/* Typography Controls for Body */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Font</Label>
+                        <Select
+                          value={selectedElement.tableSettings.rowStyle?.fontFamily || "Inter"}
+                          onValueChange={(val) => handleTableStyleChange("rowStyle", "fontFamily", val)}
+                        >
+                          <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {availableFonts.map((font) => (
+                              <SelectItem key={font} value={font} style={{ fontFamily: font }}>{font}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Size</Label>
+                          <Input 
+                            type="number" 
+                            className="h-7 text-xs" 
+                            value={selectedElement.tableSettings.rowStyle?.fontSize} 
+                            onChange={(e) => handleTableStyleChange("rowStyle", "fontSize", Number(e.target.value))} 
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Weight</Label>
+                          <Select
+                            value={String(selectedElement.tableSettings.rowStyle?.fontWeight || 400)}
+                            onValueChange={(val) => handleTableStyleChange("rowStyle", "fontWeight", Number(val))}
+                          >
+                            <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="400">Regular</SelectItem>
+                              <SelectItem value="500">Medium</SelectItem>
+                              <SelectItem value="700">Bold</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* Alignment for Body */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Alignment</Label>
+                        <div className="flex gap-1">
+                          {["left", "center", "right"].map((align) => (
+                            <Button
+                              key={align}
+                              size="sm"
+                              variant={selectedElement.tableSettings?.rowStyle?.textAlign === align ? "default" : "outline"}
+                              onClick={() => handleTableStyleChange("rowStyle", "textAlign", align)}
+                              className="flex-1 h-6 text-xs capitalize"
+                            >
+                              {align === "left" && <AlignLeft className="h-3 w-3" />}
+                              {align === "center" && <AlignCenter className="h-3 w-3" />}
+                              {align === "right" && <AlignRight className="h-3 w-3" />}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <Separator className="my-2" />
+
+                      <div className="grid grid-cols-2 gap-2">
+                          <div>
+                              <Label className="text-[10px] text-muted-foreground">Bg Color</Label>
+                              <div className="flex gap-1">
+                                  <Input type="color" className="w-6 h-6 p-0" value={selectedElement.tableSettings.rowBackgroundColor} onChange={(e) => updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, rowBackgroundColor: e.target.value } })} />
+                              </div>
+                          </div>
+                          <div>
+                              <Label className="text-[10px] text-muted-foreground">Alt. Bg Color</Label>
+                              <div className="flex gap-1">
+                                  <Input type="color" className="w-6 h-6 p-0" value={selectedElement.tableSettings.alternateRowColor || "#ffffff"} onChange={(e) => updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, alternateRowColor: e.target.value } })} />
+                              </div>
+                          </div>
+                      </div>
+
+                      <div className="mt-2">
+                          <Label className="text-[10px] text-muted-foreground">Text Color</Label>
+                          <div className="flex gap-1">
+                              <Input type="color" className="w-6 h-6 p-0" value={selectedElement.tableSettings.rowStyle?.color} onChange={(e) => handleTableStyleChange("rowStyle", "color", e.target.value)} />
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* Borders */}
+                  <div className="space-y-2 p-3 bg-muted/20 rounded border">
+                      <Label className="text-xs font-semibold">Borders & Spacing</Label>
+                      <div className="grid grid-cols-2 gap-2 items-center">
+                          <div>
+                              <Label className="text-[10px] text-muted-foreground">Color</Label>
+                              <Input type="color" className="w-6 h-6 p-0" value={selectedElement.tableSettings.borderColor} onChange={(e) => updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, borderColor: e.target.value } })} />
+                          </div>
+                          <div>
+                              <Label className="text-[10px] text-muted-foreground">Width</Label>
+                              <Input type="number" className="h-6 text-xs" value={selectedElement.tableSettings.borderWidth} onChange={(e) => updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, borderWidth: Number(e.target.value) } })} />
+                          </div>
+                          <div className="col-span-2">
+                              <Label className="text-[10px] text-muted-foreground">Cell Padding</Label>
+                              <Input type="number" className="h-6 text-xs" value={selectedElement.tableSettings.cellPadding} onChange={(e) => updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, cellPadding: Number(e.target.value) } })} />
+                          </div>
+                      </div>
+                  </div>
+
+               </div>
+            </div>
+
+          </div>
+        )}
 
         {/* --- TOC ADVANCED SETTINGS (Unchanged) --- */}
         {selectedElement.type === "toc-list" && selectedElement.tocSettings && (

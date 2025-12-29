@@ -258,7 +258,6 @@ export function ExportTab() {
          elementDiv.id = elementId;
 
          const textStyle = element.textStyle || {};
-         // Map font name to Google Font name if applicable (e.g. Arial -> Arimo)
          const rawFont = textStyle.fontFamily || "Inter";
          const mappedFont = openSourceFontMap[rawFont] || rawFont;
          elementDiv.style.fontFamily = `"${mappedFont}", sans-serif`;
@@ -371,6 +370,114 @@ export function ExportTab() {
                  const svgEl = elementDiv.querySelector("svg");
                  if (svgEl) { svgEl.style.width = "100%"; svgEl.style.height = "100%"; }
              } catch (e) { console.error("Error generating QR", e); }
+         }
+      }
+      // --- NEW: TABLE EXPORT ---
+      else if (element.type === "table") {
+         const tableSettings = element.tableSettings;
+         if (tableSettings) {
+             elementDiv.style.display = "flex";
+             elementDiv.style.flexDirection = "column";
+             elementDiv.style.backgroundColor = "#ffffff";
+             elementDiv.style.border = `${tableSettings.borderWidth || 1}px solid ${tableSettings.borderColor || "#e5e7eb"}`;
+             elementDiv.style.overflow = "hidden";
+
+             // Data resolution
+             let displayRows: any[] = [];
+             if (excelData && excelData.rows.length > 0) {
+                 if (tableSettings.groupByField) {
+                     // Get current group value from the main row
+                     const groupVal = sourceData[tableSettings.groupByField];
+                     if (groupVal) {
+                         displayRows = excelData.rows.filter(r => r[tableSettings.groupByField!] === groupVal);
+                     } else {
+                         displayRows = [sourceData];
+                     }
+                 } else {
+                     // Single Row Fallback (or whatever logic for non-grouped)
+                     displayRows = [sourceData]; 
+                 }
+             }
+
+             // --- HEADER ---
+             const headerDiv = document.createElement("div");
+             headerDiv.style.display = "flex";
+             headerDiv.style.width = "100%";
+             headerDiv.style.backgroundColor = tableSettings.headerBackgroundColor || "#f3f4f6";
+
+             // Font setup for Header
+             const hRaw = tableSettings.headerStyle?.fontFamily || "Inter";
+             const hMapped = openSourceFontMap[hRaw] || hRaw;
+             const hFont = `"${hMapped}", sans-serif`;
+             const hAlign = tableSettings.headerStyle?.textAlign || "left";
+             const hJustify = hAlign === 'center' ? 'center' : hAlign === 'right' ? 'flex-end' : 'flex-start';
+
+             const totalWidth = tableSettings.columns.reduce((acc, c) => acc + (c.width || 100), 0);
+
+             tableSettings.columns.forEach((col, idx) => {
+                 const cell = document.createElement("div");
+                 cell.textContent = col.header;
+                 cell.style.width = `${(col.width / totalWidth) * 100}%`;
+                 cell.style.padding = "4px 8px";
+                 cell.style.borderRight = idx < tableSettings.columns.length - 1 ? `${tableSettings.borderWidth}px solid ${tableSettings.borderColor}` : "none";
+                 cell.style.fontFamily = hFont;
+                 cell.style.fontSize = `${tableSettings.headerStyle?.fontSize || 14}px`;
+                 cell.style.fontWeight = String(tableSettings.headerStyle?.fontWeight || 700);
+                 cell.style.color = tableSettings.headerStyle?.color || "#000";
+                 cell.style.display = "flex";
+                 cell.style.alignItems = "center";
+                 cell.style.justifyContent = hJustify;
+                 cell.style.overflow = "hidden";
+                 headerDiv.appendChild(cell);
+             });
+             elementDiv.appendChild(headerDiv);
+
+             // --- BODY ---
+             const bodyDiv = document.createElement("div");
+             bodyDiv.style.flex = "1";
+             bodyDiv.style.display = "flex";
+             bodyDiv.style.flexDirection = "column";
+             bodyDiv.style.width = "100%";
+             bodyDiv.style.overflow = "hidden";
+
+             // Font setup for Rows
+             const rRaw = tableSettings.rowStyle?.fontFamily || "Inter";
+             const rMapped = openSourceFontMap[rRaw] || rRaw;
+             const rFont = `"${rMapped}", sans-serif`;
+             const rAlign = tableSettings.rowStyle?.textAlign || "left";
+             const rJustify = rAlign === 'center' ? 'center' : rAlign === 'right' ? 'flex-end' : 'flex-start';
+
+             displayRows.forEach((row, rIdx) => {
+                 const rowDiv = document.createElement("div");
+                 rowDiv.style.display = "flex";
+                 rowDiv.style.width = "100%";
+                 rowDiv.style.flex = "1"; // Scale height
+                 rowDiv.style.borderTop = `${tableSettings.borderWidth}px solid ${tableSettings.borderColor}`;
+                 rowDiv.style.backgroundColor = (tableSettings.alternateRowColor && rIdx % 2 === 1) 
+                    ? tableSettings.alternateRowColor 
+                    : tableSettings.rowBackgroundColor || "#fff";
+
+                 tableSettings.columns.forEach((col, cIdx) => {
+                     const cell = document.createElement("div");
+                     cell.textContent = row[col.dataField || ""] || "-";
+                     cell.style.width = `${(col.width / totalWidth) * 100}%`;
+                     cell.style.padding = `${tableSettings.cellPadding || 8}px`;
+                     cell.style.borderRight = cIdx < tableSettings.columns.length - 1 ? `${tableSettings.borderWidth}px solid ${tableSettings.borderColor}` : "none";
+
+                     cell.style.fontFamily = rFont;
+                     cell.style.fontSize = `${tableSettings.rowStyle?.fontSize || 12}px`;
+                     cell.style.fontWeight = String(tableSettings.rowStyle?.fontWeight || 400);
+                     cell.style.color = tableSettings.rowStyle?.color || "#000";
+                     cell.style.display = "flex";
+                     cell.style.alignItems = "center"; // Vertical Align Middle
+                     cell.style.justifyContent = rJustify;
+                     cell.style.overflow = "hidden";
+
+                     rowDiv.appendChild(cell);
+                 });
+                 bodyDiv.appendChild(rowDiv);
+             });
+             elementDiv.appendChild(bodyDiv);
          }
       }
       // --- TABLE OF CONTENTS (TOC) ---

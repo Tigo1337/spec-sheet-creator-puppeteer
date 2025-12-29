@@ -42,6 +42,51 @@ export function createTextElement(
   };
 }
 
+export function createTableElement(x: number, y: number): CanvasElement {
+  return {
+    id: nanoid(),
+    type: "table",
+    position: { x: snapToGrid(x), y: snapToGrid(y) },
+    dimension: { width: 400, height: 200 },
+    rotation: 0,
+    locked: false,
+    visible: true,
+    zIndex: Date.now(),
+    tableSettings: {
+      columns: [
+        { id: nanoid(), header: "Item", width: 150, dataField: "Name" },
+        { id: nanoid(), header: "Description", width: 200, dataField: "Description" },
+        { id: nanoid(), header: "Price", width: 80, dataField: "Price" },
+      ],
+      headerStyle: {
+        fontFamily: "Inter",
+        fontSize: 14,
+        fontWeight: 700,
+        color: "#000000",
+        textAlign: "left",
+        verticalAlign: "middle",
+        lineHeight: 1.2,
+        letterSpacing: 0,
+      },
+      rowStyle: {
+        fontFamily: "Inter",
+        fontSize: 12,
+        fontWeight: 400,
+        color: "#000000",
+        textAlign: "left",
+        verticalAlign: "middle",
+        lineHeight: 1.2,
+        letterSpacing: 0,
+      },
+      headerBackgroundColor: "#f3f4f6",
+      rowBackgroundColor: "#ffffff",
+      borderColor: "#e5e7eb",
+      borderWidth: 1,
+      cellPadding: 8,
+    },
+  };
+}
+
 // NEW: TOC Element Creator (Updated)
 export function createTOCElement(
   x: number,
