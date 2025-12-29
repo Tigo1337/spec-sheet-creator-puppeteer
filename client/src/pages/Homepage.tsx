@@ -98,7 +98,7 @@ export default function Homepage() {
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#2A9D90]/20">
       <Helmet>
-        <title>Doculoom | Free Spec Sheet & Catalog Maker</title>
+        <title>Doculoom | Spec Sheet & Catalog Maker</title>
         <meta name="description" content="Generate data-driven PDF catalogs, price lists, and spec sheets from Excel. Professional CMYK export supported. Try for free." />
         <link rel="canonical" href="https://doculoom.io/" />
         <script type="application/ld+json">
