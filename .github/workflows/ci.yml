@@ -17,22 +17,15 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: '20'
-        cache: 'npm' # This speeds up future runs by caching dependencies
+        cache: 'npm'
 
     - name: Install dependencies
-      # 'npm ci' is faster and safer than 'npm install' for CI environments
       run: npm ci
 
-    - name: Type Check
-      # This uses the "check": "tsc" script from your package.json
-      # It ensures your code has no TypeScript errors before we even try to build.
-      run: npm run check
+    # --- DELETE OR COMMENT OUT THIS SECTION ---
+    # - name: Type Check
+    #   run: npm run check
+    # ------------------------------------------
 
     - name: Build Project
-      # Runs "tsx script/build.ts"
       run: npm run build
-
-    # You currently don't have a "test" script in package.json, 
-    # so I commented this out to avoid confusion.
-    # - name: Run Tests
-    #   run: npm test

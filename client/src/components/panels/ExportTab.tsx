@@ -35,7 +35,6 @@ import {
   RefreshCw
 } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import JSZip from "jszip";
 import { isHtmlContent, getImageDimensions, paginateTOC } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
 import QRCode from "qrcode";

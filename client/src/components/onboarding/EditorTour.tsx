@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import Joyride, { CallBackProps, STATUS } from 'react-joyride';
-import { useTheme } from '@/components/theme-provider'; // Assuming you have a theme provider, or use standard CSS checks
 import { editorSteps } from '@/config/tour-steps';
 
 export function EditorTour() {
