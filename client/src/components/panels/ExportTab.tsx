@@ -388,7 +388,7 @@ export function ExportTab() {
                      // Get current group value from the main row
                      const groupVal = sourceData[tableSettings.groupByField];
                      if (groupVal) {
-                         displayRows = excelData.rows.filter(r => r[tableSettings.groupByField!] === groupValue);
+                         displayRows = excelData.rows.filter(r => r[tableSettings.groupByField!] === groupVal);
                      } else {
                          displayRows = [sourceData];
                      }
