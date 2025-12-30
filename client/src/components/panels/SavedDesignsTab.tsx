@@ -74,6 +74,7 @@ export function SavedDesignsTab() {
   const [designDescription, setDesignDescription] = useState("");
   const [newTemplateName, setNewTemplateName] = useState("");
   const [newTemplateDesc, setNewTemplateDesc] = useState("");
+  const [newTemplatePreviewUrl, setNewTemplatePreviewUrl] = useState(""); // NEW STATE
 
   // Status State
   const [isGeneratingPreviews, setIsGeneratingPreviews] = useState(false);
@@ -180,6 +181,7 @@ export function SavedDesignsTab() {
       setSaveTemplateDialogOpen(false);
       setNewTemplateName("");
       setNewTemplateDesc("");
+      setNewTemplatePreviewUrl(""); // RESET URL
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to save template.", variant: "destructive" });
@@ -575,6 +577,18 @@ export function SavedDesignsTab() {
       return;
     }
 
+    // NEW: PRIORITIZE MANUAL DAM URL
+    if (newTemplatePreviewUrl.trim()) {
+        try {
+            const templateData = saveAsTemplate(newTemplateName, newTemplateDesc, [newTemplatePreviewUrl.trim()]);
+            createTemplateMutation.mutate(templateData);
+            return;
+        } catch (error) {
+            toast({ title: "Error", description: "Failed to save template.", variant: "destructive" });
+            return;
+        }
+    }
+
     setIsGeneratingPreviews(true);
     setPreviewStatus("Starting...");
 
@@ -728,6 +742,21 @@ export function SavedDesignsTab() {
               <div className="space-y-2">
                 <Label>Description</Label>
                 <Input value={newTemplateDesc} onChange={(e) => setNewTemplateDesc(e.target.value)} placeholder="Description" />
+              </div>
+              {/* NEW PREVIEW URL FIELD */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  Preview Image URL (Optional)
+                  <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded uppercase font-bold tracking-tight">DAM</span>
+                </Label>
+                <Input 
+                  value={newTemplatePreviewUrl} 
+                  onChange={(e) => setNewTemplatePreviewUrl(e.target.value)} 
+                  placeholder="https://res.cloudinary.com/..." 
+                />
+                <p className="text-[10px] text-muted-foreground italic">
+                  Paste a Cloudinary or external URL here to skip automated thumbnail generation.
+                </p>
               </div>
             </div>
             <DialogFooter>

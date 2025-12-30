@@ -106,6 +106,7 @@ interface CanvasState {
 
   addElement: (element: CanvasElement) => void;
   updateElement: (id: string, updates: Partial<CanvasElement>) => void;
+  updateAllTextFonts: (fontFamily: string) => void; // NEW ACTION INTERFACE
   deleteElement: (id: string) => void;
   deleteSelectedElements: () => void;
   duplicateElement: (id: string) => void;
@@ -303,6 +304,46 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     );
     saveToHistory(elements);
     set({ elements, hasUnsavedChanges: true });
+  },
+
+  // NEW BULK FONT ACTION IMPLEMENTATION
+  updateAllTextFonts: (fontFamily: string) => {
+    const { elements } = get();
+    const updatedElements = elements.map((el) => {
+      let newEl = { ...el };
+      let changed = false;
+
+      // 1. Update standard text/dataField styles
+      if (newEl.textStyle) {
+        newEl.textStyle = { ...newEl.textStyle, fontFamily };
+        changed = true;
+      }
+
+      // 2. Update Table Styles (Header & Rows)
+      if (newEl.type === "table" && newEl.tableSettings) {
+        newEl.tableSettings = {
+          ...newEl.tableSettings,
+          headerStyle: { ...newEl.tableSettings.headerStyle, fontFamily },
+          rowStyle: { ...newEl.tableSettings.rowStyle, fontFamily },
+        };
+        changed = true;
+      }
+
+      // 3. Update TOC Styles (Title & Chapters)
+      if (newEl.type === "toc-list" && newEl.tocSettings) {
+        newEl.tocSettings = {
+          ...newEl.tocSettings,
+          titleStyle: { ...newEl.tocSettings.titleStyle, fontFamily },
+          chapterStyle: { ...newEl.tocSettings.chapterStyle, fontFamily },
+        };
+        changed = true;
+      }
+
+      return changed ? newEl : el;
+    });
+
+    saveToHistory(updatedElements);
+    set({ elements: updatedElements, hasUnsavedChanges: true });
   },
 
   deleteElement: (id) => {
@@ -563,7 +604,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const selected = elements.filter((el) => selectedElementIds.includes(el.id)).sort((a, b) => a.position.y - b.position.y);
     const minY = selected[0].position.y;
     const maxY = selected[selected.length - 1].position.y + selected[selected.length - 1].dimension.height;
-    const totalGap = maxY - minY - selected.reduce((sum, el) => sum + el.dimension.height, 0);
+    const totalGap = maxY - minY - selected.reduce((sum, el) => sum + el.dimension.width, 0);
     const gap = totalGap / (selected.length - 1);
     let currentY = minY;
     const updated = elements.map((el) => {

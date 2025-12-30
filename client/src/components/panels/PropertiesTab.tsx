@@ -66,6 +66,7 @@ import { availableFonts, openSourceFontMap, type CanvasElement, type TextStyle }
 export function PropertiesTab() {
   const [imageLoadingId, setImageLoadingId] = useState<string | null>(null);
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+  const [applyFontToAll, setApplyFontToAll] = useState(false); // NEW LOCAL STATE
   const { toast } = useToast();
   const { getToken } = useAuth();
 
@@ -73,6 +74,7 @@ export function PropertiesTab() {
     elements,
     selectedElementIds,
     updateElement,
+    updateAllTextFonts, // NEW STORE ACTION
     deleteElement,
     duplicateElement,
     bringToFront,
@@ -263,6 +265,12 @@ export function PropertiesTab() {
   ) => {
     if (key === 'fontFamily' && typeof value === 'string') {
         await loadFont(value);
+
+        // CHECK IF BULK APPLY IS ACTIVE
+        if (applyFontToAll) {
+          updateAllTextFonts(value);
+          return;
+        }
     }
 
     updateElement(selectedElement.id, {
@@ -1467,6 +1475,20 @@ export function PropertiesTab() {
         {(selectedElement.type === "text" || selectedElement.type === "dataField") && (
           <div>
             <h3 className="font-medium text-sm mb-3">Text Style</h3>
+
+            {/* BULK APPLY FONT TOGGLE */}
+            <div className="flex items-center justify-between mb-4 px-1 bg-primary/5 p-2 rounded-md border border-primary/10">
+              <div className="space-y-0.5">
+                <Label className="text-[10px] text-primary font-bold uppercase tracking-wider">Bulk Apply Font</Label>
+                <p className="text-[9px] text-muted-foreground">Apply font selection to all elements</p>
+              </div>
+              <Switch 
+                checked={applyFontToAll} 
+                onCheckedChange={setApplyFontToAll} 
+                className="scale-75"
+              />
+            </div>
+
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
