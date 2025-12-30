@@ -707,75 +707,78 @@ export function PropertiesTab() {
 
               <div className="space-y-3">
                  {selectedElement.tableSettings.columns.map((col: any, idx) => (
-                    <div key={col.id} className="flex flex-col gap-2 p-2 bg-muted/20 rounded border"> 
-                        <div className="flex gap-2 items-end">
-                            <div className="flex-1 space-y-1">
-                                <Input 
-                                    value={col.header} 
-                                    onChange={(e) => {
-                                        const newCols = [...selectedElement.tableSettings!.columns];
-                                        newCols[idx].header = e.target.value;
-                                        updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
-                                    }}
-                                    className="h-7 text-xs"
-                                    placeholder="Header"
-                                />
-                                <Select
-                                    value={col.dataField}
-                                    onValueChange={(val) => {
-                                        const newCols = [...selectedElement.tableSettings!.columns];
-                                        newCols[idx].dataField = val;
-                                        updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
-                                    }}
-                                >
-                                    <SelectTrigger className="h-7 text-xs bg-white">
-                                        <SelectValue placeholder="Bind Field" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {excelData?.headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+            <div key={col.id} className="flex flex-col gap-2 p-3 bg-muted/20 rounded border"> 
+                <div className="flex gap-2 items-end">
+                    <div className="flex-1 space-y-1">
+                        <Input 
+                            value={col.header} 
+                            onChange={(e) => {
+                                const newCols = [...selectedElement.tableSettings!.columns];
+                                newCols[idx].header = e.target.value;
+                                updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
+                            }}
+                            className="h-7 text-xs"
+                            placeholder="Header"
+                        />
+                        <Select
+                            value={col.dataField}
+                            onValueChange={(val) => {
+                                const newCols = [...selectedElement.tableSettings!.columns];
+                                newCols[idx].dataField = val;
+                                updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
+                            }}
+                        >
+                            <SelectTrigger className="h-7 text-xs bg-white">
+                                <SelectValue placeholder="Bind Field" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {excelData?.headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
 
-                            <div className="w-20 flex-none space-y-1">
-                                <Label className="text-[10px] text-muted-foreground block text-center">Width</Label>
-                                <Input 
-                                    type="number"
-                                    value={selectedElement.tableSettings?.autoFitColumns ? getAutofitWidth(col.id) || col.width : col.width}
-                                    onChange={(e) => {
-                                        const newCols = [...selectedElement.tableSettings!.columns];
-                                        newCols[idx].width = Number(e.target.value);
-                                        updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
-                                    }}
-                                    className="h-7 text-xs text-center"
-                                    disabled={selectedElement.tableSettings.autoFitColumns} 
-                                />
-                            </div>
+                    <div className="w-20 flex-none space-y-1">
+                        <Label className="text-[10px] text-muted-foreground block text-center">Width</Label>
+                        <Input 
+                            type="number"
+                            value={selectedElement.tableSettings?.autoFitColumns ? getAutofitWidth(col.id) || col.width : col.width}
+                            onChange={(e) => {
+                                const newCols = [...selectedElement.tableSettings!.columns];
+                                newCols[idx].width = Number(e.target.value);
+                                updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
+                            }}
+                            className="h-7 text-xs text-center"
+                            disabled={selectedElement.tableSettings.autoFitColumns} 
+                        />
+                    </div>
 
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive hover:bg-destructive/10 flex-none"
-                                onClick={() => {
-                                    const newCols = selectedElement.tableSettings!.columns.filter((_, i) => i !== idx);
-                                    updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
-                                }}
-                            >
-                                <Trash2 className="h-3 w-3" />
-                            </Button>
-                        </div>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:bg-destructive/10 flex-none"
+                        onClick={() => {
+                            const newCols = selectedElement.tableSettings!.columns.filter((_, i) => i !== idx);
+                            updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
+                        }}
+                    >
+                        <Trash2 className="h-3 w-3" />
+                    </Button>
+                </div>
 
-                        {/* NEW: Column-level Alignment Controls */}
-                        <div className="flex gap-1">
+                {/* NEW: Column-level Alignment Section */}
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                    <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">Header Align</Label>
+                        <div className="flex gap-0.5">
                             {["left", "center", "right"].map((alignValue) => (
                                 <Button
                                     key={alignValue}
                                     size="sm"
-                                    variant={(col.align || "left") === alignValue ? "default" : "outline"}
+                                    variant={(col.headerAlign || "left") === alignValue ? "default" : "outline"}
                                     className="flex-1 h-6 px-0"
                                     onClick={() => {
                                         const newCols = [...selectedElement.tableSettings!.columns];
-                                        newCols[idx].align = alignValue as any;
+                                        newCols[idx].headerAlign = alignValue as any;
                                         updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
                                     }}
                                 >
@@ -786,13 +789,37 @@ export function PropertiesTab() {
                             ))}
                         </div>
                     </div>
+                    <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">Row Align</Label>
+                        <div className="flex gap-0.5">
+                            {["left", "center", "right"].map((alignValue) => (
+                                <Button
+                                    key={alignValue}
+                                    size="sm"
+                                    variant={(col.rowAlign || "left") === alignValue ? "default" : "outline"}
+                                    className="flex-1 h-6 px-0"
+                                    onClick={() => {
+                                        const newCols = [...selectedElement.tableSettings!.columns];
+                                        newCols[idx].rowAlign = alignValue as any;
+                                        updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
+                                    }}
+                                >
+                                    {alignValue === "left" && <AlignLeft className="h-3 w-3" />}
+                                    {alignValue === "center" && <AlignCenter className="h-3 w-3" />}
+                                    {alignValue === "right" && <AlignRight className="h-3 w-3" />}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
                  ))}
                  <Button 
                     variant="outline" 
                     size="sm" 
                     className="w-full text-xs gap-2"
                     onClick={() => {
-                        const newCols = [...selectedElement.tableSettings!.columns, { id: nanoid(), header: "New Col", width: 100, align: "left" }];
+                        const newCols = [...selectedElement.tableSettings!.columns, { id: nanoid(), header: "New Col", width: 100, headerAlign: "left", rowAlign: "left" }];
                         updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
                     }}
                  >

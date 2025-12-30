@@ -535,10 +535,10 @@ export function CanvasElement({
                     // NEW: Prioritize column-specific alignment, fallback to header row style
                     const alignment = col.align || tableSettings.headerStyle?.textAlign || 'left';
                     return (
-                        <div key={col.id} className="p-1 px-2 border-r last:border-r-0 flex items-center overflow-hidden" style={{
-                            width: columnWidths[col.id], 
-                            justifyContent: getJustifyContent(alignment), 
-                            textAlign: alignment as any, // FIX: Apply textAlign to support w-full children
+                          <div key={col.id} className="p-1 px-2 border-r last:border-r-0 flex items-center overflow-hidden" style={{
+                            width: columnWidths[col.id],
+                            justifyContent: getJustifyContent(col.headerAlign || tableSettings.headerStyle?.textAlign), 
+                            textAlign: (col.headerAlign || tableSettings.headerStyle?.textAlign || 'left') as any,
                             borderColor: tableSettings.borderColor,
                             borderRightWidth: tableSettings.borderWidth * zoom,
                             borderStyle: "solid",
@@ -567,10 +567,10 @@ export function CanvasElement({
                             // NEW: Prioritize column-specific alignment, fallback to default body row style
                             const alignment = col.align || tableSettings.rowStyle?.textAlign || 'left';
                             return (
-                                <div key={col.id} className="p-1 px-2 border-r last:border-r-0 overflow-hidden flex items-center" style={{
+                                  <div key={col.id} className="p-1 px-2 border-r last:border-r-0 overflow-hidden flex items-center" style={{
                                     width: columnWidths[col.id],
-                                    justifyContent: getJustifyContent(alignment), 
-                                    textAlign: alignment as any, // FIX: Apply textAlign to support w-full children
+                                    justifyContent: getJustifyContent(col.rowAlign || tableSettings.rowStyle?.textAlign), 
+                                    textAlign: (col.rowAlign || tableSettings.rowStyle?.textAlign || 'left') as any,
                                     borderColor: tableSettings.borderColor,
                                     borderRightWidth: tableSettings.borderWidth * zoom,
                                     borderStyle: "solid",

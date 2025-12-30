@@ -425,9 +425,9 @@ export function ExportTab() {
                  cell.style.alignItems = "center";
 
                  // NEW: Per-column Alignment logic for Header
-                 const alignment = col.align || tableSettings.headerStyle?.textAlign || 'left';
-                 cell.style.textAlign = alignment;
-                 cell.style.justifyContent = alignment === 'center' ? 'center' : alignment === 'right' ? 'flex-end' : 'flex-start';
+                  const alignment = col.headerAlign || tableSettings.headerStyle?.textAlign || 'left';
+                  cell.style.textAlign = alignment;
+                  cell.style.justifyContent = alignment === 'center' ? 'center' : alignment === 'right' ? 'flex-end' : 'flex-start';
 
                  cell.style.overflow = "hidden";
                  headerDiv.appendChild(cell);
@@ -472,7 +472,7 @@ export function ExportTab() {
                      cell.style.alignItems = "center"; // Vertical Align Middle
 
                      // NEW: Per-column Alignment logic for Body
-                     const alignment = col.align || tableSettings.rowStyle?.textAlign || 'left';
+                     const alignment = col.rowAlign || tableSettings.rowStyle?.textAlign || 'left';
                      cell.style.textAlign = alignment;
                      cell.style.justifyContent = alignment === 'center' ? 'center' : alignment === 'right' ? 'flex-end' : 'flex-start';
 
