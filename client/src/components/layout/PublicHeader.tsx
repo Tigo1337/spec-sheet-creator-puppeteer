@@ -4,7 +4,7 @@ import { useUser } from "@clerk/clerk-react"; // Import useUser
 
 export function PublicHeader() {
   const [location] = useLocation();
-  const { isSignedIn } = useUser(); // Check auth state
+  const { isSignedIn } = useUser();
 
   const navItems = [
     { label: "Solutions", href: "/solutions" },
@@ -14,9 +14,10 @@ export function PublicHeader() {
   ];
 
   return (
-    <header className="border-b bg-background">
+    // Added: sticky, top-0, z-50, and w-full
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-        {/* ... Logo ... */}
+        {/* ... rest of your code remains the same ... */}
         <a href="/" className="flex items-center gap-2">
           <img 
             src="https://res.cloudinary.com/olilepage/image/upload/t_transparent_background/v1765033347/doculoom-io-wordmark-logo-cropped_iwkw3v.png" 
@@ -25,7 +26,6 @@ export function PublicHeader() {
           />
         </a>
 
-        {/* ... Navigation Menu ... */}
         <nav className="hidden md:flex items-center gap-6">
           {navItems.map((item) => (
             <a
@@ -42,7 +42,6 @@ export function PublicHeader() {
           ))}
         </nav>
 
-        {/* Dynamic Auth Buttons */}
         <div className="flex items-center gap-3">
           {isSignedIn ? (
             <a href="/editor">
