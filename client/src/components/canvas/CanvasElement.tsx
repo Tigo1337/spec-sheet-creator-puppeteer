@@ -228,7 +228,6 @@ export function CanvasElement({
   }, [imageDimensions, element.dimension.width]);
 
   // STABLE DEPENDENCIES FOR TOC
-  const elementId = element.id;
   const elementType = element.type;
   const elementHeight = element.dimension.height;
   const elementDataBinding = element.dataBinding;
@@ -479,7 +478,7 @@ export function CanvasElement({
 
         // --- 2. Dynamic Layout Calculations ---
 
-        // NEW: Column Width Logic (Manual vs Autofit)
+        // Column Width Logic (Manual vs Autofit)
         let columnWidths: Record<string, string> = {}; // map id -> percentage string
 
         if (tableSettings.autoFitColumns) {
@@ -524,9 +523,6 @@ export function CanvasElement({
             }
         };
 
-        const headerJustify = getJustifyContent(tableSettings.headerStyle?.textAlign);
-        const rowJustify = getJustifyContent(tableSettings.rowStyle?.textAlign);
-
         return (
           <div className="w-full h-full overflow-hidden flex flex-col bg-white" style={{
               borderColor: tableSettings.borderColor,
@@ -535,22 +531,27 @@ export function CanvasElement({
           }}>
             {/* Table Header */}
             <div className="flex w-full" style={{ backgroundColor: tableSettings.headerBackgroundColor }}>
-                {tableSettings.columns.map((col, idx) => (
-                    <div key={col.id} className="p-1 px-2 border-r last:border-r-0 flex items-center overflow-hidden" style={{
-                        width: columnWidths[col.id], // FIX: Use calculated width map
-                        justifyContent: headerJustify, 
-                        borderColor: tableSettings.borderColor,
-                        borderRightWidth: tableSettings.borderWidth * zoom,
-                        borderStyle: "solid",
-                        fontFamily: tableSettings.headerStyle?.fontFamily || "Inter",
-                        fontSize: (tableSettings.headerStyle?.fontSize || 14) * zoom,
-                        fontWeight: tableSettings.headerStyle?.fontWeight || 700,
-                        color: tableSettings.headerStyle?.color,
-                        minHeight: 30 * zoom 
-                    }}>
-                        {col.header}
-                    </div>
-                ))}
+                {tableSettings.columns.map((col: any, idx) => {
+                    // NEW: Prioritize column-specific alignment, fallback to header row style
+                    const alignment = col.align || tableSettings.headerStyle?.textAlign || 'left';
+                    return (
+                        <div key={col.id} className="p-1 px-2 border-r last:border-r-0 flex items-center overflow-hidden" style={{
+                            width: columnWidths[col.id], 
+                            justifyContent: getJustifyContent(alignment), 
+                            textAlign: alignment as any, // FIX: Apply textAlign to support w-full children
+                            borderColor: tableSettings.borderColor,
+                            borderRightWidth: tableSettings.borderWidth * zoom,
+                            borderStyle: "solid",
+                            fontFamily: tableSettings.headerStyle?.fontFamily || "Inter",
+                            fontSize: (tableSettings.headerStyle?.fontSize || 14) * zoom,
+                            fontWeight: tableSettings.headerStyle?.fontWeight || 700,
+                            color: tableSettings.headerStyle?.color,
+                            minHeight: 30 * zoom 
+                        }}>
+                            {col.header}
+                        </div>
+                    );
+                })}
             </div>
 
             {/* Table Body - Scalable Rows */}
@@ -562,22 +563,27 @@ export function CanvasElement({
                         borderTopWidth: tableSettings.borderWidth * zoom,
                         borderStyle: "solid"
                     }}>
-                        {tableSettings.columns.map((col, cIdx) => (
-                            <div key={col.id} className="p-1 px-2 border-r last:border-r-0 overflow-hidden flex items-center" style={{
-                                width: columnWidths[col.id], // FIX: Use calculated width map
-                                justifyContent: rowJustify, 
-                                borderColor: tableSettings.borderColor,
-                                borderRightWidth: tableSettings.borderWidth * zoom,
-                                borderStyle: "solid",
-                                fontFamily: tableSettings.rowStyle?.fontFamily || "Inter",
-                                fontSize: (tableSettings.rowStyle?.fontSize || 12) * zoom,
-                                fontWeight: tableSettings.rowStyle?.fontWeight || 400,
-                                color: tableSettings.rowStyle?.color,
-                                padding: (tableSettings.cellPadding || 8) * zoom
-                            }}>
-                                <span className="truncate w-full">{row[col.dataField || ""] || "-"}</span>
-                            </div>
-                        ))}
+                        {tableSettings.columns.map((col: any, cIdx) => {
+                            // NEW: Prioritize column-specific alignment, fallback to default body row style
+                            const alignment = col.align || tableSettings.rowStyle?.textAlign || 'left';
+                            return (
+                                <div key={col.id} className="p-1 px-2 border-r last:border-r-0 overflow-hidden flex items-center" style={{
+                                    width: columnWidths[col.id],
+                                    justifyContent: getJustifyContent(alignment), 
+                                    textAlign: alignment as any, // FIX: Apply textAlign to support w-full children
+                                    borderColor: tableSettings.borderColor,
+                                    borderRightWidth: tableSettings.borderWidth * zoom,
+                                    borderStyle: "solid",
+                                    fontFamily: tableSettings.rowStyle?.fontFamily || "Inter",
+                                    fontSize: (tableSettings.rowStyle?.fontSize || 12) * zoom,
+                                    fontWeight: tableSettings.rowStyle?.fontWeight || 400,
+                                    color: tableSettings.rowStyle?.color,
+                                    padding: (tableSettings.cellPadding || 8) * zoom
+                                }}>
+                                    <span className="truncate w-full">{row[col.dataField || ""] || "-"}</span>
+                                </div>
+                            );
+                        })}
                     </div>
                 ))}
             </div>

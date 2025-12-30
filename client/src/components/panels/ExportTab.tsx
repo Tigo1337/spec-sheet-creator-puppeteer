@@ -371,7 +371,7 @@ export function ExportTab() {
              } catch (e) { console.error("Error generating QR", e); }
          }
       }
-      // --- NEW: TABLE EXPORT ---
+      // --- TABLE EXPORT ---
       else if (element.type === "table") {
          const tableSettings = element.tableSettings;
          if (tableSettings) {
@@ -388,7 +388,7 @@ export function ExportTab() {
                      // Get current group value from the main row
                      const groupVal = sourceData[tableSettings.groupByField];
                      if (groupVal) {
-                         displayRows = excelData.rows.filter(r => r[tableSettings.groupByField!] === groupVal);
+                         displayRows = excelData.rows.filter(r => r[tableSettings.groupByField!] === groupValue);
                      } else {
                          displayRows = [sourceData];
                      }
@@ -408,12 +408,10 @@ export function ExportTab() {
              const hRaw = tableSettings.headerStyle?.fontFamily || "Inter";
              const hMapped = openSourceFontMap[hRaw] || hRaw;
              const hFont = `"${hMapped}", sans-serif`;
-             const hAlign = tableSettings.headerStyle?.textAlign || "left";
-             const hJustify = hAlign === 'center' ? 'center' : hAlign === 'right' ? 'flex-end' : 'flex-start';
 
              const totalWidth = tableSettings.columns.reduce((acc, c) => acc + (c.width || 100), 0);
 
-             tableSettings.columns.forEach((col, idx) => {
+             tableSettings.columns.forEach((col: any, idx) => {
                  const cell = document.createElement("div");
                  cell.textContent = col.header;
                  cell.style.width = `${(col.width / totalWidth) * 100}%`;
@@ -425,7 +423,12 @@ export function ExportTab() {
                  cell.style.color = tableSettings.headerStyle?.color || "#000";
                  cell.style.display = "flex";
                  cell.style.alignItems = "center";
-                 cell.style.justifyContent = hJustify;
+
+                 // NEW: Per-column Alignment logic for Header
+                 const alignment = col.align || tableSettings.headerStyle?.textAlign || 'left';
+                 cell.style.textAlign = alignment;
+                 cell.style.justifyContent = alignment === 'center' ? 'center' : alignment === 'right' ? 'flex-end' : 'flex-start';
+
                  cell.style.overflow = "hidden";
                  headerDiv.appendChild(cell);
              });
@@ -443,8 +446,6 @@ export function ExportTab() {
              const rRaw = tableSettings.rowStyle?.fontFamily || "Inter";
              const rMapped = openSourceFontMap[rRaw] || rRaw;
              const rFont = `"${rMapped}", sans-serif`;
-             const rAlign = tableSettings.rowStyle?.textAlign || "left";
-             const rJustify = rAlign === 'center' ? 'center' : rAlign === 'right' ? 'flex-end' : 'flex-start';
 
              displayRows.forEach((row, rIdx) => {
                  const rowDiv = document.createElement("div");
@@ -456,7 +457,7 @@ export function ExportTab() {
                     ? tableSettings.alternateRowColor 
                     : tableSettings.rowBackgroundColor || "#fff";
 
-                 tableSettings.columns.forEach((col, cIdx) => {
+                 tableSettings.columns.forEach((col: any, cIdx) => {
                      const cell = document.createElement("div");
                      cell.textContent = row[col.dataField || ""] || "-";
                      cell.style.width = `${(col.width / totalWidth) * 100}%`;
@@ -469,7 +470,12 @@ export function ExportTab() {
                      cell.style.color = tableSettings.rowStyle?.color || "#000";
                      cell.style.display = "flex";
                      cell.style.alignItems = "center"; // Vertical Align Middle
-                     cell.style.justifyContent = rJustify;
+
+                     // NEW: Per-column Alignment logic for Body
+                     const alignment = col.align || tableSettings.rowStyle?.textAlign || 'left';
+                     cell.style.textAlign = alignment;
+                     cell.style.justifyContent = alignment === 'center' ? 'center' : alignment === 'right' ? 'flex-end' : 'flex-start';
+
                      cell.style.overflow = "hidden";
 
                      rowDiv.appendChild(cell);
@@ -863,7 +869,7 @@ export function ExportTab() {
       const groupByField = tocElement?.tocSettings?.groupByField; 
       let currentGroup = "";
 
-      // --- FIX 1: SMARTER TITLE COLUMN DETECTION ---
+      // --- SMARTER TITLE COLUMN DETECTION ---
       const nameCandidates = ["name", "product name", "item name", "title", "model", "product", "description"];
       let titleKey = excelData.headers.find(h => nameCandidates.includes(h.toLowerCase()));
 
@@ -885,7 +891,7 @@ export function ExportTab() {
               if (groupVal !== currentGroup) {
                   currentGroup = groupVal;
 
-                  // --- FIX 2: FORCE CHAPTER PAGE IF GROUPING IS ENABLED ---
+                  // --- FORCE CHAPTER PAGE IF GROUPING IS ENABLED ---
                   structure.push({ type: 'chapter', group: groupVal });
                   pageIndex++;
               }
@@ -1037,7 +1043,6 @@ export function ExportTab() {
             Project & File Naming
           </h3>
           <div className="space-y-3">
-             {/* NEW: Project Name Input */}
              <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Project Name (For History)</Label>
                 <Input 

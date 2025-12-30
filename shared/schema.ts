@@ -58,12 +58,14 @@ export const formatSchema = z.object({
 
 export type ElementFormat = z.infer<typeof formatSchema>;
 
-// --- Table Column Schema ---
+// --- Table Column Schema (UPDATED) ---
 export const tableColumnSchema = z.object({
   id: z.string(),
   header: z.string(),
   dataField: z.string().optional(),
   width: z.number().default(100),
+  headerAlign: z.enum(["left", "center", "right"]).default("left"),
+  rowAlign: z.enum(["left", "center", "right"]).default("left"),
 });
 
 export type TableColumn = z.infer<typeof tableColumnSchema>;
@@ -72,7 +74,6 @@ export type TableColumn = z.infer<typeof tableColumnSchema>;
 export const tableSettingsSchema = z.object({
   columns: z.array(tableColumnSchema).default([]),
   groupByField: z.string().optional(),
-  // NEW: Autofit columns setting
   autoFitColumns: z.boolean().default(false), 
 
   // Styles
@@ -458,5 +459,5 @@ export const insertExportJobSchema = z.object({
   type: z.enum(["pdf_single", "pdf_bulk", "pdf_catalog"]),
   fileName: z.string().optional(),
   projectName: z.string().optional(),
-  displayFilename: z.string().optional(), // Add to Zod
+  displayFilename: z.string().optional(), 
 });

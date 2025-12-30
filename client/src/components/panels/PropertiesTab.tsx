@@ -182,8 +182,10 @@ export function PropertiesTab() {
 
     if (excelData && excelData.rows.length > 0) {
         if (tableSettings.groupByField && selectedRowIndex !== undefined) {
+           // Grouping Logic
            const currentRow = excelData.rows[selectedRowIndex];
            const groupValue = currentRow[tableSettings.groupByField];
+
            if (groupValue) {
                displayRows = excelData.rows.filter(r => r[tableSettings.groupByField!] === groupValue);
            } else {
@@ -653,7 +655,7 @@ export function PropertiesTab() {
 
         <Separator />
 
-        {/* --- NEW: TABLE CONFIGURATION --- */}
+        {/* --- TABLE CONFIGURATION --- */}
         {selectedElement.type === "table" && selectedElement.tableSettings && (
           <div className="space-y-6">
 
@@ -691,7 +693,7 @@ export function PropertiesTab() {
                 <h3 className="font-medium text-sm flex items-center gap-2">
                    <TableIcon className="h-4 w-4" /> Columns
                 </h3>
-                {/* NEW: Autofit Toggle */}
+                {/* Autofit Toggle */}
                 <div className="flex items-center gap-2">
                     <Label className="text-[10px] text-muted-foreground">Autofit</Label>
                     <Switch
@@ -703,64 +705,86 @@ export function PropertiesTab() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                 {selectedElement.tableSettings.columns.map((col, idx) => (
-                    <div key={col.id} className="flex gap-2 items-end p-2 bg-muted/20 rounded border"> 
-                        <div className="flex-1 space-y-1">
-                            <Input 
-                                value={col.header} 
-                                onChange={(e) => {
-                                    const newCols = [...selectedElement.tableSettings!.columns];
-                                    newCols[idx].header = e.target.value;
-                                    updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
-                                }}
-                                className="h-7 text-xs"
-                                placeholder="Header"
-                            />
-                            <Select
-                                value={col.dataField}
-                                onValueChange={(val) => {
-                                    const newCols = [...selectedElement.tableSettings!.columns];
-                                    newCols[idx].dataField = val;
+              <div className="space-y-3">
+                 {selectedElement.tableSettings.columns.map((col: any, idx) => (
+                    <div key={col.id} className="flex flex-col gap-2 p-2 bg-muted/20 rounded border"> 
+                        <div className="flex gap-2 items-end">
+                            <div className="flex-1 space-y-1">
+                                <Input 
+                                    value={col.header} 
+                                    onChange={(e) => {
+                                        const newCols = [...selectedElement.tableSettings!.columns];
+                                        newCols[idx].header = e.target.value;
+                                        updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
+                                    }}
+                                    className="h-7 text-xs"
+                                    placeholder="Header"
+                                />
+                                <Select
+                                    value={col.dataField}
+                                    onValueChange={(val) => {
+                                        const newCols = [...selectedElement.tableSettings!.columns];
+                                        newCols[idx].dataField = val;
+                                        updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
+                                    }}
+                                >
+                                    <SelectTrigger className="h-7 text-xs bg-white">
+                                        <SelectValue placeholder="Bind Field" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {excelData?.headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="w-20 flex-none space-y-1">
+                                <Label className="text-[10px] text-muted-foreground block text-center">Width</Label>
+                                <Input 
+                                    type="number"
+                                    value={selectedElement.tableSettings?.autoFitColumns ? getAutofitWidth(col.id) || col.width : col.width}
+                                    onChange={(e) => {
+                                        const newCols = [...selectedElement.tableSettings!.columns];
+                                        newCols[idx].width = Number(e.target.value);
+                                        updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
+                                    }}
+                                    className="h-7 text-xs text-center"
+                                    disabled={selectedElement.tableSettings.autoFitColumns} 
+                                />
+                            </div>
+
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:bg-destructive/10 flex-none"
+                                onClick={() => {
+                                    const newCols = selectedElement.tableSettings!.columns.filter((_, i) => i !== idx);
                                     updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
                                 }}
                             >
-                                <SelectTrigger className="h-7 text-xs bg-white">
-                                    <SelectValue placeholder="Bind Field" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {excelData?.headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                                <Trash2 className="h-3 w-3" />
+                            </Button>
                         </div>
 
-                        {/* FIX: Increased width to w-20 to fit numbers */}
-                        <div className="w-20 flex-none space-y-1">
-                            <Label className="text-[10px] text-muted-foreground block text-center">Width</Label>
-                            <Input 
-                                type="number"
-                                value={selectedElement.tableSettings?.autoFitColumns ? getAutofitWidth(col.id) || col.width : col.width}
-                                onChange={(e) => {
-                                    const newCols = [...selectedElement.tableSettings!.columns];
-                                    newCols[idx].width = Number(e.target.value);
-                                    updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
-                                }}
-                                className="h-7 text-xs text-center"
-                                disabled={selectedElement.tableSettings.autoFitColumns} 
-                            />
+                        {/* NEW: Column-level Alignment Controls */}
+                        <div className="flex gap-1">
+                            {["left", "center", "right"].map((alignValue) => (
+                                <Button
+                                    key={alignValue}
+                                    size="sm"
+                                    variant={(col.align || "left") === alignValue ? "default" : "outline"}
+                                    className="flex-1 h-6 px-0"
+                                    onClick={() => {
+                                        const newCols = [...selectedElement.tableSettings!.columns];
+                                        newCols[idx].align = alignValue as any;
+                                        updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
+                                    }}
+                                >
+                                    {alignValue === "left" && <AlignLeft className="h-3 w-3" />}
+                                    {alignValue === "center" && <AlignCenter className="h-3 w-3" />}
+                                    {alignValue === "right" && <AlignRight className="h-3 w-3" />}
+                                </Button>
+                            ))}
                         </div>
-
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive flex-none"
-                            onClick={() => {
-                                const newCols = selectedElement.tableSettings!.columns.filter((_, i) => i !== idx);
-                                updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
-                            }}
-                        >
-                            <Trash2 className="h-3 w-3" />
-                        </Button>
                     </div>
                  ))}
                  <Button 
@@ -768,7 +792,7 @@ export function PropertiesTab() {
                     size="sm" 
                     className="w-full text-xs gap-2"
                     onClick={() => {
-                        const newCols = [...selectedElement.tableSettings!.columns, { id: nanoid(), header: "New Col", width: 100 }];
+                        const newCols = [...selectedElement.tableSettings!.columns, { id: nanoid(), header: "New Col", width: 100, align: "left" }];
                         updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, columns: newCols } });
                     }}
                  >
@@ -784,11 +808,9 @@ export function PropertiesTab() {
                <h3 className="font-medium text-sm mb-3">Table Design</h3>
                <div className="space-y-4">
 
-                  {/* Header Style */}
                   <div className="space-y-2 p-3 bg-muted/20 rounded border">
                       <Label className="text-xs font-semibold">Header Row</Label>
 
-                      {/* Typography Controls for Header */}
                       <div className="space-y-1.5">
                         <Label className="text-xs text-muted-foreground">Font</Label>
                         <Select
@@ -830,9 +852,8 @@ export function PropertiesTab() {
                         </div>
                       </div>
 
-                      {/* Alignment for Header */}
                       <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Alignment</Label>
+                        <Label className="text-xs text-muted-foreground">Default Alignment</Label>
                         <div className="flex gap-1">
                           {["left", "center", "right"].map((align) => (
                             <Button
@@ -868,11 +889,9 @@ export function PropertiesTab() {
                       </div>
                   </div>
 
-                  {/* Body Style */}
                   <div className="space-y-2 p-3 bg-muted/20 rounded border">
                       <Label className="text-xs font-semibold">Body Rows</Label>
 
-                      {/* Typography Controls for Body */}
                       <div className="space-y-1.5">
                         <Label className="text-xs text-muted-foreground">Font</Label>
                         <Select
@@ -914,9 +933,8 @@ export function PropertiesTab() {
                         </div>
                       </div>
 
-                      {/* Alignment for Body */}
                       <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Alignment</Label>
+                        <Label className="text-xs text-muted-foreground">Default Alignment</Label>
                         <div className="flex gap-1">
                           {["left", "center", "right"].map((align) => (
                             <Button
@@ -959,7 +977,6 @@ export function PropertiesTab() {
                       </div>
                   </div>
 
-                  {/* Borders */}
                   <div className="space-y-2 p-3 bg-muted/20 rounded border">
                       <Label className="text-xs font-semibold">Borders & Spacing</Label>
                       <div className="grid grid-cols-2 gap-2 items-center">
@@ -984,10 +1001,9 @@ export function PropertiesTab() {
           </div>
         )}
 
-        {/* --- TOC ADVANCED SETTINGS (Unchanged) --- */}
+        {/* --- TOC ADVANCED SETTINGS --- */}
         {selectedElement.type === "toc-list" && selectedElement.tocSettings && (
           <div className="space-y-6">
-             {/* 1. TOC Data Configuration */}
             <div>
               <h3 className="font-medium text-sm mb-3 text-primary">Data Configuration</h3>
               <div className="space-y-3">
@@ -1032,7 +1048,6 @@ export function PropertiesTab() {
 
             <Separator />
 
-            {/* 2. Title Settings (Preserved) */}
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-medium text-sm text-primary">Layout Settings</h3>
@@ -1157,7 +1172,6 @@ export function PropertiesTab() {
 
             <Separator />
 
-            {/* 3. Chapter Settings */}
             {selectedElement.tocSettings.groupByField && (
                 <div>
                     <h3 className="font-medium text-sm mb-3 text-primary">Chapter Style</h3>
@@ -1235,7 +1249,6 @@ export function PropertiesTab() {
 
             <Separator />
 
-            {/* 4. Item (Product) Settings */}
             <div>
               <h3 className="font-medium text-sm mb-3 text-primary">Item Row Style</h3>
               <div className="space-y-3 p-3 bg-muted/20 rounded-md border">
@@ -1259,7 +1272,6 @@ export function PropertiesTab() {
                         <Label className="text-xs text-muted-foreground">Size</Label>
                         <Input type="number" value={selectedElement.textStyle?.fontSize} onChange={(e) => handleTextStyleChange("fontSize", Number(e.target.value))} />
                     </div>
-                    {/* Consistent Weight Picker for Items */}
                     <div className="space-y-1.5">
                         <Label className="text-xs text-muted-foreground">Weight</Label>
                         <Select
@@ -1350,7 +1362,6 @@ export function PropertiesTab() {
                   className="font-mono text-sm min-h-[80px]"
                 />
 
-                {/* --- NEW TRACKABLE BUTTON --- */}
                 <div className="pt-2">
                    <Button 
                       variant="outline" 
@@ -1363,7 +1374,6 @@ export function PropertiesTab() {
                        Convert to Dynamic URL
                    </Button>
                 </div>
-                {/* --------------------------- */}
 
                 <p className="text-[10px] text-muted-foreground mt-2">
                   <strong>Dynamic URL:</strong> Allows you to edit the destination link later.
@@ -1391,7 +1401,7 @@ export function PropertiesTab() {
           </div>
         )}
 
-        {/* --- DATA FIELD SPECIFIC: STRICT BINDING (Only for Data Fields) --- */}
+        {/* --- DATA FIELD SPECIFIC: STRICT BINDING --- */}
         {selectedElement.type === "dataField" && (
           <div className="space-y-4">
              <div className="p-3 bg-primary/5 border border-primary/20 rounded-md">
@@ -1405,10 +1415,9 @@ export function PropertiesTab() {
                   <Select
                     value={selectedElement.dataBinding || ""}
                     onValueChange={(value) => {
-                       // CRITICAL FIX: Syncing Binding AND Content
                        updateElement(selectedElement.id, { 
                           dataBinding: value,
-                          content: `{{${value}}}` // Force content to match binding
+                          content: `{{${value}}}` 
                        });
                     }}
                   >
@@ -1436,7 +1445,6 @@ export function PropertiesTab() {
                 <div className="flex justify-between items-center">
                   <Label className="text-xs text-muted-foreground">Content</Label>
 
-                  {/* Only show "Insert Field" helper for standard Text elements */}
                   {selectedElement.type === "text" && excelData && excelData.headers.length > 0 && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -1490,7 +1498,6 @@ export function PropertiesTab() {
                 )}
               </div>
 
-              {/* ... (Existing Font controls) ... */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Font Family</Label>
                 <Select
@@ -1978,13 +1985,12 @@ export function PropertiesTab() {
           </div>
         )}
 
-        {/* Image Properties - UPDATED CONSISTENT UI + SEPARATE PREVIEW FIELD */}
+        {/* Image Properties */}
         {selectedElement.type === "image" && (
           <div>
             <h3 className="font-medium text-sm mb-3">Image Settings</h3>
             <div className="space-y-3">
 
-              {/* 1. Image Source / Variable Input (Editable) */}
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
                   <Label className="text-xs text-muted-foreground flex items-center gap-2">
@@ -1992,7 +1998,6 @@ export function PropertiesTab() {
                      Image Source / URL
                   </Label>
 
-                  {/* "Insert Field" Helper - Just like Text Fields */}
                   {excelData && excelData.headers.length > 0 && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -2038,7 +2043,6 @@ export function PropertiesTab() {
                 </p>
               </div>
 
-              {/* 2. Resolved URL (READ ONLY) - Shows the actual URL from data if a variable is used */}
               {selectedElement.imageSrc && selectedElement.imageSrc.includes("{{") && (
                  <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground flex items-center gap-2">
@@ -2049,7 +2053,6 @@ export function PropertiesTab() {
                        readOnly
                        value={(() => {
                           if (!excelData) return "(No data loaded)";
-                          // Replace {{Variables}} with actual data
                           return selectedElement.imageSrc.replace(/{{([\w\s]+)}}/g, (match, p1) => {
                              return excelData.rows[selectedRowIndex]?.[p1.trim()] || "(Empty)";
                           });
@@ -2099,16 +2102,14 @@ export function PropertiesTab() {
                 </div>
               </div>
 
-              {/* Preview Box - Shows data preview if available, otherwise static src */}
               {selectedElement.imageSrc && (
                 <div className="aspect-video bg-muted rounded-md overflow-hidden" style={{ opacity: selectedElement.shapeStyle?.opacity ?? 1 }}>
-                  {/* If source contains {{}}, try to resolve it from current row for preview */}
                   <img
                     src={
                         selectedElement.imageSrc.includes("{{") && excelData
                         ? (function() {
-                             // Simple regex replace for preview
-                             const variable = selectedElement.imageSrc.match(/{{([\w\s]+)}}/)?.[1];
+                             const variableMatch = selectedElement.imageSrc!.match(/{{([\w\s]+)}}/);
+                             const variable = variableMatch ? variableMatch[1] : null;
                              return variable ? excelData.rows[selectedRowIndex]?.[variable] : "";
                           })()
                         : selectedElement.imageSrc
