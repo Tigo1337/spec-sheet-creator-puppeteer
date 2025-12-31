@@ -13,6 +13,7 @@ import {
   ArrowRight, 
   QrCode, 
   Files, 
+  Sparkles,
   ChevronRight,
   Layers,
   Loader2
@@ -113,8 +114,8 @@ export default function Homepage() {
         <div className="max-w-7xl mx-auto px-4 relative z-10">
           <div className="text-center space-y-8 max-w-4xl mx-auto">
             <div className={`inline-flex items-center rounded-full border border-[#2A9D90]/30 bg-[#2A9D90]/10 px-3 py-1 text-sm font-medium ${accentColor} mb-4`}>
-              <span className={`flex h-2 w-2 rounded-full ${accentBg} mr-2`}></span>
-              New: AI Product Memory & Data Enrichment
+              <Sparkles className={"h-4 w-4 ${accentBg} mr-2"} />
+              New: AI Data Enrichment and Standardization
             </div>
 
             <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900">
@@ -147,7 +148,6 @@ export default function Homepage() {
                 View Samples
               </Button>
             </div>
-            <p className="text-sm text-slate-500">No credit card required · Free CMYK conversion test</p>
           </div>
         </div>
       </section>
