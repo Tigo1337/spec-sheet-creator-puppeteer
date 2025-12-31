@@ -90,6 +90,7 @@ async function checkAndDeductAiCredits(userId: string, costCents: number): Promi
 interface EnrichmentConfig {
   type: string;
   tone?: string;
+  targetLanguage?: string;
   currencySymbol?: string;
   currencyPlacement?: 'before' | 'after';
   currencySpacing?: boolean;
@@ -102,7 +103,12 @@ interface EnrichmentConfig {
 }
 
 function buildDynamicPrompt(config: EnrichmentConfig): string {
-   const { type, tone, currencySymbol, currencyPlacement, currencySpacing, currencyDecimals, currencyThousandSeparator, measurementUnit, measurementFormat, measurementSpacing } = config;
+   const { 
+     type, tone, targetLanguage, currencySymbol, currencyPlacement, 
+     currencySpacing, currencyDecimals, currencyThousandSeparator, 
+     measurementUnit, measurementFormat, measurementSpacing 
+   } = config;
+
   let instructions = "";
 
   switch (type) {
@@ -111,6 +117,10 @@ function buildDynamicPrompt(config: EnrichmentConfig): string {
     case "features": instructions = "Extract the technical specs and return them as a bulleted list (use • character)."; break;
     case "email": instructions = "Write a short, persuasive sales email blurb introducing this product."; break;
     case "social": instructions = "Write an engaging social media caption with relevant hashtags."; break;
+    case "translation": 
+      instructions = `Translate the provided text strictly into ${targetLanguage || 'English'}. Ensure regional nuances are respected. Keep any HTML like "<br>" exactly as is.`; 
+      break;
+
     case "currency":
       instructions = `Identify all price/monetary values. Format them strictly as ${currencySymbol || '$'}. `;
       if (currencyPlacement === 'after') { instructions += "Place the currency symbol AFTER the number. "; } else { instructions += "Place the currency symbol BEFORE the number. "; }
@@ -130,7 +140,10 @@ function buildDynamicPrompt(config: EnrichmentConfig): string {
     case "custom": instructions = config.customInstructions || "Follow the user's request."; break;
     default: instructions = "Analyze the product data.";
   }
-  if (tone && !['currency', 'measurements', 'title_case', 'uppercase', 'clean_text'].includes(type)) { instructions += ` Tone: ${tone}.`; }
+  if (tone && !['currency', 'measurements', 'title_case', 'uppercase', 'clean_text'].includes(type)) { 
+    instructions += ` Tone: ${tone}.`; 
+  }
+
   instructions += `\n\nCRITICAL FORMATTING RULES: 1. Do NOT use actual newline characters (\\n). 2. If separating lines, use "<br>". 3. Return ONLY the final formatted string.`;
   return instructions;
 }

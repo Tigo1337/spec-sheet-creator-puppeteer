@@ -47,6 +47,7 @@ import {
   Wand2,
   Save,
   CheckCircle2,
+  Languages,
 } from "lucide-react";
 import { useDraggable } from "@dnd-kit/core";
 
@@ -74,7 +75,6 @@ function DraggableHeader({ header, onStandardize }: { header: string, onStandard
       {isAI ? <Sparkles className="h-3 w-3 flex-shrink-0" /> : <Database className="h-3 w-3 flex-shrink-0" />}
       <span className="truncate font-medium">{header}</span>
 
-      {/* Wand Button */}
       <div 
         role="button"
         onPointerDown={(e) => e.stopPropagation()} 
@@ -104,19 +104,19 @@ export function DataTab() {
   const [enrichColumnName, setEnrichColumnName] = useState("Marketing Copy");
   const [enrichAnchor, setEnrichAnchor] = useState<string>("none"); 
 
-  // --- CONFIG SETTINGS ---
   const [currencySymbol, setCurrencySymbol] = useState("$");
   const [currencyPlacement, setCurrencyPlacement] = useState("before");
   const [currencySpacing, setCurrencySpacing] = useState(false); 
   const [currencyDecimals, setCurrencyDecimals] = useState("default"); 
   const [currencyThousandSeparator, setCurrencyThousandSeparator] = useState(true); 
 
-  // --- MEASUREMENT SETTINGS ---
   const [measurementUnit, setMeasurementUnit] = useState("in");
   const [measurementFormat, setMeasurementFormat] = useState("abbr");
   const [measurementSpacing, setMeasurementSpacing] = useState(true); 
 
-  // --- Standardization State ---
+  // --- NEW: TRANSLATION SETTINGS ---
+  const [stdLanguage, setStdLanguage] = useState("French Canadian");
+
   const [stdOpen, setStdOpen] = useState(false);
   const [stdColumn, setStdColumn] = useState<string | null>(null);
   const [stdType, setStdType] = useState("title_case");
@@ -219,6 +219,7 @@ export function DataTab() {
     const config = {
         type: stdMode === "preset" ? stdType : "custom",
         customInstructions: stdCustom,
+        targetLanguage: stdLanguage, // NEW: Included in the request
         currencySymbol,
         currencyPlacement: currencyPlacement as any,
         currencySpacing, 
@@ -474,7 +475,6 @@ export function DataTab() {
   return (
     <ScrollArea className="h-full">
       <div className="p-4 space-y-4">
-        {/* Import UI */}
         <div>
           <div className="flex items-center justify-between mb-3">
              <h3 className="font-medium text-sm">Import Data</h3>
@@ -562,7 +562,6 @@ export function DataTab() {
                     Replace
                   </Button>
 
-                  {/* GENERATE BUTTON */}
                   <Dialog open={enrichDialogOpen} onOpenChange={setEnrichDialogOpen}>
                     <DialogTrigger asChild>
                        <Button size="sm" className="flex-1 gap-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white border-0">
@@ -588,7 +587,7 @@ export function DataTab() {
                                  <Label className="text-black dark:text-white">Type</Label>
                                  <Select value={enrichType} onValueChange={setEnrichType}>
                                     <SelectTrigger className="bg-white dark:bg-zinc-900 border-input text-black dark:text-white"><SelectValue /></SelectTrigger>
-                                    <SelectContent className="bg-white dark:bg-zinc-900 z-[100]">
+                                    <SelectContent className="bg-white dark:bg-zinc-900 z-[6000]">
                                        <SelectItem value="marketing">Marketing Desc</SelectItem>
                                        <SelectItem value="seo">SEO Title</SelectItem>
                                        <SelectItem value="features">Feature List</SelectItem>
@@ -602,7 +601,7 @@ export function DataTab() {
                                  <Label className="text-black dark:text-white">Tone</Label>
                                  <Select value={enrichTone} onValueChange={setEnrichTone}>
                                     <SelectTrigger className="bg-white dark:bg-zinc-900 border-input text-black dark:text-white"><SelectValue /></SelectTrigger>
-                                    <SelectContent className="bg-white dark:bg-zinc-900 z-[100]">
+                                    <SelectContent className="bg-white dark:bg-zinc-900 z-[6000]">
                                        <SelectItem value="Professional">Professional</SelectItem>
                                        <SelectItem value="Luxury">Luxury</SelectItem>
                                        <SelectItem value="Technical">Technical</SelectItem>
@@ -620,7 +619,7 @@ export function DataTab() {
                              </Label>
                              <Select value={enrichAnchor} onValueChange={setEnrichAnchor}>
                                 <SelectTrigger className="bg-white dark:bg-zinc-900 border-input text-black dark:text-white"><SelectValue placeholder="Select ID Column..." /></SelectTrigger>
-                                <SelectContent className="bg-white dark:bg-zinc-900 z-[100]">
+                                <SelectContent className="bg-white dark:bg-zinc-900 z-[6000]">
                                    <SelectItem value="none" className="text-muted-foreground italic">Don't save to memory</SelectItem>
                                    {excelData.headers.map(h => (
                                       <SelectItem key={h} value={h}>{h}</SelectItem>
@@ -647,7 +646,7 @@ export function DataTab() {
                     </DialogContent>
                   </Dialog>
 
-                  {/* STANDARDIZATION DIALOG */}
+                  {/* STANDARDIZATION DIALOG (UPDATED WITH TRANSLATION) */}
                   <Dialog open={stdOpen} onOpenChange={setStdOpen}>
                     <DialogContent className="sm:max-w-[500px] bg-white dark:bg-zinc-950 text-black dark:text-white">
                         <DialogHeader>
@@ -656,7 +655,7 @@ export function DataTab() {
                             Standardize "{stdColumn}"
                         </DialogTitle>
                         <DialogDescription className="text-gray-600 dark:text-gray-400">
-                            Clean up inconsistent formatting in this column.
+                            Clean up inconsistent formatting or translate this column.
                         </DialogDescription>
                         </DialogHeader>
 
@@ -670,24 +669,12 @@ export function DataTab() {
                                     className="flex gap-2"
                                 >
                                     <div className="flex items-center space-x-2">
-                                        <RadioGroupItem 
-                                            value="preset" 
-                                            id="mode-preset" 
-                                            className="border-black text-black dark:border-white dark:text-white"
-                                        />
-                                        <Label htmlFor="mode-preset" className="font-normal text-xs cursor-pointer text-black dark:text-white">
-                                            Preset
-                                        </Label>
+                                        <RadioGroupItem value="preset" id="mode-preset" />
+                                        <Label htmlFor="mode-preset" className="font-normal text-xs cursor-pointer text-black dark:text-white">Preset</Label>
                                     </div>
                                     <div className="flex items-center space-x-2">
-                                        <RadioGroupItem 
-                                            value="custom" 
-                                            id="mode-custom" 
-                                            className="border-black text-black dark:border-white dark:text-white"
-                                        />
-                                        <Label htmlFor="mode-custom" className="font-normal text-xs cursor-pointer text-black dark:text-white">
-                                            Custom
-                                        </Label>
+                                        <RadioGroupItem value="custom" id="mode-custom" />
+                                        <Label htmlFor="mode-custom" className="font-normal text-xs cursor-pointer text-black dark:text-white">Custom</Label>
                                     </div>
                                 </RadioGroup>
                             </div>
@@ -696,107 +683,93 @@ export function DataTab() {
                                 <div className="space-y-4">
                                     <Select value={stdType} onValueChange={setStdType}>
                                         <SelectTrigger className="bg-white dark:bg-zinc-900 border-input text-black dark:text-white"><SelectValue /></SelectTrigger>
-                                        <SelectContent className="bg-white dark:bg-zinc-900 z-[100]">
+                                        <SelectContent className="bg-white dark:bg-zinc-900 z-[6000]">
                                             <SelectItem value="title_case">Title Case (e.g. Blue Widget)</SelectItem>
                                             <SelectItem value="uppercase">UPPERCASE (e.g. BLUE WIDGET)</SelectItem>
+                                            <SelectItem value="translation">Translation</SelectItem>
                                             <SelectItem value="currency">Currency Formatting</SelectItem>
                                             <SelectItem value="measurements">Measurements</SelectItem>
                                             <SelectItem value="clean_text">Clean Text (Remove symbols/HTML)</SelectItem>
                                         </SelectContent>
                                     </Select>
 
+                                    {/* NEW: TRANSLATION SETTINGS */}
+                                    {stdType === 'translation' && (
+                                        <div className="space-y-2 p-3 bg-slate-100 dark:bg-muted/40 rounded-md animate-in fade-in slide-in-from-top-1 border border-slate-200 dark:border-border">
+                                            <Label className="text-xs text-black dark:text-white flex items-center gap-1.5">
+                                                <Languages className="h-3 w-3" />
+                                                Target Language
+                                            </Label>
+                                            <Select value={stdLanguage} onValueChange={setStdLanguage}>
+                                                <SelectTrigger className="h-8 bg-white dark:bg-zinc-900 border-input text-black dark:text-white">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent className="bg-white dark:bg-zinc-900 z-[6000]">
+                                                    <SelectItem value="French Canadian">French Canadian</SelectItem>
+                                                    <SelectItem value="French">French (France)</SelectItem>
+                                                    <SelectItem value="Italian">Italian</SelectItem>
+                                                    <SelectItem value="Spanish">Spanish</SelectItem>
+                                                    <SelectItem value="German">German</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+
                                     {/* CURRENCY SETTINGS */}
                                     {stdType === 'currency' && (
-                                        <div className="grid grid-cols-2 gap-4 p-3 bg-slate-100 dark:bg-muted/40 rounded-md animate-in fade-in slide-in-from-top-1 border border-slate-200 dark:border-border">
+                                        <div className="grid grid-cols-2 gap-4 p-3 bg-slate-100 dark:bg-muted/40 rounded-md border">
                                             <div className="space-y-2">
-                                                <Label className="text-xs text-black dark:text-white">Symbol</Label>
+                                                <Label className="text-xs">Symbol</Label>
                                                 <Select value={currencySymbol} onValueChange={setCurrencySymbol}>
-                                                    <SelectTrigger className="h-8 bg-white dark:bg-zinc-900 border-input text-black dark:text-white"><SelectValue /></SelectTrigger>
-                                                    <SelectContent className="bg-white dark:bg-zinc-900 z-[100]">
-                                                        <SelectItem value="$">USD ($)</SelectItem>
-                                                        <SelectItem value="€">EUR (€)</SelectItem>
-                                                        <SelectItem value="£">GBP (£)</SelectItem>
+                                                    <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                                                    <SelectContent className="z-[6000]">
+                                                        <SelectItem value="$">$</SelectItem>
+                                                        <SelectItem value="€">€</SelectItem>
+                                                        <SelectItem value="£">£</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             </div>
                                             <div className="space-y-2">
-                                                <Label className="text-xs text-black dark:text-white">Placement</Label>
+                                                <Label className="text-xs">Placement</Label>
                                                 <Select value={currencyPlacement} onValueChange={setCurrencyPlacement}>
-                                                    <SelectTrigger className="h-8 bg-white dark:bg-zinc-900 border-input text-black dark:text-white"><SelectValue /></SelectTrigger>
-                                                    <SelectContent className="bg-white dark:bg-zinc-900 z-[100]">
-                                                        <SelectItem value="before">Before ($10)</SelectItem>
-                                                        <SelectItem value="after">After (10$)</SelectItem>
+                                                    <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                                                    <SelectContent className="z-[6000]">
+                                                        <SelectItem value="before">Before</SelectItem>
+                                                        <SelectItem value="after">After</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             </div>
                                             <div className="col-span-2 space-y-2">
                                                 <div className="flex items-center space-x-2">
-                                                    <Checkbox 
-                                                        id="curr-spacing" 
-                                                        checked={currencySpacing} 
-                                                        onCheckedChange={(c) => setCurrencySpacing(!!c)} 
-                                                        className="border-gray-400 data-[state=checked]:bg-purple-600 data-[state=checked]:text-white"
-                                                    />
-                                                    <Label htmlFor="curr-spacing" className="text-xs font-normal cursor-pointer text-black dark:text-white">Add space (e.g. $ 10)</Label>
+                                                    <Checkbox id="curr-spacing" checked={currencySpacing} onCheckedChange={(c) => setCurrencySpacing(!!c)} />
+                                                    <Label htmlFor="curr-spacing" className="text-xs">Add space (e.g. $ 10)</Label>
                                                 </div>
                                                 <div className="flex items-center space-x-2">
-                                                    <Checkbox 
-                                                        id="curr-separator" 
-                                                        checked={currencyThousandSeparator} 
-                                                        onCheckedChange={(c) => setCurrencyThousandSeparator(!!c)} 
-                                                        className="border-gray-400 data-[state=checked]:bg-purple-600 data-[state=checked]:text-white"
-                                                    />
-                                                    <Label htmlFor="curr-separator" className="text-xs font-normal cursor-pointer text-black dark:text-white">Thousand separator (1,000)</Label>
+                                                    <Checkbox id="curr-separator" checked={currencyThousandSeparator} onCheckedChange={(c) => setCurrencyThousandSeparator(!!c)} />
+                                                    <Label htmlFor="curr-separator" className="text-xs">Thousand separator</Label>
                                                 </div>
-                                            </div>
-                                            <div className="col-span-2 space-y-1 mt-1">
-                                                <Label className="text-xs text-black dark:text-white">Decimals</Label>
-                                                <Select value={currencyDecimals} onValueChange={setCurrencyDecimals}>
-                                                    <SelectTrigger className="h-8 bg-white dark:bg-zinc-900 border-input text-black dark:text-white"><SelectValue /></SelectTrigger>
-                                                    <SelectContent className="bg-white dark:bg-zinc-900 z-[100]">
-                                                        <SelectItem value="default">No Change</SelectItem>
-                                                        <SelectItem value="whole">Round to Whole Number</SelectItem>
-                                                        <SelectItem value="two">Force 2 Decimal Places</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
                                             </div>
                                         </div>
                                     )}
 
                                     {/* MEASUREMENT SETTINGS */}
                                     {stdType === 'measurements' && (
-                                        <div className="grid grid-cols-2 gap-4 p-3 bg-slate-100 dark:bg-muted/40 rounded-md animate-in fade-in slide-in-from-top-1 border border-slate-200 dark:border-border">
+                                        <div className="grid grid-cols-2 gap-4 p-3 bg-slate-100 dark:bg-muted/40 rounded-md border">
                                             <div className="space-y-2">
-                                                <Label className="text-xs text-black dark:text-white">Unit</Label>
+                                                <Label className="text-xs">Unit</Label>
                                                 <Select value={measurementUnit} onValueChange={setMeasurementUnit}>
-                                                    <SelectTrigger className="h-8 bg-white dark:bg-zinc-900 border-input text-black dark:text-white"><SelectValue /></SelectTrigger>
-                                                    <SelectContent className="bg-white dark:bg-zinc-900 z-[100]">
+                                                    <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                                                    <SelectContent className="z-[6000]">
                                                         <SelectItem value="in">Inches</SelectItem>
-                                                        <SelectItem value="cm">Centimeters</SelectItem>
-                                                        <SelectItem value="mm">Millimeters</SelectItem>
-                                                        <SelectItem value="lb">Pounds (lbs)</SelectItem>
-                                                        <SelectItem value="kg">Kilograms (kg)</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label className="text-xs text-black dark:text-white">Format</Label>
-                                                <Select value={measurementFormat} onValueChange={setMeasurementFormat}>
-                                                    <SelectTrigger className="h-8 bg-white dark:bg-zinc-900 border-input text-black dark:text-white"><SelectValue /></SelectTrigger>
-                                                    <SelectContent className="bg-white dark:bg-zinc-900 z-[100]">
-                                                        <SelectItem value="abbr">Abbreviated (in)</SelectItem>
-                                                        <SelectItem value="full">Full Word (inches)</SelectItem>
+                                                        <SelectItem value="cm">cm</SelectItem>
+                                                        <SelectItem value="mm">mm</SelectItem>
+                                                        <SelectItem value="kg">kg</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             </div>
                                             <div className="col-span-2 flex items-center space-x-2">
-                                                <Checkbox 
-                                                    id="meas-spacing" 
-                                                    checked={measurementSpacing} 
-                                                    onCheckedChange={(c) => setMeasurementSpacing(!!c)} 
-                                                    className="border-gray-400 data-[state=checked]:bg-purple-600 data-[state=checked]:text-white"
-                                                />
-                                                <Label htmlFor="meas-spacing" className="text-xs font-normal cursor-pointer text-black dark:text-white">Add space (e.g. 50 cm)</Label>
+                                                <Checkbox id="meas-spacing" checked={measurementSpacing} onCheckedChange={(c) => setMeasurementSpacing(!!c)} />
+                                                <Label htmlFor="meas-spacing" className="text-xs">Add space (e.g. 50 cm)</Label>
                                             </div>
                                         </div>
                                     )}
@@ -804,39 +777,34 @@ export function DataTab() {
                             ) : (
                                 <div className="space-y-1">
                                     <Input 
-                                        placeholder="e.g. 'Convert lbs to kg' or 'Format as (XXX) XXX-XXXX'"
+                                        placeholder="e.g. 'Convert lbs to kg'"
                                         value={stdCustom}
                                         onChange={e => setStdCustom(e.target.value)}
-                                        className="bg-white dark:bg-zinc-900 border-input text-black dark:text-white"
                                     />
-                                    <p className="text-[10px] text-gray-500 dark:text-gray-400">Be specific. Example: "Extract only the number"</p>
                                 </div>
                             )}
                         </div>
 
                         {/* Preview Box */}
-                        <div className="bg-slate-100 dark:bg-muted/40 border border-slate-200 dark:border-border rounded-md p-3 space-y-2">
+                        <div className="bg-slate-100 dark:bg-muted/40 border rounded-md p-3 space-y-2">
                             <div className="flex justify-between items-center">
-                                <Label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Preview (3 Samples)</Label>
+                                <Label className="text-xs text-gray-500 uppercase">Preview (3 Samples)</Label>
                                 <Button 
                                     variant="ghost" 
                                     size="sm" 
-                                    className="h-6 text-xs text-purple-600 dark:text-purple-300 hover:text-purple-700 dark:hover:text-purple-100 p-0 hover:bg-transparent"
+                                    className="h-6 text-xs text-purple-600"
                                     onClick={() => handleRunStandardize(false)} 
                                     disabled={isStdProcessing}
                                 >
-                                    {isStdProcessing ? "Generating..." : "Refresh Preview"}
+                                    {isStdProcessing ? "..." : "Refresh"}
                                 </Button>
                             </div>
-
                             <div className="space-y-1">
                                 {stdPreview.map((row, i) => (
-                                    <div key={i} className="grid grid-cols-2 gap-4 text-sm items-center">
-                                        <div className="text-gray-600 dark:text-gray-400 truncate text-xs" title={row.original}>
-                                            {row.original || <span className="italic opacity-50">Empty</span>}
-                                        </div>
-                                        <div className="font-medium text-purple-900 dark:text-purple-100 truncate bg-purple-100/50 dark:bg-purple-900/40 px-2 py-0.5 rounded text-xs" title={row.new}>
-                                            {row.new === "..." ? "..." : row.new}
+                                    <div key={i} className="grid grid-cols-2 gap-4 text-xs items-center">
+                                        <div className="truncate opacity-60">{row.original || "-"}</div>
+                                        <div className="font-medium text-purple-900 dark:text-purple-100 truncate bg-purple-100/50 dark:bg-purple-900/40 px-2 rounded">
+                                            {row.new}
                                         </div>
                                     </div>
                                 ))}
@@ -845,12 +813,8 @@ export function DataTab() {
                         </div>
 
                         <DialogFooter>
-                        <Button variant="outline" onClick={() => setStdOpen(false)} className="text-black dark:text-white border-input bg-transparent hover:bg-slate-100 dark:hover:bg-zinc-800">Cancel</Button>
-                        <Button 
-                            onClick={() => handleRunStandardize(true)} // Apply to All
-                            disabled={isStdProcessing}
-                            className="bg-purple-600 hover:bg-purple-700 text-white"
-                        >
+                        <Button variant="outline" onClick={() => setStdOpen(false)}>Cancel</Button>
+                        <Button onClick={() => handleRunStandardize(true)} disabled={isStdProcessing} className="bg-purple-600">
                             {isStdProcessing ? <Loader2 className="animate-spin mr-2 h-4 w-4"/> : <CheckCircle2 className="mr-2 h-4 w-4"/>}
                             Apply to All Rows
                         </Button>
@@ -859,13 +823,7 @@ export function DataTab() {
                   </Dialog>
               </div>
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls,.csv,.ods"
-                className="hidden"
-                onChange={handleFileChange}
-              />
+              <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv,.ods" className="hidden" onChange={handleFileChange} />
             </div>
           )}
         </div>
@@ -873,8 +831,6 @@ export function DataTab() {
         {excelData && (
           <>
             <Separator />
-
-            {/* Unique Identifier Selector */}
             <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-800 p-3 rounded-md space-y-2">
                 <Label className="text-purple-900 dark:text-purple-100 flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
@@ -885,66 +841,32 @@ export function DataTab() {
                         <SelectTrigger className="bg-white dark:bg-zinc-900 border-input text-black dark:text-white">
                             <SelectValue placeholder="Select Unique ID Column..." />
                         </SelectTrigger>
-                        <SelectContent className="bg-white dark:bg-zinc-900 z-[100]">
+                        <SelectContent className="bg-white dark:bg-zinc-900 z-[6000]">
                             {excelData.headers.map(h => (
                                 <SelectItem key={h} value={h}>{h}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
                 </div>
-                <p className="text-[12px] text-purple-700 dark:text-purple-300">
-                    Select the column that uniquely identifies your products (e.g., SKU) to retrieve saved AI Generated Content.
-                </p>
             </div>
 
             <Separator />
-
             <div>
               <h3 className="font-medium text-sm mb-2">Data Fields</h3>
-              <p className="text-xs text-muted-foreground mb-3">
-                Drag fields onto the canvas to bind them to your design. Hover over a field to see AI tools.
-              </p>
-
-              {/* REMOVED DndContext from here to allow bubble up to Editor.tsx */}
               <div className="flex flex-wrap gap-1.5 mb-4">
                 {excelData.headers.map((header) => (
-                  <DraggableHeader 
-                      key={header} 
-                      header={header} 
-                      onStandardize={openStandardize} 
-                  />
+                  <DraggableHeader key={header} header={header} onStandardize={openStandardize} />
                 ))}
               </div>
 
               <div className="bg-muted/30 rounded-lg p-3 space-y-2">
-                <p className="text-xs font-medium text-foreground">Mark as Image Fields</p>
+                <p className="text-xs font-medium">Mark as Image Fields</p>
                 {excelData.headers.map((header) => {
-                  const isAutoDetected = header.toLowerCase().includes("image") || 
-                                        header.toLowerCase().includes("photo") ||
-                                        header.toLowerCase().includes("picture") ||
-                                        header.toLowerCase().includes("url") ||
-                                        header.toLowerCase().includes("thumbnail") ||
-                                        header.toLowerCase().includes("img") ||
-                                        header.toLowerCase().includes("avatar") ||
-                                        header.toLowerCase().includes("logo");
-                  const isMarked = imageFieldNames.has(header);
-
+                  const isAuto = header.toLowerCase().includes("image") || header.toLowerCase().includes("url");
                   return (
                     <div key={header} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`image-field-${header}`}
-                        checked={isMarked || isAutoDetected}
-                        onCheckedChange={() => toggleImageField(header)}
-                        disabled={isAutoDetected}
-                        data-testid={`checkbox-image-field-${header}`}
-                      />
-                      <Label 
-                        htmlFor={`image-field-${header}`}
-                        className={`text-xs cursor-pointer flex-1 ${isAutoDetected ? 'text-muted-foreground' : ''}`}
-                      >
-                        {header}
-                        {isAutoDetected && <span className="text-muted-foreground ml-1">(auto-detected)</span>}
-                      </Label>
+                      <Checkbox id={`img-${header}`} checked={imageFieldNames.has(header) || isAuto} onCheckedChange={() => toggleImageField(header)} disabled={isAuto} />
+                      <Label htmlFor={`img-${header}`} className="text-xs">{header} {isAuto && "(auto)"}</Label>
                     </div>
                   );
                 })}
@@ -952,80 +874,32 @@ export function DataTab() {
             </div>
 
             <Separator />
-
             <div>
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-medium text-sm">Preview Row</h3>
                 <div className="flex items-center gap-1">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7"
-                    onClick={handlePrevRow}
-                    disabled={selectedRowIndex === 0}
-                    data-testid="btn-prev-row"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-
-                  <Select
-                    value={String(selectedRowIndex)}
-                    onValueChange={(value) => setSelectedRowIndex(Number(value))}
-                  >
-                    <SelectTrigger className="w-28 h-7" data-testid="select-row">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {excelData.rows.map((_, index) => (
-                        <SelectItem key={index} value={String(index)}>
-                          Row {index + 1}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handlePrevRow} disabled={selectedRowIndex === 0}><ChevronLeft className="h-4 w-4" /></Button>
+                  <Select value={String(selectedRowIndex)} onValueChange={(v) => setSelectedRowIndex(Number(v))}>
+                    <SelectTrigger className="w-28 h-7"><SelectValue /></SelectTrigger>
+                    <SelectContent>{excelData.rows.map((_, i) => <SelectItem key={i} value={String(i)}>Row {i + 1}</SelectItem>)}</SelectContent>
                   </Select>
-
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7"
-                    onClick={handleNextRow}
-                    disabled={selectedRowIndex >= excelData.rows.length - 1}
-                    data-testid="btn-next-row"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleNextRow} disabled={selectedRowIndex >= excelData.rows.length - 1}><ChevronRight className="h-4 w-4" /></Button>
                 </div>
               </div>
-
-              <p className="text-xs text-muted-foreground mb-3">
-                Select a row to preview how data will appear in your design
-              </p>
-
               <div className="border rounded-lg overflow-hidden">
                 <Table className="table-fixed w-full">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-xs font-medium w-[35%]">Field</TableHead>
-                      <TableHead className="text-xs font-medium w-[65%]">Value</TableHead>
+                      <TableHead className="text-xs w-[35%]">Field</TableHead>
+                      <TableHead className="text-xs w-[65%]">Value</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {excelData.headers.map((header) => (
                       <TableRow key={header}>
-                        <TableCell className="py-2 font-mono text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">
-                          {aiFieldNames.has(header) ? (
-                             <span className="text-purple-600 font-bold">{header}</span>
-                          ) : (
-                             header
-                          )}
-                        </TableCell>
+                        <TableCell className={`py-2 text-xs truncate ${aiFieldNames.has(header) ? 'text-purple-600 font-bold' : ''}`}>{header}</TableCell>
                         <TableCell className="py-2 text-sm break-all">
-                          {/* UPDATED: Render HTML content */}
-                          <div 
-                            dangerouslySetInnerHTML={{ 
-                              __html: excelData.rows[selectedRowIndex]?.[header] || "-" 
-                            }} 
-                          />
+                          <div dangerouslySetInnerHTML={{ __html: excelData.rows[selectedRowIndex]?.[header] || "-" }} />
                         </TableCell>
                       </TableRow>
                     ))}
