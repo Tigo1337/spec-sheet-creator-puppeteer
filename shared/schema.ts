@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, uniqueIndex } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 
@@ -58,7 +58,7 @@ export const formatSchema = z.object({
 
 export type ElementFormat = z.infer<typeof formatSchema>;
 
-// --- Table Column Schema (UPDATED) ---
+// --- Table Column Schema ---
 export const tableColumnSchema = z.object({
   id: z.string(),
   header: z.string(),
@@ -359,7 +359,7 @@ export const templatesTable = pgTable("templates", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// --- UPDATED USERS TABLE ---
+// --- USERS TABLE ---
 export const usersTable = pgTable("users", {
   id: varchar("id", { length: 255 }).primaryKey(),
   email: varchar("email", { length: 255 }).notNull(),
@@ -425,7 +425,10 @@ export const productKnowledgeTable = pgTable("product_knowledge", {
   content: text("content").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-}, (t) => ({}));
+}, (t) => ({
+  // NEW: Added unique constraint to support overwriting existing entries per SKU
+  uniqueProductField: uniqueIndex("unique_product_field").on(t.userId, t.productKey, t.fieldType)
+}));
 
 export type ProductKnowledge = typeof productKnowledgeTable.$inferSelect;
 export const insertProductKnowledgeSchema = z.object({
@@ -436,7 +439,7 @@ export const insertProductKnowledgeSchema = z.object({
 });
 export type InsertProductKnowledge = z.infer<typeof insertProductKnowledgeSchema>;
 
-// --- NEW: EXPORT JOBS TABLE ---
+// EXPORT JOBS TABLE
 export const exportJobsTable = pgTable("export_jobs", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id", { length: 255 }).notNull(),
@@ -461,3 +464,24 @@ export const insertExportJobSchema = z.object({
   projectName: z.string().optional(),
   displayFilename: z.string().optional(), 
 });
+
+// --- UPDATED: AI Logs Table with Token Counts ---
+export const aiLogsTable = pgTable("ai_logs", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  requestType: varchar("request_type", { length: 50 }).notNull(), // e.g., 'enrich', 'standardize', 'map'
+  promptContent: text("prompt_content").notNull(),
+  generatedResponse: text("generated_response"), 
+
+  // Credits charged to user (Internal SaaS Currency)
+  tokenCost: integer("token_cost").default(0),
+
+  // Actual LLM Token Usage (From API)
+  promptTokens: integer("prompt_tokens").default(0),
+  completionTokens: integer("completion_tokens").default(0),
+
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type AiLog = typeof aiLogsTable.$inferSelect;
+export type InsertAiLog = typeof aiLogsTable.$inferInsert;

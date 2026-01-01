@@ -181,8 +181,9 @@ export function KnowledgeManagerDialog({ children }: { children: React.ReactNode
                       {item.productKey}
                     </TableCell>
 
+                    {/* UPDATED: Field Name Column (Wrapped) */}
                     <TableCell style={colStyles.field} className="align-middle py-4 text-center">
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200 truncate max-w-full">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200 whitespace-normal text-center h-auto">
                         {item.fieldType}
                       </span>
                     </TableCell>
@@ -206,7 +207,6 @@ export function KnowledgeManagerDialog({ children }: { children: React.ReactNode
                             autoFocus
                           />
                         ) : (
-                          /* UPDATED: Render HTML content */
                           <div 
                             style={typographyStyle} 
                             className="min-h-[4.5rem] p-3 whitespace-pre-wrap border border-transparent text-foreground flex items-center justify-center"

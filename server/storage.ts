@@ -1,5 +1,5 @@
-import type { Template, InsertTemplate, SavedDesign, InsertSavedDesign, CanvasElement, DbUser, InsertDbUser, QrCode, InsertQrCode, ProductKnowledge, InsertProductKnowledge, ExportJob, InsertExportJob } from "@shared/schema";
-import { savedDesignsTable, templatesTable, usersTable, qrCodesTable, productKnowledgeTable, exportJobsTable } from "@shared/schema";
+import type { Template, InsertTemplate, SavedDesign, InsertSavedDesign, CanvasElement, DbUser, InsertDbUser, QrCode, InsertQrCode, ProductKnowledge, InsertProductKnowledge, ExportJob, InsertExportJob, AiLog, InsertAiLog } from "@shared/schema";
+import { savedDesignsTable, templatesTable, usersTable, qrCodesTable, productKnowledgeTable, exportJobsTable, aiLogsTable } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
@@ -50,9 +50,10 @@ export interface IStorage {
   createExportJob(job: InsertExportJob & { userId: string }): Promise<ExportJob>;
   getExportJob(id: string): Promise<ExportJob | undefined>;
   updateExportJob(id: string, updates: Partial<ExportJob>): Promise<ExportJob | undefined>;
-
-  // NEW: History Method
   getExportHistory(userId: string): Promise<ExportJob[]>;
+
+  // AI Logging
+  logAiRequest(log: InsertAiLog): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -66,7 +67,6 @@ export class DatabaseStorage implements IStorage {
     this.db = drizzle(sql);
   }
 
-  // ... (toSavedDesign and toTemplate helper methods remain same)
   private toSavedDesign(row: typeof savedDesignsTable.$inferSelect): SavedDesign {
     return {
       id: row.id,
@@ -101,7 +101,6 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  // ... (Existing Template and Design methods remain the same)
   async getTemplates(): Promise<Template[]> {
     const rows = await this.db.select().from(templatesTable).orderBy(desc(templatesTable.updatedAt));
     return rows.map(this.toTemplate);
@@ -215,7 +214,6 @@ export class DatabaseStorage implements IStorage {
   async checkAndIncrementUsage(userId: string): Promise<{ allowed: boolean; count: number; limit: number }> {
     const user = await this.getUser(userId);
     if (!user) {
-      console.log(`[Usage Check] User not found: ${userId}`);
       return { allowed: false, count: 0, limit: 0 };
     }
 
@@ -241,7 +239,6 @@ export class DatabaseStorage implements IStorage {
     return { allowed: true, count: updatedUser.pdfUsageCount || 0, limit };
   }
 
-  // QR Code Methods
   async createQRCode(userId: string, destinationUrl: string, designId?: string): Promise<QrCode> {
     const id = nanoid(8); 
     const [row] = await this.db.insert(qrCodesTable).values({ id, userId, destinationUrl, designId, scanCount: 0 }).returning();
@@ -267,7 +264,7 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  // AI & Knowledge
+  // --- UPDATED PRODUCT KNOWLEDGE SAVE WITH OVERWRITE LOGIC ---
   async batchSaveProductKnowledge(userId: string, items: InsertProductKnowledge[]): Promise<void> {
     if (items.length === 0) return;
     const validItems = items.filter(i => i.content && i.content.trim().length > 0).map(item => ({
@@ -277,7 +274,19 @@ export class DatabaseStorage implements IStorage {
         createdAt: new Date(),
         updatedAt: new Date()
     }));
-    if (validItems.length > 0) { await this.db.insert(productKnowledgeTable).values(validItems); }
+
+    if (validItems.length > 0) { 
+        // Use onConflictDoUpdate to overwrite content if User/SKU/Field combination already exists
+        await this.db.insert(productKnowledgeTable)
+            .values(validItems)
+            .onConflictDoUpdate({
+                target: [productKnowledgeTable.userId, productKnowledgeTable.productKey, productKnowledgeTable.fieldType],
+                set: { 
+                    content: sql`excluded.content`, 
+                    updatedAt: new Date() 
+                }
+            }); 
+    }
   }
 
   async batchGetProductKnowledge(userId: string, productKeys: string[], keyName: string): Promise<ProductKnowledge[]> {
@@ -299,14 +308,11 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  // Export Jobs Implementation
   async createExportJob(job: InsertExportJob & { userId: string }): Promise<ExportJob> {
-    // UPDATED: Save displayFilename if present, otherwise fallback to fileName
     const displayFilename = job.displayFilename || job.fileName;
-
     const [newJob] = await this.db.insert(exportJobsTable).values({ 
         ...job, 
-        displayFilename, // Save the friendly name here
+        displayFilename, 
         status: "pending", 
         progress: 0 
     }).returning();
@@ -323,13 +329,21 @@ export class DatabaseStorage implements IStorage {
     return updatedJob;
   }
 
-  // History Implementation
   async getExportHistory(userId: string): Promise<ExportJob[]> {
     return await this.db.select()
       .from(exportJobsTable)
       .where(eq(exportJobsTable.userId, userId))
       .orderBy(desc(exportJobsTable.createdAt))
       .limit(20);
+  }
+
+  // --- NEW: AI LOGGING ---
+  async logAiRequest(log: InsertAiLog): Promise<void> {
+    await this.db.insert(aiLogsTable).values({
+        id: randomUUID(),
+        ...log,
+        createdAt: new Date()
+    });
   }
 }
 
@@ -347,7 +361,6 @@ export class MemStorage implements IStorage {
     this.qrCodes = new Map();
   }
 
-  // ... (Existing methods remain the same)
   async getTemplates(): Promise<Template[]> { return Array.from(this.templates.values()); }
   async getTemplate(id: string) { return this.templates.get(id); }
   async createTemplate(t: InsertTemplate) { const id = randomUUID(); const now = new Date().toISOString(); const tmpl = { ...t, id, previewImages: t.previewImages || [], createdAt: now, updatedAt: now }; this.templates.set(id, tmpl); return tmpl; }
@@ -383,17 +396,31 @@ export class MemStorage implements IStorage {
     return { allowed: true, count, limit: 50 };
   }
 
-  async batchSaveProductKnowledge(userId: string, items: InsertProductKnowledge[]) { items.forEach(item => { const id = randomUUID(); this.knowledge.set(id, { id, userId, keyName: item.keyName, productKey: item.productKey, fieldType: item.fieldType, content: item.content, createdAt: new Date(), updatedAt: new Date() }); }); }
+  async batchSaveProductKnowledge(userId: string, items: InsertProductKnowledge[]) { 
+    items.forEach(item => { 
+        const existing = Array.from(this.knowledge.values()).find(k => 
+            k.userId === userId && 
+            k.productKey === item.productKey && 
+            k.fieldType === item.fieldType
+        );
+
+        if (existing) {
+            existing.content = item.content;
+            existing.updatedAt = new Date();
+        } else {
+            const id = randomUUID(); 
+            this.knowledge.set(id, { id, userId, keyName: item.keyName, productKey: item.productKey, fieldType: item.fieldType, content: item.content, createdAt: new Date(), updatedAt: new Date() }); 
+        }
+    }); 
+  }
   async batchGetProductKnowledge(userId: string, productKeys: string[], keyName: string) { return Array.from(this.knowledge.values()).filter(k => k.userId === userId && k.keyName === keyName && productKeys.includes(k.productKey)).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()); }
   async getAllProductKnowledge(userId: string) { return Array.from(this.knowledge.values()).filter(k => k.userId === userId).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()); }
   async deleteProductKnowledge(id: string, userId: string) { const item = this.knowledge.get(id); if (item && item.userId === userId) { return this.knowledge.delete(id); } return false; }
   async updateProductKnowledge(id: string, userId: string, content: string) { const item = this.knowledge.get(id); if (item && item.userId === userId) { const updated = { ...item, content, updatedAt: new Date() }; this.knowledge.set(id, updated); return updated; } return undefined; }
 
-  // Export Jobs Implementation
   async createExportJob(job: InsertExportJob & { userId: string }): Promise<ExportJob> {
     const id = randomUUID();
     const now = new Date();
-    // UPDATED: Save displayFilename if present, otherwise fallback
     const newJob: ExportJob = { 
         id, 
         userId: job.userId, 
@@ -404,7 +431,7 @@ export class MemStorage implements IStorage {
         error: null, 
         fileName: job.fileName || null,
         projectName: job.projectName || null, 
-        displayFilename: job.displayFilename || job.fileName || null, // Stored safely here
+        displayFilename: job.displayFilename || job.fileName || null,
         createdAt: now, 
         updatedAt: now 
     };
@@ -424,17 +451,21 @@ export class MemStorage implements IStorage {
     return updatedJob;
   }
 
-  // History Implementation
   async getExportHistory(userId: string): Promise<ExportJob[]> {
     return Array.from(this.jobs.values())
       .filter(j => j.userId === userId)
       .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0))
       .slice(0, 20);
   }
+
+  // --- LOGGING ---
+  async logAiRequest(log: InsertAiLog) {
+    console.log("[AI Log Saved]:", log.requestType);
+  }
 }
 
 if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL) {
-  throw new Error("🚨 FATAL: Production environment detected but DATABASE_URL is missing. Exiting to prevent data loss.");
+  throw new Error("🚨 FATAL: Production environment detected but DATABASE_URL is missing.");
 }
 
 export const storage: IStorage = process.env.DATABASE_URL ? new DatabaseStorage() : new MemStorage();

@@ -15,8 +15,6 @@ import { Storage } from "@google-cloud/storage";
 import { desc, eq } from "drizzle-orm";
 
 // --- HELPER FUNCTIONS ---
-
-// Helper to check admin status
 async function checkAdmin(userId: string): Promise<boolean> {
   if (process.env.ADMIN_USER_ID && process.env.ADMIN_USER_ID.trim().length > 0 && userId === process.env.ADMIN_USER_ID) {
     return true;
@@ -30,26 +28,16 @@ async function checkAdmin(userId: string): Promise<boolean> {
   }
 }
 
-// --- GCS SIGNED URL HELPER (UPDATED) ---
 async function generateSignedDownloadUrl(jobId: string, fileName: string, type: string) {
   const gcsKey = process.env.GCLOUD_KEY_JSON;
   if (!gcsKey) return null;
-
   try {
     const externalStorage = new Storage({ credentials: JSON.parse(gcsKey) });
     const bucketName = "doculoom-exports";
     const ext = type === "pdf_bulk" ? "zip" : "pdf";
-    // We still look for the file using the UUID because that's how the worker saves it
     const gcsPath = `exports/${jobId}.${ext}`;
-
-    const [url] = await externalStorage
-      .bucket(bucketName)
-      .file(gcsPath)
-      .getSignedUrl({
-        version: 'v4',
-        action: 'read',
-        expires: Date.now() + 60 * 60 * 1000, // 1 hour
-        // KEY FIX: We inject the Friendly Name here
+    const [url] = await externalStorage.bucket(bucketName).file(gcsPath).getSignedUrl({
+        version: 'v4', action: 'read', expires: Date.now() + 60 * 60 * 1000, 
         responseDisposition: `attachment; filename="${fileName.replace(/"/g, '\\"')}"`
       });
     return url;
@@ -59,28 +47,21 @@ async function generateSignedDownloadUrl(jobId: string, fileName: string, type: 
   }
 }
 
-// --- AI CREDIT HELPER ---
 async function checkAndDeductAiCredits(userId: string, costCents: number): Promise<boolean> {
   const user = await storage.getUser(userId);
   if (!user) return false;
-
   let currentCredits = user.aiCredits || 0;
   const lastReset = user.aiCreditsResetDate ? new Date(user.aiCreditsResetDate) : new Date(0);
   const now = new Date();
   const oneDay = 1000 * 60 * 60 * 24;
   const daysSinceReset = (now.getTime() - lastReset.getTime()) / oneDay;
-
   if (daysSinceReset >= 30) {
       const limit = user.aiCreditsLimit || 0;
       currentCredits = limit; 
       if (currentCredits < costCents) return false;
-      await storage.updateUser(userId, { 
-          aiCredits: currentCredits - costCents,
-          aiCreditsResetDate: now
-      });
+      await storage.updateUser(userId, { aiCredits: currentCredits - costCents, aiCreditsResetDate: now });
       return true;
   }
-
   if (currentCredits < costCents) return false;
   await storage.updateUser(userId, { aiCredits: currentCredits - costCents });
   return true;
@@ -90,7 +71,7 @@ async function checkAndDeductAiCredits(userId: string, costCents: number): Promi
 interface EnrichmentConfig {
   type: string;
   tone?: string;
-  targetLanguage?: string;
+  targetLanguage?: string; 
   currencySymbol?: string;
   currencyPlacement?: 'before' | 'after';
   currencySpacing?: boolean;
@@ -117,6 +98,7 @@ function buildDynamicPrompt(config: EnrichmentConfig): string {
     case "features": instructions = "Extract the technical specs and return them as a bulleted list (use • character)."; break;
     case "email": instructions = "Write a short, persuasive sales email blurb introducing this product."; break;
     case "social": instructions = "Write an engaging social media caption with relevant hashtags."; break;
+
     case "translation": 
       instructions = `Translate the provided text strictly into ${targetLanguage || 'English'}. Ensure regional nuances are respected. Keep any HTML like "<br>" exactly as is.`; 
       break;
@@ -140,6 +122,7 @@ function buildDynamicPrompt(config: EnrichmentConfig): string {
     case "custom": instructions = config.customInstructions || "Follow the user's request."; break;
     default: instructions = "Analyze the product data.";
   }
+
   if (tone && !['currency', 'measurements', 'title_case', 'uppercase', 'clean_text'].includes(type)) { 
     instructions += ` Tone: ${tone}.`; 
   }
@@ -166,6 +149,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const auth = getAuth(req);
     if (!auth.userId) return res.status(401).json({ error: "Auth required" });
     const { rows, config, anchorColumn, customFieldName } = req.body;
+
     if (!rows || !Array.isArray(rows) || rows.length === 0) return res.status(400).json({ error: "No data rows provided" });
 
     const cost = rows.length * 100; 
@@ -177,7 +161,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const limitedRows = rows.slice(0, 50); 
 
     try {
-      const prompt = `Task: ${selectedInstructions}\nData: ${JSON.stringify(limitedRows)}\nOutput: JSON Array of strings.`;
+      const prompt = `
+      CRITICAL SYSTEM INSTRUCTION: 
+      You are processing a batch of totally independent data items.
+      1. Treat each item in the "Data" array as a SEPARATE request. 
+      2. Do NOT allow information, context, or descriptions from one row to influence another. 
+      3. Do NOT use any outside knowledge (like real-world facts about a product) unless explicitly asked. Only use the data provided in the specific row object.
+
+      Task: ${selectedInstructions}
+
+      Data: ${JSON.stringify(limitedRows)}
+
+      Output: JSON Array of strings (one string per row, in the exact same order).`;
+
       let result;
       let attempts = 0;
       while (attempts < 3) {
@@ -185,7 +181,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         catch (e: any) { if (e.status===429||e.status===503) { attempts++; await new Promise(r => setTimeout(r, 1000*attempts)); } else throw e; }
       }
       if (!result) throw new Error("AI Generation failed");
+
       const generatedContent = JSON.parse(result.response.text().replace(/```json|```/g, "").trim());
+      const usage = result.response.usageMetadata;
+
+      // --- LOGGING (Includes Token Counts) ---
+      storage.logAiRequest({
+          userId: auth.userId,
+          requestType: "enrich",
+          promptContent: prompt,
+          generatedResponse: JSON.stringify(generatedContent),
+          tokenCost: cost, // Credits
+          promptTokens: usage?.promptTokenCount || 0,
+          completionTokens: usage?.candidatesTokenCount || 0
+      }).catch(err => console.error("Failed to log AI request:", err));
 
       if (anchorColumn && auth.userId) {
           const user = await storage.getUser(auth.userId);
@@ -196,6 +205,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                       if (!keyVal || !content) return null;
                       return { keyName: anchorColumn, productKey: String(keyVal).trim(), fieldType: customFieldName || enrichmentConfig.type, content: String(content) };
                   }).filter((item: any) => item !== null);
+
                   if (knowledgeItems.length > 0) await storage.batchSaveProductKnowledge(auth.userId, knowledgeItems);
               } catch (e) { console.error("Memory save failed", e); }
           }
@@ -204,26 +214,62 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (error) { console.error("Enrichment Error:", error); res.status(500).json({ error: "Failed to generate content" }); }
   });
 
+  // UPDATED: Standardize Route
   app.post("/api/ai/standardize", async (req, res) => {
     const auth = getAuth(req);
     if (!auth.userId) return res.status(401).json({ error: "Unauthorized" });
-    const { values, config, instruction } = req.body;
+    const { values, config, instruction, keys, keyName, fieldName } = req.body;
+
     if (!values?.length) return res.status(400).json({ error: "Invalid data" });
 
+    // Lower cost for standardization
     const allowed = await checkAndDeductAiCredits(auth.userId, values.length * 25);
     if (!allowed) return res.status(403).json({ error: "Insufficient AI Credits" });
 
     try {
       const prompt = `Task: ${config ? buildDynamicPrompt(config) : (instruction || "Standardize")}\nInput: ${JSON.stringify(values.slice(0,1000))}\nOutput: JSON Array of strings.`;
+
       let result, attempts = 0;
       while (attempts < 3) {
         try { result = await aiModel.generateContent(prompt); break; }
         catch (e: any) { if (e.status===429||e.status===503) { attempts++; await new Promise(r => setTimeout(r, 1000*attempts)); } else throw e; }
       }
-      res.json({ standardized: JSON.parse(result.response.text().replace(/```json|```/g, "").trim()) });
+
+      const standardized = JSON.parse(result.response.text().replace(/```json|```/g, "").trim());
+      const usage = result.response.usageMetadata;
+
+      // --- LOGGING (Includes Token Counts) ---
+      storage.logAiRequest({
+          userId: auth.userId,
+          requestType: "standardize",
+          promptContent: prompt,
+          generatedResponse: JSON.stringify(standardized),
+          tokenCost: values.length * 25, // Credits
+          promptTokens: usage?.promptTokenCount || 0,
+          completionTokens: usage?.candidatesTokenCount || 0
+      }).catch(err => console.error("Failed to log AI request:", err));
+
+      // SAVE TO MEMORY LOGIC
+      if (keys && keys.length > 0 && keyName && fieldName) {
+          const user = await storage.getUser(auth.userId);
+          if (user?.plan && (user.plan.includes("scale") || user.plan.includes("business"))) {
+              try {
+                  const knowledgeItems = keys.map((key: string, i: number) => {
+                      const content = standardized[i];
+                      if (!key || !content) return null;
+                      return { keyName: keyName, productKey: String(key).trim(), fieldType: fieldName, content: String(content) };
+                  }).filter((item: any) => item !== null);
+
+                  if (knowledgeItems.length > 0) await storage.batchSaveProductKnowledge(auth.userId, knowledgeItems);
+              } catch (e) { console.error("Memory save failed for standardize", e); }
+          }
+      }
+
+      res.json({ standardized });
     } catch (error) { console.error("Standardize Error:", error); res.status(500).json({ error: "Processing failed" }); }
   });
 
+  // ... (rest of routes match existing file) ...
   app.post("/api/ai/knowledge/check", async (req, res) => {
       const auth = getAuth(req);
       if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
@@ -275,305 +321,124 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch { res.status(500).send("Error"); }
   });
 
-  // --- NEW: PROXY DOWNLOAD ROUTE ---
-  // This generates the signed URL on demand and redirects
   app.get("/api/export/download/:id", async (req, res) => {
     const auth = getAuth(req);
     if (!auth.userId) return res.status(401).send("Authentication required");
-
     try {
         const job = await storage.getExportJob(req.params.id);
         if (!job) return res.status(404).send("Export not found");
-
-        // Security check: Ensure the user owns this export
-        if (job.userId !== auth.userId && !(await checkAdmin(auth.userId))) {
-            return res.status(403).send("Forbidden");
-        }
-
-        if (job.status !== "completed") {
-            return res.status(400).send("Export not ready");
-        }
-
-        const safeName = job.displayFilename || job.fileName || "Export";
-
-        // Generate a fresh signed URL with 5 min expiry (short life needed since we redirect immediately)
-        const signedUrl = await generateSignedDownloadUrl(job.id, safeName, job.type);
-
+        if (job.userId !== auth.userId && !(await checkAdmin(auth.userId))) return res.status(403).send("Forbidden");
+        if (job.status !== "completed") return res.status(400).send("Export not ready");
+        const signedUrl = await generateSignedDownloadUrl(job.id, job.displayFilename || job.fileName || "Export", job.type);
         if (!signedUrl) return res.status(500).send("Could not retrieve file");
-
-        // 302 Redirect to the actual file
         res.redirect(302, signedUrl);
-    } catch (e) {
-        console.error("Download proxy failed", e);
-        res.status(500).send("Server Error");
-    }
+    } catch (e) { res.status(500).send("Server Error"); }
   });
 
-  // 3. Get Export History (UPDATED)
   app.get("/api/export/history", async (req, res) => {
     const auth = getAuth(req);
     if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
-
     try {
       const jobs = await storage.getExportHistory(auth.userId);
-
-      // We no longer await signed URLs here. We just return the proxy path.
-      const history = jobs.map((job) => {
-          const safeName = job.displayFilename || job.fileName || "Export";
-
-          return {
-              id: job.id,
-              status: job.status,
-              type: job.type,
-              createdAt: job.createdAt,
-              projectName: job.projectName, 
-              fileName: safeName, 
-              // FIX: Use the clean proxy URL
-              downloadUrl: job.status === "completed" ? `/api/export/download/${job.id}` : null 
-          };
-      });
-
+      const history = jobs.map((job) => ({
+          id: job.id, status: job.status, type: job.type, createdAt: job.createdAt, projectName: job.projectName, fileName: job.displayFilename || job.fileName || "Export",
+          downloadUrl: job.status === "completed" ? `/api/export/download/${job.id}` : null 
+      }));
       res.json(history);
-
-    } catch (error) {
-      console.error("History fetch failed:", error);
-      res.status(500).json({ error: "Failed to fetch history" });
-    }
+    } catch (error) { res.status(500).json({ error: "Failed to fetch history" }); }
   });
 
-  // --- NEW: ASYNC EXPORT WORKFLOW (CLOUD RUN) ---
-
-  // 1. Check Job Status (UPDATED)
   app.get("/api/jobs/:id", async (req, res) => {
     const auth = getAuth(req);
     if (!auth.userId) return res.status(401).json({ error: "Unauthorized" });
-
     const job = await storage.getExportJob(req.params.id);
     if (!job) return res.status(404).json({ error: "Job not found" });
     if (job.userId !== auth.userId) return res.status(403).json({ error: "Forbidden" });
-
-    const safeName = job.displayFilename || job.fileName || "Export";
-
-    // FIX: Use the clean proxy URL
-    let downloadUrl = null;
-    if (job.status === "completed") {
-        downloadUrl = `/api/export/download/${job.id}`;
-    }
-
-    res.json({ 
-        ...job, 
-        fileName: safeName, 
-        downloadUrl 
-    });
+    res.json({ ...job, fileName: job.displayFilename || job.fileName || "Export", downloadUrl: job.status === "completed" ? `/api/export/download/${job.id}` : null });
   });
 
-  // 2. Trigger Async Single PDF Export (Delegates to Cloud Run)
   app.post("/api/export/async/pdf", async (req, res) => {
     const auth = getAuth(req);
     if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
-
-    // UPDATED: Destructure projectName AND fileName
     const { html, items, width, height, scale, colorModel, type, projectName, fileName } = req.body;
-
-    // Validation: Need EITHER html (single) OR items (catalog)
-    if (!html && (!items || items.length === 0)) {
-        return res.status(400).json({ error: "Missing content (html or items)" });
-    }
-
+    if (!html && (!items || items.length === 0)) return res.status(400).json({ error: "Missing content" });
     try {
       const jobType = type === "pdf_catalog" ? "pdf_catalog" : "pdf_single";
-
-      // FIX: Use provided fileName, or fallback to default if missing
       const finalFileName = fileName || (jobType === "pdf_catalog" ? "catalog.pdf" : "export.pdf");
-
-      const job = await storage.createExportJob({
-        userId: auth.userId,
-        type: jobType,
-        projectName: projectName || "Untitled Project", 
-        fileName: finalFileName,
-        displayFilename: finalFileName // <--- SAVE THE SAFE NAME HERE
-      });
-
-      const workerUrl = process.env.PDF_WORKER_URL;
-      if (!workerUrl) return res.status(500).json({ error: "Server configuration error" });
-
-      const gcsKey = process.env.GCLOUD_KEY_JSON;
-      if (!gcsKey) return res.status(500).json({ error: "Storage configuration error" });
-
-      const externalStorage = new Storage({ credentials: JSON.parse(gcsKey) });
+      const job = await storage.createExportJob({ userId: auth.userId, type: jobType, projectName: projectName || "Untitled Project", fileName: finalFileName, displayFilename: finalFileName });
+      const externalStorage = new Storage({ credentials: JSON.parse(process.env.GCLOUD_KEY_JSON!) });
       const bucketName = "doculoom-exports";
-
       let workerData: any = { width, height, scale, colorModel, type: jobType };
 
-      // --- LOGIC FOR SINGLE PDF (HTML string) ---
       if (html) {
           const inputPath = `inputs/${job.id}.html`;
-          const inputFile = externalStorage.bucket(bucketName).file(inputPath);
-          console.log(`[Job ${job.id}] Uploading HTML to ${inputPath}...`);
-          await inputFile.save(html, { contentType: "text/html", resumable: false });
-          workerData.htmlStoragePath = inputPath; // Worker loads this single file
-      }
-
-      // --- LOGIC FOR CATALOG CHUNKS (Array of HTML strings) ---
-      else if (items && items.length > 0) {
-          // We upload each chunk to a separate file so we don't blow up RAM here either
+          await externalStorage.bucket(bucketName).file(inputPath).save(html, { contentType: "text/html", resumable: false });
+          workerData.htmlStoragePath = inputPath;
+      } else if (items) {
           const uploadedPaths: { htmlStoragePath: string }[] = [];
-
-          console.log(`[Job ${job.id}] Uploading ${items.length} chunks...`);
-
-          // Parallel uploads (limit concurrency if needed, but 10-20 is fine)
           await Promise.all(items.map(async (chunkHtml: string, index: number) => {
                const chunkPath = `inputs/${job.id}_part${index}.html`;
-               const chunkFile = externalStorage.bucket(bucketName).file(chunkPath);
-               await chunkFile.save(chunkHtml, { contentType: "text/html", resumable: false });
-               uploadedPaths[index] = { htmlStoragePath: chunkPath }; // Store path object
+               await externalStorage.bucket(bucketName).file(chunkPath).save(chunkHtml, { contentType: "text/html", resumable: false });
+               uploadedPaths[index] = { htmlStoragePath: chunkPath };
           }));
-
-          workerData.items = uploadedPaths; // Worker receives list of paths
+          workerData.items = uploadedPaths;
       }
 
-      // Trigger Worker
-      console.log(`[Job ${job.id}] Triggering Worker...`);
-      fetch(`${workerUrl}/process-job`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jobId: job.id, data: workerData }),
-          signal: AbortSignal.timeout(900000) 
-      }).catch(err => {
-          console.error("Failed to connect to worker:", err);
-          storage.updateExportJob(job.id, { status: "failed", error: "Worker connection timed out" });
-      });
-
+      fetch(`${process.env.PDF_WORKER_URL}/process-job`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobId: job.id, data: workerData }) })
+          .catch(err => { storage.updateExportJob(job.id, { status: "failed", error: "Worker timed out" }); });
       res.json({ jobId: job.id, status: "pending" });
-
-    } catch (error) {
-      console.error("Export Start Failed:", error);
-      res.status(500).json({ error: "Failed to start export job" });
-    }
+    } catch (error) { res.status(500).json({ error: "Failed to start export job" }); }
   });
 
-  // 3. Trigger Async Bulk Export (Delegates to Cloud Run)
   app.post("/api/export/async/bulk", async (req, res) => {
     const auth = getAuth(req);
     if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
-
-    // UPDATED: Destructure new fields
     const { items, width, height, scale, colorModel, projectName, fileName } = req.body;
     if (!items || !Array.isArray(items)) return res.status(400).json({ error: "Invalid bulk items" });
-
     try {
-      // Use defaults if not provided (fallback)
-      const defaultName = "Bulk_Export_" + new Date().toISOString().slice(0,10);
-      const finalFileName = fileName || `${defaultName}.zip`;
-
-      const job = await storage.createExportJob({
-        userId: auth.userId,
-        type: "pdf_bulk",
-        // FIX: Use provided names
-        fileName: finalFileName, 
-        displayFilename: finalFileName, // <--- SAVE SAFE NAME HERE
-        projectName: projectName || defaultName
-      });
-
-      const workerUrl = process.env.PDF_WORKER_URL;
-      if (!workerUrl) {
-         console.error("❌ Missing PDF_WORKER_URL in Secrets!");
-         return res.status(500).json({ error: "Server configuration error" });
-      }
-
-      fetch(`${workerUrl}/process-job`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-              jobId: job.id,
-              data: { htmlItems: items, width, height, scale, colorModel, type: "pdf_bulk" }
-          })
-      }).catch(err => console.error("Worker trigger failed:", err));
-
+      const finalFileName = fileName || `Bulk_Export_${new Date().toISOString().slice(0,10)}.zip`;
+      const job = await storage.createExportJob({ userId: auth.userId, type: "pdf_bulk", fileName: finalFileName, displayFilename: finalFileName, projectName: projectName || "Bulk Export" });
+      fetch(`${process.env.PDF_WORKER_URL}/process-job`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobId: job.id, data: { htmlItems: items, width, height, scale, colorModel, type: "pdf_bulk" } }) })
+          .catch(err => console.error("Worker trigger failed:", err));
       res.json({ jobId: job.id, status: "pending" });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to start bulk export" });
-    }
+    } catch (error) { res.status(500).json({ error: "Failed to start bulk export" }); }
   });
 
-    // --- NEW: PDF PROXY FOR PREVIEWS ---
-    // This bypasses CORS by streaming the file through your server
-    app.get("/api/export/proxy/:id", async (req, res) => {
-        const auth = getAuth(req);
-        if (!auth.userId) return res.status(401).json({ error: "Unauthorized" });
+  app.get("/api/export/proxy/:id", async (req, res) => {
+      const auth = getAuth(req);
+      if (!auth.userId) return res.status(401).json({ error: "Unauthorized" });
+      try {
+        const job = await storage.getExportJob(req.params.id);
+        if (!job) return res.status(404).json({ error: "Job not found" });
+        if (job.userId !== auth.userId) return res.status(403).json({ error: "Forbidden" });
+        const gcsKey = process.env.GCLOUD_KEY_JSON;
+        if (!gcsKey) return res.status(500).json({ error: "Configuration error" });
+        const storageClient = new Storage({ credentials: JSON.parse(gcsKey) });
+        const bucketName = "doculoom-exports";
+        const ext = job.type === "pdf_bulk" ? "zip" : "pdf";
+        const gcsPath = `exports/${job.id}.${ext}`;
+        const file = storageClient.bucket(bucketName).file(gcsPath);
+        if (!(await file.exists())[0]) return res.status(404).json({ error: "File not found" });
+        res.setHeader('Content-Type', 'application/pdf');
+        file.createReadStream().pipe(res);
+      } catch (error) { res.status(500).json({ error: "Failed to fetch file" }); }
+  });
 
-        try {
-          const job = await storage.getExportJob(req.params.id);
-          if (!job) return res.status(404).json({ error: "Job not found" });
-          if (job.userId !== auth.userId) return res.status(403).json({ error: "Forbidden" });
-
-          const gcsKey = process.env.GCLOUD_KEY_JSON;
-          if (!gcsKey) return res.status(500).json({ error: "Configuration error" });
-
-          const storageClient = new Storage({ credentials: JSON.parse(gcsKey) });
-          const bucketName = "doculoom-exports";
-          const ext = job.type === "pdf_bulk" ? "zip" : "pdf";
-          const gcsPath = `exports/${job.id}.${ext}`;
-
-          const file = storageClient.bucket(bucketName).file(gcsPath);
-          const [exists] = await file.exists();
-
-          if (!exists) {
-            return res.status(404).json({ error: "File not found in storage" });
-          }
-
-          // Pipe the file stream directly to the response
-          res.setHeader('Content-Type', 'application/pdf');
-          file.createReadStream().pipe(res);
-
-        } catch (error) {
-          console.error("Proxy fetch failed:", error);
-          res.status(500).json({ error: "Failed to fetch file" });
-        }
-      });
-    
-  // --- NEW: PROXY PREVIEW ROUTE (Fixes Broken Template Preview) ---
   app.post("/api/export/preview", async (req, res) => {
     const auth = getAuth(req);
     if (!auth.userId) return res.status(401).json({ error: "Unauthorized" });
-
     const { html, width, height } = req.body;
     if (!html) return res.status(400).json({ error: "Missing HTML content" });
-
     const workerUrl = process.env.PDF_WORKER_URL;
-    if (!workerUrl) {
-      console.error("Missing PDF_WORKER_URL");
-      return res.status(500).json({ error: "Configuration error" });
-    }
-
+    if (!workerUrl) return res.status(500).json({ error: "Configuration error" });
     try {
-      // 1. Forward to Worker
-      const response = await fetch(`${workerUrl}/preview`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          html, 
-          width: Number(width) || 1200, 
-          height: Number(height) || 800 
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Worker returned ${response.status}`);
-      }
-
-      // 2. Get Buffer & Return as Base64
+      const response = await fetch(`${workerUrl}/preview`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ html, width: Number(width) || 1200, height: Number(height) || 800 }) });
+      if (!response.ok) throw new Error(`Worker returned ${response.status}`);
       const imageBuffer = await response.arrayBuffer();
-      const base64Image = Buffer.from(imageBuffer).toString('base64');
-      res.json({ image: `data:image/png;base64,${base64Image}` });
-
-    } catch (error) {
-      console.error("Preview Generation Error:", error);
-      res.status(500).json({ error: "Failed to generate preview" });
-    }
+      res.json({ image: `data:image/png;base64,${Buffer.from(imageBuffer).toString('base64')}` });
+    } catch (error) { res.status(500).json({ error: "Failed to generate preview" }); }
   });
 
-  // Standard Routes
   app.post("/api/qrcodes", async (req, res) => {
     try {
       const auth = getAuth(req);
