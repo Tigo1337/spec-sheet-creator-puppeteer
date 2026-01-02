@@ -565,7 +565,27 @@ export function DataTab() {
             <div>
               <h3 className="font-medium text-sm mb-2">Data Fields</h3>
               <div className="flex flex-wrap gap-1.5 mb-4">{excelData.headers.map((header) => (<DraggableHeader key={header} header={header} onStandardize={openStandardize} />))}</div>
-              <div className="bg-muted/30 rounded-lg p-3 space-y-2"><p className="text-xs font-medium">Mark as Image Fields</p>{excelData.headers.map((header) => { const isAuto = header.toLowerCase().includes("image") || header.toLowerCase().includes("url"); return (<div key={header} className="flex items-center gap-2"><Checkbox id={`img-${header}`} checked={imageFieldNames.has(header) || isAuto} onCheckedChange={() => toggleImageField(header)} disabled={isAuto} /><Label htmlFor={`img-${header}`} className="text-xs">{header} {isAuto && "(auto)"}</Label></div>); })}</div>
+              <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+                <p className="text-xs font-medium">Mark as Image Fields</p>
+                {excelData.headers.map((header) => { 
+                  // 1. Header Name Match
+                  const headerMatch = header.toLowerCase().includes("image") || 
+                                      header.toLowerCase().includes("picture") || 
+                                      header.toLowerCase().includes("logo");
+
+                  // 2. Data Content Match
+                  const dataMatch = excelData.rows.find(r => r[header])?.[header]?.toString().toLowerCase().match(/^http.*(\.jpg|\.jpeg|\.png|\.webp|\.gif)$/);
+
+                  const isAuto = headerMatch || !!dataMatch;
+
+                  return (
+                    <div key={header} className="flex items-center gap-2">
+                      <Checkbox id={`img-${header}`} checked={imageFieldNames.has(header) || isAuto} onCheckedChange={() => toggleImageField(header)} disabled={isAuto} />
+                      <Label htmlFor={`img-${header}`} className="text-xs">{header} {isAuto && "(Automatically Detected)"}</Label>
+                    </div>
+                  ); 
+                })}
+              </div>
             </div>
             <Separator />
             <div>

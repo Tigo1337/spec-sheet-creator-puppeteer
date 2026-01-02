@@ -17,7 +17,10 @@ import {
   Sun,
   Moon,
   Crown, 
-  Sparkles 
+  Sparkles,
+  ChevronDown,
+  CheckCircle2,
+  Cloud
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useUser, UserButton } from "@clerk/clerk-react";
@@ -25,8 +28,9 @@ import { QRManagerDialog } from "@/components/dialogs/QRManagerDialog";
 import { useSubscription } from "@/hooks/use-subscription";
 import { UpgradeDialog } from "@/components/dialogs/UpgradeDialog";
 import { KnowledgeManagerDialog } from "@/components/dialogs/KnowledgeManagerDialog";
-// NEW: Import Account Dialog
 import { AccountDialog } from "@/components/dialogs/AccountDialog";
+import { DesignManagerDialog } from "@/components/dialogs/DesignManagerDialog";
+import { format } from "date-fns";
 
 export function Header() {
   const { user } = useUser();
@@ -47,6 +51,8 @@ export function Header() {
     hasUnsavedChanges,
     currentTemplate,
     setRightPanelTab,
+    saveStatus, // NEW
+    lastSavedAt // NEW
   } = useCanvasStore();
 
   useEffect(() => {
@@ -86,15 +92,29 @@ export function Header() {
             className="h-6 sm:hidden"
           />
         </div>
+
         <Separator orientation="vertical" className="h-6 hidden sm:block" />
-        <div className="flex items-center gap-1 min-w-0">
-          <span className="text-sm truncate max-w-40 sm:max-w-60">
-            {currentTemplate?.name || "Untitled Design"}
-          </span>
-          {hasUnsavedChanges && (
-            <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" title="Unsaved changes" />
-          )}
-        </div>
+
+        {/* Design Manager Button */}
+        <DesignManagerDialog>
+          <Button 
+            variant="ghost" 
+            className="flex items-center gap-2 h-auto py-1 px-2 -ml-2 text-left font-normal hover:bg-muted/50 rounded-md group"
+          >
+            <div className="flex flex-col items-start min-w-0">
+               <span className="text-sm font-medium truncate max-w-[140px] sm:max-w-[200px] flex items-center gap-1">
+                  {currentTemplate?.name || "Untitled Design"}
+                  <ChevronDown className="h-3 w-3 opacity-50 group-hover:opacity-100 transition-opacity" />
+               </span>
+               <span className="text-[10px] text-muted-foreground flex items-center gap-1.5">
+                  {saveStatus === 'saving' && <span className="text-blue-500 flex items-center gap-1"><Cloud className="h-3 w-3 animate-pulse" /> Saving...</span>}
+                  {saveStatus === 'saved' && <span className="text-green-600 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Saved {lastSavedAt ? format(lastSavedAt, 'h:mm a') : ''}</span>}
+                  {saveStatus === 'unsaved' && <span className="text-orange-500">Unsaved changes</span>}
+                  {saveStatus === 'error' && <span className="text-red-500">Save failed</span>}
+               </span>
+            </div>
+          </Button>
+        </DesignManagerDialog>
       </div>
 
       {/* Center Section */}
@@ -186,10 +206,8 @@ export function Header() {
           Export
         </Button>
 
-        {/* NEW: Account/Billing Settings Button */}
         <AccountDialog />
 
-        {/* User Profile / Sign Out Button */}
         <div className="ml-2 flex items-center">
           <UserButton afterSignOutUrl="/" />
         </div>

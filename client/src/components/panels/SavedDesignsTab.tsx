@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useUser } from "@clerk/clerk-react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; 
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCanvasStore } from "@/stores/canvas-store";
 import type { SavedDesign, Template } from "@shared/schema";
 import { Button } from "@/components/ui/button";
@@ -32,16 +32,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { 
-  Save, 
-  Pencil, 
-  Trash2, 
-  Loader2, 
-  FileText, 
-  FilePlus, 
-  LayoutTemplate, 
-  BookOpen, 
-  ChevronLeft, 
+import {
+  Save,
+  Pencil,
+  Trash2,
+  Loader2,
+  FileText,
+  FilePlus,
+  LayoutTemplate,
+  BookOpen,
+  ChevronLeft,
   ChevronRight,
   BookTemplate,
   Lock
@@ -54,14 +54,13 @@ import { availableFonts, openSourceFontMap } from "@shared/schema";
 
 // --- PDF.JS IMPORTS ---
 import * as pdfjsLib from 'pdfjs-dist';
-// Set the worker source. Using CDN is the safest way to avoid Vite build issues with the worker file.
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 export function SavedDesignsTab() {
   const { user } = useUser();
   const { toast } = useToast();
   const { isPro } = useSubscription();
-  const queryClient = useQueryClient(); 
+  const queryClient = useQueryClient();
   const isAdmin = user?.publicMetadata?.role === "admin";
 
   // Dialog States
@@ -74,7 +73,7 @@ export function SavedDesignsTab() {
   const [designDescription, setDesignDescription] = useState("");
   const [newTemplateName, setNewTemplateName] = useState("");
   const [newTemplateDesc, setNewTemplateDesc] = useState("");
-  const [newTemplatePreviewUrl, setNewTemplatePreviewUrl] = useState(""); // NEW STATE
+  const [newTemplatePreviewUrl, setNewTemplatePreviewUrl] = useState("");
 
   // Status State
   const [isGeneratingPreviews, setIsGeneratingPreviews] = useState(false);
@@ -95,7 +94,7 @@ export function SavedDesignsTab() {
     clearSelection,
     selectElements,
     hasUnsavedChanges,
-    excelData, 
+    excelData,
     selectedRowIndex,
     // Catalog State & Actions
     setCatalogMode,
@@ -104,7 +103,8 @@ export function SavedDesignsTab() {
     chapterDesigns,
     activeSectionType,
     activeChapterGroup,
-    loadCatalogDesign
+    loadCatalogDesign,
+    loadDesignState // NEW: Destructured to enable auto-save link
   } = useCanvasStore();
 
   // --- QUERIES ---
@@ -136,10 +136,14 @@ export function SavedDesignsTab() {
       if (!response.ok) throw new Error("Failed to save design");
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (savedDesign) => {
       queryClient.invalidateQueries({ queryKey: ["/api/designs"] });
       toast({ title: "Design saved", description: "Your design has been saved successfully." });
       setSaveDialogOpen(false);
+
+      // Update state to active design for auto-save
+      loadDesignState(savedDesign.id, savedDesign.name);
+
       setDesignName("");
       setDesignDescription("");
     },
@@ -181,7 +185,7 @@ export function SavedDesignsTab() {
       setSaveTemplateDialogOpen(false);
       setNewTemplateName("");
       setNewTemplateDesc("");
-      setNewTemplatePreviewUrl(""); // RESET URL
+      setNewTemplatePreviewUrl("");
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to save template.", variant: "destructive" });
@@ -207,11 +211,11 @@ export function SavedDesignsTab() {
     resetCanvas();
 
     if (tier === "catalog") {
-        setCatalogMode(true);
-        toast({ title: "Catalog Mode", description: "Full Catalog designer activated." });
+      setCatalogMode(true);
+      toast({ title: "Catalog Mode", description: "Full Catalog designer activated." });
     } else {
-        setCatalogMode(false);
-        toast({ title: "Basic Mode", description: "Standard Spec Sheet designer activated." });
+      setCatalogMode(false);
+      toast({ title: "Basic Mode", description: "Standard Spec Sheet designer activated." });
     }
 
     setNewDesignDialogOpen(false);
@@ -221,7 +225,7 @@ export function SavedDesignsTab() {
     if (hasUnsavedChanges && !confirm("You have unsaved changes. Load template anyway?")) {
       return;
     }
-    setCatalogMode(false); 
+    setCatalogMode(false);
     loadTemplate(template);
     setNewDesignDialogOpen(false);
     toast({ title: "Template Loaded", description: `Loaded "${template.name}"` });
@@ -233,43 +237,46 @@ export function SavedDesignsTab() {
     }
 
     if (design.type === 'catalog' && design.catalogData) {
-        loadCatalogDesign({
-           sections: design.catalogData.sections,
-           chapterDesigns: design.catalogData.chapterDesigns,
-           canvasWidth: design.canvasWidth,
-           canvasHeight: design.canvasHeight,
-           excelData: design.catalogData.excelData 
-        });
-        toast({ title: "Catalog Loaded", description: `"${design.name}" loaded in Catalog Mode.` });
+      loadCatalogDesign({
+        sections: design.catalogData.sections,
+        chapterDesigns: design.catalogData.chapterDesigns,
+        canvasWidth: design.canvasWidth,
+        canvasHeight: design.canvasHeight,
+        excelData: design.catalogData.excelData
+      });
+      toast({ title: "Catalog Loaded", description: `"${design.name}" loaded in Catalog Mode.` });
     } else {
-        setCatalogMode(false); 
-        loadTemplate({
-          id: design.id,
-          name: design.name,
-          description: design.description,
-          canvasWidth: design.canvasWidth,
-          canvasHeight: design.canvasHeight,
-          pageCount: design.pageCount,
-          backgroundColor: design.backgroundColor,
-          elements: design.elements,
-          createdAt: design.createdAt,
-          updatedAt: design.updatedAt,
-          previewImages: []
-        });
+      setCatalogMode(false);
+      loadTemplate({
+        id: design.id,
+        name: design.name,
+        description: design.description,
+        canvasWidth: design.canvasWidth,
+        canvasHeight: design.canvasHeight,
+        pageCount: design.pageCount,
+        backgroundColor: design.backgroundColor,
+        elements: design.elements,
+        createdAt: design.createdAt,
+        updatedAt: design.updatedAt,
+        previewImages: []
+      });
 
-        if (design.catalogData?.excelData) {
-            useCanvasStore.getState().setExcelData(design.catalogData.excelData);
-        }
+      if (design.catalogData?.excelData) {
+        useCanvasStore.getState().setExcelData(design.catalogData.excelData);
+      }
 
-        const imageFields = new Set(
-          design.elements
-            .filter((el) => el.isImageField && el.dataBinding)
-            .map((el) => el.dataBinding as string)
-        );
-        imageFields.forEach((field) => useCanvasStore.getState().toggleImageField(field));
+      const imageFields = new Set(
+        design.elements
+          .filter((el) => el.isImageField && el.dataBinding)
+          .map((el) => el.dataBinding as string)
+      );
+      imageFields.forEach((field) => useCanvasStore.getState().toggleImageField(field));
 
-        toast({ title: "Design loaded", description: `"${design.name}" has been loaded.` });
+      toast({ title: "Design loaded", description: `"${design.name}" has been loaded.` });
     }
+
+    // CRITICAL FIX: Set the active design ID so Auto-Save works
+    loadDesignState(design.id, design.name);
   };
 
   const handleSaveDesign = () => {
@@ -279,48 +286,50 @@ export function SavedDesignsTab() {
     }
 
     if (isCatalogMode) {
-        const finalSections = { ...catalogSections };
-        const finalChapterDesigns = { ...chapterDesigns };
+      const finalSections = { ...catalogSections };
+      const finalChapterDesigns = { ...chapterDesigns };
 
-        if (activeSectionType === 'chapter' && activeChapterGroup) {
-            finalChapterDesigns[activeChapterGroup] = { elements, backgroundColor };
-        } else {
-            finalSections[activeSectionType] = {
-                ...finalSections[activeSectionType],
-                elements,
-                backgroundColor
-            };
+      if (activeSectionType === 'chapter' && activeChapterGroup) {
+        finalChapterDesigns[activeChapterGroup] = { elements, backgroundColor };
+      } else {
+        finalSections[activeSectionType] = {
+          ...finalSections[activeSectionType],
+          elements,
+          backgroundColor
+        };
+      }
+
+      saveDesignMutation.mutate({
+        name: designName.trim(),
+        description: designDescription.trim() || undefined,
+        type: "catalog",
+        canvasWidth,
+        canvasHeight,
+        pageCount,
+        backgroundColor,
+        elements: [],
+        catalogData: {
+          sections: finalSections,
+          chapterDesigns: finalChapterDesigns,
+          excelData: excelData
         }
-
-        saveDesignMutation.mutate({
-            name: designName.trim(),
-            description: designDescription.trim() || undefined,
-            type: "catalog",
-            canvasWidth,
-            canvasHeight,
-            pageCount,
-            backgroundColor, 
-            elements: [],    
-            catalogData: {
-                sections: finalSections,
-                chapterDesigns: finalChapterDesigns,
-            }
-        });
+      });
     } else {
-        saveDesignMutation.mutate({
-            name: designName.trim(),
-            description: designDescription.trim() || undefined,
-            type: "single",
-            canvasWidth,
-            canvasHeight,
-            pageCount,
-            backgroundColor,
-            elements,
-        });
+      saveDesignMutation.mutate({
+        name: designName.trim(),
+        description: designDescription.trim() || undefined,
+        type: "single",
+        canvasWidth,
+        canvasHeight,
+        pageCount,
+        backgroundColor,
+        elements,
+        catalogData: { excelData: excelData }
+      });
     }
   };
 
-  // --- HTML GENERATOR (Used to build the PDF payload) ---
+  // ... (HTML Generation & Preview Logic remains unchanged) ...
   const generateHTMLForPage = async (pageIndex: number) => {
     const container = document.createElement("div");
     container.style.width = `${canvasWidth}px`;
@@ -347,120 +356,112 @@ export function SavedDesignsTab() {
       elementDiv.style.zIndex = String(element.zIndex ?? 0);
 
       if (element.type === "text" || element.type === "dataField") {
-         const textStyle = element.textStyle || {};
-         // Map font
-         const rawFont = textStyle.fontFamily || "Inter";
-         const mappedFont = openSourceFontMap[rawFont] || rawFont;
-         elementDiv.style.fontFamily = `"${mappedFont}", sans-serif`;
+        const textStyle = element.textStyle || {};
+        // Map font
+        const rawFont = textStyle.fontFamily || "Inter";
+        const mappedFont = openSourceFontMap[rawFont] || rawFont;
+        elementDiv.style.fontFamily = `"${mappedFont}", sans-serif`;
 
-         elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
-         elementDiv.style.fontWeight = String(textStyle.fontWeight || 400);
-         elementDiv.style.color = textStyle.color || "#000000";
-         elementDiv.style.lineHeight = String(textStyle.lineHeight || 1.5);
-         elementDiv.style.letterSpacing = `${textStyle.letterSpacing || 0}px`;
-         elementDiv.style.display = "flex";
-         elementDiv.style.flexDirection = "column";
-         elementDiv.style.padding = "4px";
-         elementDiv.style.wordBreak = "break-word";
-         elementDiv.style.overflow = "visible";
+        elementDiv.style.fontSize = `${textStyle.fontSize || 16}px`;
+        elementDiv.style.fontWeight = String(textStyle.fontWeight || 400);
+        elementDiv.style.color = textStyle.color || "#000000";
+        elementDiv.style.lineHeight = String(textStyle.lineHeight || 1.5);
+        elementDiv.style.letterSpacing = `${textStyle.letterSpacing || 0}px`;
+        elementDiv.style.display = "flex";
+        elementDiv.style.flexDirection = "column";
+        elementDiv.style.padding = "4px";
+        elementDiv.style.wordBreak = "break-word";
+        elementDiv.style.overflow = "visible";
 
-         const hAlign = textStyle.textAlign || "left";
-         elementDiv.style.textAlign = hAlign;
+        const hAlign = textStyle.textAlign || "left";
+        elementDiv.style.textAlign = hAlign;
 
-         const vAlign = textStyle.verticalAlign || "middle";
-         const justifyMap: Record<string, string> = { top: "flex-start", middle: "center", bottom: "flex-end" };
-         elementDiv.style.justifyContent = justifyMap[vAlign];
-         elementDiv.style.alignItems = hAlign === "center" ? "center" : hAlign === "right" ? "flex-end" : "flex-start";
+        const vAlign = textStyle.verticalAlign || "middle";
+        const justifyMap: Record<string, string> = { top: "flex-start", middle: "center", bottom: "flex-end" };
+        elementDiv.style.justifyContent = justifyMap[vAlign];
+        elementDiv.style.alignItems = hAlign === "center" ? "center" : hAlign === "right" ? "flex-end" : "flex-start";
 
-         let content = element.content || "";
-         if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
-             content = excelData.rows[selectedRowIndex][element.dataBinding] || content;
-         }
+        let content = element.content || "";
+        if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
+          content = excelData.rows[selectedRowIndex][element.dataBinding] || content;
+        }
 
-         content = formatContent(content, element.format);
+        content = formatContent(content, element.format);
 
-         if (isHtmlContent(content)) {
-            const styles = `<style> ul, ol { margin: 0; padding-left: 1.2em; } li { position: relative; margin: 0.2em 0; } p { margin: 0.2em 0; } </style>`;
-            elementDiv.innerHTML = styles + content;
-         } else {
-           elementDiv.textContent = content;
-         }
+        if (isHtmlContent(content)) {
+          const styles = `<style> ul, ol { margin: 0; padding-left: 1.2em; } li { position: relative; margin: 0.2em 0; } p { margin: 0.2em 0; } </style>`;
+          elementDiv.innerHTML = styles + content;
+        } else {
+          elementDiv.textContent = content;
+        }
       } else if (element.type === "shape") {
-         const shapeStyle = element.shapeStyle || {};
-         elementDiv.style.opacity = String(shapeStyle.opacity || 1);
+        const shapeStyle = element.shapeStyle || {};
+        elementDiv.style.opacity = String(shapeStyle.opacity || 1);
 
-         if (element.shapeType === "line") {
-            elementDiv.style.display = "flex";
-            elementDiv.style.alignItems = "center";
-            elementDiv.style.justifyContent = "center";
-            const lineStroke = document.createElement("div");
-            lineStroke.style.width = "100%";
-            lineStroke.style.height = `${shapeStyle.strokeWidth || 1}px`;
-            lineStroke.style.backgroundColor = shapeStyle.stroke || "#9ca3af";
-            elementDiv.appendChild(lineStroke);
-         } else {
-            elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
-            elementDiv.style.border = `${shapeStyle.strokeWidth || 1}px solid ${shapeStyle.stroke || "#9ca3af"}`;
-            elementDiv.style.borderRadius = element.shapeType === "circle" ? "50%" : `${shapeStyle.borderRadius || 0}px`;
-         }
+        if (element.shapeType === "line") {
+          elementDiv.style.display = "flex";
+          elementDiv.style.alignItems = "center";
+          elementDiv.style.justifyContent = "center";
+          const lineStroke = document.createElement("div");
+          lineStroke.style.width = "100%";
+          lineStroke.style.height = `${shapeStyle.strokeWidth || 1}px`;
+          lineStroke.style.backgroundColor = shapeStyle.stroke || "#9ca3af";
+          elementDiv.appendChild(lineStroke);
+        } else {
+          elementDiv.style.backgroundColor = shapeStyle.fill || "#e5e7eb";
+          elementDiv.style.border = `${shapeStyle.strokeWidth || 1}px solid ${shapeStyle.stroke || "#9ca3af"}`;
+          elementDiv.style.borderRadius = element.shapeType === "circle" ? "50%" : `${shapeStyle.borderRadius || 0}px`;
+        }
       } else if (element.type === "image") {
-         let imgSrc = element.imageSrc;
-         if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
-             imgSrc = excelData.rows[selectedRowIndex][element.dataBinding];
-         }
-         if (imgSrc) {
-           const img = document.createElement("img");
-           img.src = imgSrc;
-           img.style.width = "100%";
-           img.style.height = "100%";
-           img.style.objectFit = "contain";
-           elementDiv.appendChild(img);
-         }
-      } else if (element.type === "qrcode") { 
-         let content = element.content || "https://doculoom.io";
-         if (element.content && excelData && excelData.rows[selectedRowIndex]) {
-             content = element.content.replace(/{{(.*?)}}/g, (match, p1) => {
-                 const fieldName = p1.trim();
-                 return excelData.rows[selectedRowIndex][fieldName] || match; 
-             });
-         }
-         if (content) {
-             try {
-                 const svgString = await QRCode.toString(content, { type: 'svg', margin: 0 });
-                 elementDiv.innerHTML = svgString;
-                 const svgEl = elementDiv.querySelector("svg");
-                 if (svgEl) { svgEl.style.width = "100%"; svgEl.style.height = "100%"; }
-             } catch (e) { console.error("Error generating QR", e); }
-         }
+        let imgSrc = element.imageSrc;
+        if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
+          imgSrc = excelData.rows[selectedRowIndex][element.dataBinding];
+        }
+        if (imgSrc) {
+          const img = document.createElement("img");
+          img.src = imgSrc;
+          img.style.width = "100%";
+          img.style.height = "100%";
+          img.style.objectFit = "contain";
+          elementDiv.appendChild(img);
+        }
+      } else if (element.type === "qrcode") {
+        let content = element.content || "https://doculoom.io";
+        if (element.content && excelData && excelData.rows[selectedRowIndex]) {
+          content = element.content.replace(/{{(.*?)}}/g, (match, p1) => {
+            const fieldName = p1.trim();
+            return excelData.rows[selectedRowIndex][fieldName] || match;
+          });
+        }
+        if (content) {
+          try {
+            const svgString = await QRCode.toString(content, { type: 'svg', margin: 0 });
+            elementDiv.innerHTML = svgString;
+            const svgEl = elementDiv.querySelector("svg");
+            if (svgEl) { svgEl.style.width = "100%"; svgEl.style.height = "100%"; }
+          } catch (e) { console.error("Error generating QR", e); }
+        }
       } else if (element.type === "table") {
-         // --- FIX: TABLE RENDERING WITH DATA BINDING ---
-         let tableContent = element.content || "";
-
-         // 1. Perform Variable Replacement
-         if (excelData && excelData.rows[selectedRowIndex]) {
-             const row = excelData.rows[selectedRowIndex];
-             tableContent = tableContent.replace(/{{(.*?)}}/g, (match, p1) => {
-                 const fieldName = p1.trim();
-                 return row[fieldName] !== undefined ? row[fieldName] : match; 
-             });
-         }
-
-         elementDiv.innerHTML = tableContent;
-         const table = elementDiv.querySelector('table');
-
-         if (table) {
-             table.style.width = "100%";
-             table.style.borderCollapse = "collapse";
-
-             // 2. Force visible borders/padding so it shows up in PDF
-             // (Puppeteer sometimes collapses empty borders if CSS isn't explicit)
-             const cells = table.querySelectorAll('td, th');
-             cells.forEach((cell) => {
-                 const el = cell as HTMLElement;
-                 if (!el.style.border) el.style.border = "1px solid #000"; 
-                 if (!el.style.padding) el.style.padding = "4px";
-             });
-         }
+        let tableContent = element.content || "";
+        if (excelData && excelData.rows[selectedRowIndex]) {
+          const row = excelData.rows[selectedRowIndex];
+          tableContent = tableContent.replace(/{{(.*?)}}/g, (match, p1) => {
+            const fieldName = p1.trim();
+            return row[fieldName] !== undefined ? row[fieldName] : match;
+          });
+        }
+        elementDiv.innerHTML = tableContent;
+        const table = elementDiv.querySelector('table');
+        if (table) {
+          table.style.width = "100%";
+          table.style.borderCollapse = "collapse";
+          const cells = table.querySelectorAll('td, th');
+          cells.forEach((cell) => {
+            const el = cell as HTMLElement;
+            if (!el.style.border) el.style.border = "1px solid #000";
+            if (!el.style.padding) el.style.padding = "4px";
+          });
+        }
       }
       container.appendChild(elementDiv);
     }
@@ -468,9 +469,9 @@ export function SavedDesignsTab() {
   };
 
   const wrapHtmlWithStyles = (innerHtml: string) => {
-     const fontFamilies = availableFonts.map(font => {
-        const googleFont = openSourceFontMap[font] || font;
-        return `family=${googleFont.replace(/\s+/g, '+')}:wght@400;700`;
+    const fontFamilies = availableFonts.map(font => {
+      const googleFont = openSourceFontMap[font] || font;
+      return `family=${googleFont.replace(/\s+/g, '+')}:wght@400;700`;
     }).join('&');
 
     return `<!DOCTYPE html><html><head>
@@ -497,77 +498,65 @@ export function SavedDesignsTab() {
           clearInterval(interval);
           reject(e);
         }
-      }, 2000); 
+      }, 2000);
     });
   };
 
-  // --- GENERATE PREVIEW USING SERVER-SIDE PDF ---
   const generatePreviewFromPDF = async (): Promise<string[]> => {
     try {
-        setPreviewStatus("Generating PDF...");
+      setPreviewStatus("Generating PDF...");
+      let combinedHtml = "";
+      const pageHtml = await generateHTMLForPage(0);
+      combinedHtml += `<div class="page-container">${pageHtml}</div>`;
+      const fullHtml = wrapHtmlWithStyles(combinedHtml);
 
-        // 1. Build the HTML Payload
-        let combinedHtml = "";
-        const pageHtml = await generateHTMLForPage(0); // Only first page for preview
-        combinedHtml += `<div class="page-container">${pageHtml}</div>`;
-        const fullHtml = wrapHtmlWithStyles(combinedHtml);
+      const res = await fetch("/api/export/async/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          html: fullHtml,
+          width: canvasWidth,
+          height: canvasHeight,
+          scale: 1,
+          colorModel: 'rgb',
+          projectName: "Template Preview",
+          fileName: "preview.pdf"
+        }),
+      });
 
-        // 2. Trigger Worker
-        const res = await fetch("/api/export/async/pdf", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                html: fullHtml,
-                width: canvasWidth,
-                height: canvasHeight,
-                scale: 1, 
-                colorModel: 'rgb',
-                projectName: "Template Preview",
-                fileName: "preview.pdf"
-            }),
-        });
+      if (!res.ok) throw new Error("Failed to start preview job");
+      const { jobId } = await res.json();
 
-        if (!res.ok) throw new Error("Failed to start preview job");
-        const { jobId } = await res.json();
+      setPreviewStatus("Waiting for worker...");
+      await pollJobStatus(jobId);
 
-        // 3. Poll for Completion
-        setPreviewStatus("Waiting for worker...");
-        await pollJobStatus(jobId);
+      setPreviewStatus("Rendering image...");
+      const proxyUrl = `/api/export/proxy/${jobId}`;
+      const pdfData = await fetch(proxyUrl).then(r => {
+        if (!r.ok) throw new Error(`Proxy error: ${r.statusText}`);
+        return r.arrayBuffer();
+      });
 
-        // 4. Load PDF via PROXY and Render Page 1
-        setPreviewStatus("Rendering image...");
+      const loadingTask = pdfjsLib.getDocument({ data: pdfData });
+      const pdf = await loadingTask.promise;
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 0.5 });
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
 
-        const proxyUrl = `/api/export/proxy/${jobId}`;
-        const pdfData = await fetch(proxyUrl).then(r => {
-            if (!r.ok) throw new Error(`Proxy error: ${r.statusText}`);
-            return r.arrayBuffer();
-        });
-
-        // Load into PDF.js
-        const loadingTask = pdfjsLib.getDocument({ data: pdfData });
-        const pdf = await loadingTask.promise;
-        const page = await pdf.getPage(1);
-
-        const viewport = page.getViewport({ scale: 0.5 }); // Thumbnail scale
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-
-        if (context) {
-            await page.render({
-                canvasContext: context,
-                viewport: viewport
-            }).promise;
-
-            return [canvas.toDataURL('image/jpeg', 0.8)];
-        }
-
-        return [];
-
+      if (context) {
+        await page.render({
+          canvasContext: context,
+          viewport: viewport
+        }).promise;
+        return [canvas.toDataURL('image/jpeg', 0.8)];
+      }
+      return [];
     } catch (e) {
-        console.error("PDF Preview Generation Failed", e);
-        throw e;
+      console.error("PDF Preview Generation Failed", e);
+      throw e;
     }
   };
 
@@ -576,26 +565,21 @@ export function SavedDesignsTab() {
       toast({ title: "Name Required", description: "Please name your template", variant: "destructive" });
       return;
     }
-
-    // NEW: PRIORITIZE MANUAL DAM URL
     if (newTemplatePreviewUrl.trim()) {
-        try {
-            const templateData = saveAsTemplate(newTemplateName, newTemplateDesc, [newTemplatePreviewUrl.trim()]);
-            createTemplateMutation.mutate(templateData);
-            return;
-        } catch (error) {
-            toast({ title: "Error", description: "Failed to save template.", variant: "destructive" });
-            return;
-        }
+      try {
+        const templateData = saveAsTemplate(newTemplateName, newTemplateDesc, [newTemplatePreviewUrl.trim()]);
+        createTemplateMutation.mutate(templateData);
+        return;
+      } catch (error) {
+        toast({ title: "Error", description: "Failed to save template.", variant: "destructive" });
+        return;
+      }
     }
-
     setIsGeneratingPreviews(true);
     setPreviewStatus("Starting...");
-
     setTimeout(async () => {
       try {
         const previewImages = await generatePreviewFromPDF();
-
         const templateData = saveAsTemplate(newTemplateName, newTemplateDesc, previewImages);
         createTemplateMutation.mutate(templateData);
       } catch (error) {
@@ -620,18 +604,18 @@ export function SavedDesignsTab() {
     <div className="flex flex-col h-full">
       <div className="p-4 border-b space-y-3">
         <div className="flex gap-2">
-          <Button 
-            className="flex-1" 
-            variant="outline" 
+          <Button
+            className="flex-1"
+            variant="outline"
             onClick={() => setNewDesignDialogOpen(true)}
             data-testid="btn-new-design"
           >
             <FilePlus className="h-4 w-4 mr-2" /> New
           </Button>
           {isAdmin && (
-            <Button 
-              className="flex-1" 
-              variant="outline" 
+            <Button
+              className="flex-1"
+              variant="outline"
               onClick={() => setSaveTemplateDialogOpen(true)}
               data-testid="btn-save-template"
             >
@@ -640,7 +624,6 @@ export function SavedDesignsTab() {
           )}
         </div>
 
-        {/* ... (Dialogs - Keep existing code) ... */}
         {/* NEW DESIGN DIALOG */}
         <Dialog open={newDesignDialogOpen} onOpenChange={setNewDesignDialogOpen}>
           <DialogContent className="max-w-5xl h-[80vh] flex flex-col" style={{ zIndex: 2147483647 }}>
@@ -657,7 +640,7 @@ export function SavedDesignsTab() {
               <TabsContent value="blank" className="flex-1 mt-4 min-h-0">
                 <ScrollArea className="h-full">
                   <div className="grid md:grid-cols-3 gap-6 pb-2 pr-4">
-                    <Card 
+                    <Card
                       className="p-6 cursor-pointer border-2 hover:border-primary/50 transition-all flex flex-col gap-4"
                       onClick={() => handleCreateDesign("basic")}
                     >
@@ -671,10 +654,9 @@ export function SavedDesignsTab() {
                       <Button className="w-full mt-2" variant="outline">Select Basic</Button>
                     </Card>
 
-                    <Card 
-                      className={`p-6 cursor-pointer border-2 transition-all flex flex-col gap-4 ${
-                        !isPro ? "opacity-90 bg-muted/20 border-dashed" : "hover:border-purple-500/50"
-                      }`}
+                    <Card
+                      className={`p-6 cursor-pointer border-2 transition-all flex flex-col gap-4 ${!isPro ? "opacity-90 bg-muted/20 border-dashed" : "hover:border-purple-500/50"
+                        }`}
                       onClick={() => handleCreateDesign("catalog")}
                     >
                       <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600 relative">
@@ -714,10 +696,10 @@ export function SavedDesignsTab() {
                   ) : (
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 pr-4">
                       {templates.map((template) => (
-                        <TemplateCard 
-                          key={template.id} 
-                          template={template} 
-                          onSelect={() => handleLoadTemplate(template)} 
+                        <TemplateCard
+                          key={template.id}
+                          template={template}
+                          onSelect={() => handleLoadTemplate(template)}
                         />
                       ))}
                     </div>
@@ -749,10 +731,10 @@ export function SavedDesignsTab() {
                   Preview Image URL (Optional)
                   <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded uppercase font-bold tracking-tight">DAM</span>
                 </Label>
-                <Input 
-                  value={newTemplatePreviewUrl} 
-                  onChange={(e) => setNewTemplatePreviewUrl(e.target.value)} 
-                  placeholder="https://res.cloudinary.com/..." 
+                <Input
+                  value={newTemplatePreviewUrl}
+                  onChange={(e) => setNewTemplatePreviewUrl(e.target.value)}
+                  placeholder="https://res.cloudinary.com/..."
                 />
                 <p className="text-[10px] text-muted-foreground italic">
                   Paste a Cloudinary or external URL here to skip automated thumbnail generation.
@@ -763,10 +745,10 @@ export function SavedDesignsTab() {
               <Button variant="outline" onClick={() => setSaveTemplateDialogOpen(false)}>Cancel</Button>
               <Button onClick={handleSaveAsTemplate} disabled={createTemplateMutation.isPending || isGeneratingPreviews}>
                 {(createTemplateMutation.isPending || isGeneratingPreviews) && (
-                    <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        {previewStatus || "Saving..."}
-                    </>
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {previewStatus || "Saving..."}
+                  </>
                 )}
                 {!isGeneratingPreviews && !createTemplateMutation.isPending && "Save Template"}
               </Button>
@@ -777,8 +759,8 @@ export function SavedDesignsTab() {
         {/* SAVE DESIGN DIALOG */}
         <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
           <DialogTrigger asChild>
-            <Button 
-              className="w-full" 
+            <Button
+              className="w-full"
               disabled={elements.length === 0 && !isCatalogMode}
               data-testid="button-save-design"
             >
@@ -866,18 +848,18 @@ export function SavedDesignsTab() {
                     <h4 className="font-medium text-sm break-words leading-tight">{design.name}</h4>
 
                     <div className="flex items-center gap-2 mt-1">
-                        {design.type === 'catalog' ? (
-                            <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded flex items-center gap-1">
-                                <BookTemplate className="h-3 w-3" /> Catalog
-                            </span>
-                        ) : (
-                            <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded flex items-center gap-1">
-                                <LayoutTemplate className="h-3 w-3" /> Single
-                            </span>
-                        )}
-                        <span className="text-[10px] text-muted-foreground">
-                            {formatDistanceToNow(new Date(design.updatedAt), { addSuffix: true })}
+                      {design.type === 'catalog' ? (
+                        <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <BookTemplate className="h-3 w-3" /> Catalog
                         </span>
+                      ) : (
+                        <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <LayoutTemplate className="h-3 w-3" /> Single
+                        </span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground">
+                        {formatDistanceToNow(new Date(design.updatedAt), { addSuffix: true })}
+                      </span>
                     </div>
 
                     {design.description && (
@@ -956,15 +938,15 @@ function TemplateCard({ template, onSelect }: { template: Template; onSelect: ()
   };
 
   return (
-    <Card 
+    <Card
       className="p-4 cursor-pointer hover:border-primary/50 transition-all flex flex-col group relative overflow-hidden"
       onClick={onSelect}
     >
       <div className="aspect-[3/4] bg-muted rounded mb-3 flex items-center justify-center overflow-hidden relative border border-border">
         {images.length > 0 ? (
-          <img 
-            src={images[currentIndex]} 
-            alt={`Preview ${currentIndex}`} 
+          <img
+            src={images[currentIndex]}
+            alt={`Preview ${currentIndex}`}
             className="w-full h-full object-contain bg-white"
           />
         ) : (
@@ -973,7 +955,7 @@ function TemplateCard({ template, onSelect }: { template: Template; onSelect: ()
 
         {hasMulti && (
           <div className="absolute bottom-2 left-0 right-0 flex justify-center items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-             <button 
+            <button
               onClick={prevPreview}
               className="bg-black/50 text-white rounded-full p-1 hover:bg-black/70 transition-colors"
             >
@@ -981,10 +963,10 @@ function TemplateCard({ template, onSelect }: { template: Template; onSelect: ()
             </button>
 
             <span className="bg-black/50 text-white text-[10px] px-2 py-0.5 rounded-full">
-               {currentIndex + 1} / {images.length}
+              {currentIndex + 1} / {images.length}
             </span>
 
-            <button 
+            <button
               onClick={nextPreview}
               className="bg-black/50 text-white rounded-full p-1 hover:bg-black/70 transition-colors"
             >

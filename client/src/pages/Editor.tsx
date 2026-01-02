@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Header } from "@/components/layout/Header";
 import { LeftPanel } from "@/components/panels/LeftPanel";
 import { RightPanel } from "@/components/panels/RightPanel";
@@ -19,6 +19,7 @@ import { createDataFieldElement, createImageFieldElement, snapToGrid } from "@/l
 import { detectAlignmentGuides, type ActiveGuides } from "@/lib/alignment-guides";
 import { Database, Sparkles, GripVertical } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useMutation } from "@tanstack/react-query";
 
 export default function Editor() {
   const { 
@@ -34,7 +35,17 @@ export default function Editor() {
     updateElement,
     setActivePage,
     imageFieldNames,
-    aiFieldNames
+    aiFieldNames,
+    // Auto-Save Dependencies
+    currentDesignId,
+    hasUnsavedChanges,
+    backgroundColor,
+    pageCount,
+    catalogSections,
+    chapterDesigns,
+    activeSectionType,
+    activeChapterGroup,
+    setSaveStatus
   } = useCanvasStore();
 
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -51,6 +62,88 @@ export default function Editor() {
       activationConstraint: { distance: 5 },
     })
   );
+
+  // --- AUTO SAVE LOGIC ---
+  const updateDesignMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await fetch(`/api/designs/${currentDesignId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) throw new Error("Auto-save failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      setSaveStatus("saved");
+    },
+    onError: () => {
+      setSaveStatus("error");
+    }
+  });
+
+  useEffect(() => {
+    if (!currentDesignId || !hasUnsavedChanges) return;
+
+    setSaveStatus("saving");
+
+    const timer = setTimeout(() => {
+        let payload: any = {
+            canvasWidth,
+            canvasHeight,
+            pageCount,
+            backgroundColor,
+        };
+
+        if (isCatalogMode) {
+            // Reconstruct catalog structure
+            const finalSections = { ...catalogSections };
+            const finalChapterDesigns = { ...chapterDesigns };
+
+            if (activeSectionType === 'chapter' && activeChapterGroup) {
+                finalChapterDesigns[activeChapterGroup] = { elements, backgroundColor };
+            } else {
+                finalSections[activeSectionType] = {
+                    ...finalSections[activeSectionType],
+                    elements,
+                    backgroundColor
+                };
+            }
+
+            payload.type = "catalog";
+            payload.catalogData = {
+                sections: finalSections,
+                chapterDesigns: finalChapterDesigns,
+                excelData: useCanvasStore.getState().excelData // Include data for reload
+            };
+            payload.elements = []; // Catalog stores elements inside sections
+        } else {
+            payload.type = "single";
+            payload.elements = elements;
+            // Also save excel data for single docs to allow reload
+            payload.catalogData = { excelData: useCanvasStore.getState().excelData };
+        }
+
+        updateDesignMutation.mutate(payload);
+
+    }, 2000); // 2 second debounce
+
+    return () => clearTimeout(timer);
+  }, [
+    elements, 
+    canvasWidth, 
+    canvasHeight, 
+    backgroundColor, 
+    pageCount, 
+    currentDesignId, 
+    hasUnsavedChanges,
+    // Add catalog dependencies to ensure latest state is captured
+    isCatalogMode,
+    activeSectionType,
+    activeChapterGroup,
+    catalogSections,
+    chapterDesigns
+  ]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
