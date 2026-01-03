@@ -35,7 +35,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { isHtmlContent, getImageDimensions, paginateTOC } from "@/lib/canvas-utils";
+import { isHtmlContent, getImageDimensions } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
 import QRCode from "qrcode";
 import { type CanvasElement, availableFonts, openSourceFontMap } from "@shared/schema";
@@ -51,6 +51,28 @@ interface HistoryItem {
   projectName?: string; // Optional field
   downloadUrl: string | null;
 }
+
+// --- NEW HELPER: Extract unique fonts used in elements ---
+const getUsedFontsInElements = (elements: CanvasElement[]) => {
+  const fonts = new Set<string>();
+  elements.forEach(el => {
+    // Standard Text/DataField Style
+    if (el.textStyle?.fontFamily) fonts.add(el.textStyle.fontFamily);
+
+    // Table specific styles
+    if (el.type === 'table' && el.tableSettings) {
+      if (el.tableSettings.headerStyle?.fontFamily) fonts.add(el.tableSettings.headerStyle.fontFamily);
+      if (el.tableSettings.rowStyle?.fontFamily) fonts.add(el.tableSettings.rowStyle.fontFamily);
+    }
+
+    // TOC specific styles
+    if (el.type === 'toc-list' && el.tocSettings) {
+      if (el.tocSettings.titleStyle?.fontFamily) fonts.add(el.tocSettings.titleStyle.fontFamily);
+      if (el.tocSettings.chapterStyle?.fontFamily) fonts.add(el.tocSettings.chapterStyle.fontFamily);
+    }
+  });
+  return Array.from(fonts);
+};
 
 export function ExportTab() {
   const [isExporting, setIsExporting] = useState(false);
@@ -73,7 +95,6 @@ export function ExportTab() {
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const { toast } = useToast();
-  // UPDATED: Destructure isLoading to prevent UI flicker
   const { isPro, isLoading } = useSubscription();
 
   const {
@@ -179,7 +200,8 @@ export function ExportTab() {
     imgSrc: string, 
     maxWidth: number, 
     maxHeight: number, 
-    quality: number
+    quality: number,
+    forceJpeg: boolean = false // Added parameter to handle regression
   ): Promise<string> => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -188,31 +210,28 @@ export function ExportTab() {
         const canvas = document.createElement("canvas");
         let width = img.naturalWidth;
         let height = img.naturalHeight;
-
         const scale = Math.min(1, maxWidth / width, maxHeight / height);
         width = Math.round(width * scale);
         height = Math.round(height * scale);
-
         canvas.width = width;
         canvas.height = height;
-
         const ctx = canvas.getContext("2d");
         if (!ctx) {
           resolve(imgSrc);
           return;
         }
-
         ctx.clearRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
 
-        const isPNG = imgSrc.toLowerCase().includes(".png") || imgSrc.startsWith("data:image/png");
+        // --- CRITICAL FIX: REGRESSION RESOLUTION ---
+        // Lossless PNG re-encoding was causing huge file sizes.
+        // In "Digital" mode, we now force JPEG conversion to enable lossy compression.
+        const isPNG = !forceJpeg && (imgSrc.toLowerCase().includes(".png") || imgSrc.startsWith("data:image/png"));
 
         if (isPNG) {
-           const dataUrl = canvas.toDataURL("image/png");
-           resolve(dataUrl);
+           resolve(canvas.toDataURL("image/png"));
         } else {
-           const dataUrl = canvas.toDataURL("image/jpeg", quality);
-           resolve(dataUrl);
+           resolve(canvas.toDataURL("image/jpeg", quality));
         }
       };
       img.onerror = () => resolve(imgSrc);
@@ -336,7 +355,7 @@ export function ExportTab() {
            const img = document.createElement("img");
            if (exportMode === "digital") {
                try {
-                 const compressedSrc = await compressImage(imgSrc, element.dimension.width * 2, element.dimension.height * 2, 0.75);
+                 const compressedSrc = await compressImage(imgSrc, element.dimension.width * 2, element.dimension.height * 2, 0.75, true);
                  img.src = compressedSrc;
                } catch { img.src = imgSrc; }
            } else {
@@ -689,10 +708,13 @@ export function ExportTab() {
     }
   };
 
-  const wrapHtmlWithStyles = (innerHtml: string, title: string) => {
-     const fontFamilies = availableFonts.map(font => {
-        const googleFont = openSourceFontMap[font] || font;
-        return `family=${googleFont.replace(/\s+/g, '+')}:wght@400;700`;
+  // UPDATED: Accept usedFonts parameter to optimize loading
+  const wrapHtmlWithStyles = (innerHtml: string, title: string, usedFonts: string[] = ["Inter"]) => {
+    const finalFonts = usedFonts.length > 0 ? usedFonts : ["Inter"];
+
+    const fontFamilies = finalFonts.map(font => {
+      const googleFont = openSourceFontMap[font] || font;
+      return `family=${googleFont.replace(/\s+/g, '+')}:wght@400;700`;
     }).join('&');
 
     return `<!DOCTYPE html><html><head><title>${title}</title>
@@ -719,7 +741,11 @@ export function ExportTab() {
       }
 
       const desiredFilename = `${getConstructedFilename(selectedRowIndex)}.pdf`;
-      const fullHtml = wrapHtmlWithStyles(combinedHtml, desiredFilename);
+
+      // OPTIMIZED FONT LOADING
+      const usedFonts = getUsedFontsInElements(currentElements);
+      const fullHtml = wrapHtmlWithStyles(combinedHtml, desiredFilename, usedFonts);
+
       setCurrentAction("Queuing job...");
 
     const res = await fetch("/api/export/async/pdf", {
@@ -772,6 +798,9 @@ export function ExportTab() {
 
       const usedFilenames = new Set<string>();
 
+      // OPTIMIZED FONT LOADING
+      const usedFonts = getUsedFontsInElements(currentElements);
+
       for (let i = 0; i < total; i++) {
         setCurrentAction(`Preparing item ${i + 1}/${total}...`);
         const rowData = excelData.rows[i];
@@ -791,7 +820,11 @@ export function ExportTab() {
           const pageContent = await renderPageHTML(currentElements.filter(el => (el.pageIndex ?? 0) === p), rowData, backgroundColor);
           itemHtml += `<div class="page-container">${pageContent}</div>`;
         }
-        items.push({ html: wrapHtmlWithStyles(itemHtml, uniqueName), filename: uniqueName });
+
+        items.push({ 
+          html: wrapHtmlWithStyles(itemHtml, uniqueName, usedFonts), 
+          filename: uniqueName 
+        });
 
         await new Promise(r => setTimeout(r, 0));
         setProgress(Math.round((i / total) * 30)); 
@@ -909,7 +942,18 @@ export function ExportTab() {
           structure.push({ type: 'back' });
       }
 
-      // 2. CHUNKED RENDERING (Reduced Size for Stability)
+      // 2. Identify all fonts used across ALL sections and custom chapters
+      const allElementsForFonts = [
+        ...catalogSections.cover.elements,
+        ...catalogSections.toc.elements,
+        ...catalogSections.chapter.elements,
+        ...catalogSections.product.elements,
+        ...catalogSections.back.elements,
+        ...Object.values(chapterDesigns).flatMap(d => d.elements)
+      ];
+      const usedFonts = getUsedFontsInElements(allElementsForFonts);
+
+      // 3. CHUNKED RENDERING (Reduced Size for Stability)
       const CHUNK_SIZE = 5; 
       const chunks: string[] = [];
 
@@ -967,7 +1011,7 @@ export function ExportTab() {
           pagesInChunk++;
 
           if (pagesInChunk >= CHUNK_SIZE || i === structure.length - 1) {
-              chunks.push(wrapHtmlWithStyles(currentChunkHtml, `Chunk`));
+              chunks.push(wrapHtmlWithStyles(currentChunkHtml, `Chunk`, usedFonts));
               currentChunkHtml = "";
               pagesInChunk = 0;
           }
