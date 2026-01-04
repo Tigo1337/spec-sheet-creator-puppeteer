@@ -52,13 +52,13 @@ export default function Homepage() {
 
   // --- SCALE TIER CONFIGURATION ---
   const scaleTiers: Record<string, { monthlyId: string; annualId: string }> = {
-    "10000":  { monthlyId: "prod_scale_10k_mo",  annualId: "prod_scale_10k_yr" },
-    "20000":  { monthlyId: "prod_scale_20k_mo",  annualId: "prod_scale_20k_yr" },
-    "30000":  { monthlyId: "prod_scale_30k_mo",  annualId: "prod_scale_30k_yr" },
-    "40000":  { monthlyId: "prod_scale_40k_mo",  annualId: "prod_scale_40k_yr" },
-    "50000":  { monthlyId: "prod_scale_50k_mo",  annualId: "prod_scale_50k_yr" },
-    "75000":  { monthlyId: "prod_scale_75k_mo",  annualId: "prod_scale_75k_yr" },
-    "100000": { monthlyId: "prod_scale_100k_mo", annualId: "prod_scale_100k_yr" },
+    "10000":  { monthlyId: "prod_scale_10k_monthly",  annualId: "prod_scale_10k_annual" },
+    "20000":  { monthlyId: "prod_scale_20k_monthly",  annualId: "prod_scale_20k_annual" },
+    "30000":  { monthlyId: "prod_scale_30k_monthly",  annualId: "prod_scale_30k_annual" },
+    "40000":  { monthlyId: "prod_scale_40k_monthly",  annualId: "prod_scale_40k_annual" },
+    "50000":  { monthlyId: "prod_scale_50k_monthly",  annualId: "prod_scale_50k_annual" },
+    "75000":  { monthlyId: "prod_scale_75k_monthly",  annualId: "prod_scale_75k_annual" },
+    "100000": { monthlyId: "prod_scale_100k_monthly", annualId: "prod_scale_100k_annual" },
   };
 
   const currentScaleTier = scaleTiers[scaleCredits];
@@ -392,21 +392,6 @@ export default function Homepage() {
           </div>
         </section>
 
-        {/* Steps */}
-        <section id="how-it-works" className="py-12 bg-slate-50">
-          <div className="max-w-7xl mx-auto px-4">
-              <div className="text-center mb-16">
-              <h2 className="text-3xl font-bold">From Spreadsheet to Print in 3 Steps</h2>
-            </div>
-            <div className="grid md:grid-cols-3 gap-12 relative">
-              <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-0.5 bg-slate-200 -z-10"></div>
-              <Step number="01" title="Import Data" desc="Upload your data as a CSV or Excel file." accentColor={accentColor} />
-              <Step number="02" title="Design & Map" desc="Drag fields onto the canvas. Add dynamic QR codes." accentColor={accentColor} />
-               <Step number="03" title="Export PDF" desc="Select RGB for web or CMYK for print." accentColor={accentColor} />
-            </div>
-          </div>
-        </section>
-
         {/* Use Cases */}
         <section className="py-0">
           <div className="max-w-7xl mx-auto px-4">
@@ -486,7 +471,7 @@ export default function Homepage() {
                 >
                   Annual 
                   <span className="bg-[#2A9D90]/10 text-[#2A9D90] text-xs px-2 py-0.5 rounded-full font-medium border border-[#2A9D90]/20">
-                    Save ~17%
+                    Get 2 months on us when you pay annually.
                   </span>
                 </Label>
               </div>

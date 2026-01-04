@@ -145,7 +145,6 @@ interface CanvasState {
     chapterDesigns: any, 
     canvasWidth: number, 
     canvasHeight: number,
-    excelData?: ExcelData | null
   }) => void;
 
   setExportSettings: (settings: Partial<ExportSettings>) => void;
@@ -440,7 +439,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   loadCatalogDesign: (data) => {
       history = []; historyIndex = -1;
-      set({ isCatalogMode: true, catalogSections: data.sections, chapterDesigns: data.chapterDesigns, activeSectionType: "cover", activeChapterGroup: null, elements: data.sections.cover.elements, backgroundColor: data.sections.cover.backgroundColor, canvasWidth: data.canvasWidth, canvasHeight: data.canvasHeight, gridSize: calculateGridSize(data.canvasWidth, data.canvasHeight), excelData: data.excelData || null, hasUnsavedChanges: false, pageCount: 1, activePageIndex: 0 });
+      set({ isCatalogMode: true, catalogSections: data.sections, chapterDesigns: data.chapterDesigns, activeSectionType: "cover", activeChapterGroup: null, elements: data.sections.cover.elements, backgroundColor: data.sections.cover.backgroundColor, canvasWidth: data.canvasWidth, canvasHeight: data.canvasHeight, gridSize: calculateGridSize(data.canvasWidth, data.canvasHeight), hasUnsavedChanges: false, pageCount: 1, activePageIndex: 0 });
   },
 
   setExportSettings: (settings) => {

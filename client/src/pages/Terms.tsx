@@ -7,7 +7,7 @@ export default function Terms() {
     <div className="min-h-screen bg-white font-sans">
       <Helmet>
         <title>Terms of Service | Doculoom</title>
-        <meta name="description" content="Terms of Service for Doculoom." />
+        <meta name="description" content="Terms of Service for Doculoom. Rules and guidelines for using our platform." />
       </Helmet>
 
       <PublicHeader />
@@ -19,35 +19,48 @@ export default function Terms() {
 
           <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">1. Acceptance of Terms</h3>
           <p>
-            By accessing or using Doculoom, you agree to be bound by these Terms of Service. If you disagree with any part of the terms, you may not access the service.
+            By accessing Doculoom, you agree to these Terms. If you are using the Service on behalf of an organization, you agree to these Terms for that organization.
           </p>
 
-          <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">2. Subscriptions & Payments</h3>
+          <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">2. Subscriptions, Credits & Usage</h3>
           <ul className="list-disc pl-5 space-y-2">
-            <li><strong>Billing:</strong> You agree to pay all fees associated with your chosen subscription plan. Payments are billed in advance on a recurring basis (monthly or annually).</li>
-            <li><strong>Cancellation:</strong> You may cancel your subscription at any time via your account dashboard. Your access will continue until the end of the current billing cycle.</li>
-            <li><strong>Refunds:</strong> We offer a 14-day money-back guarantee for first-time subscribers who are unsatisfied with the service.</li>
+            <li><strong>Subscription Plans:</strong> Features and limits (such as PDF export volume) vary by plan. We reserve the right to modify plan features at any time.</li>
+            <li><strong>AI Credits:</strong> Certain plans include AI credits for data enrichment. These credits are non-transferable, have no cash value, and reset according to your billing cycle. Unused credits do not roll over.</li>
+            <li><strong>Billing:</strong> Fees are non-refundable except as required by law or specified in our 14-day guarantee. All payments are processed via third-party providers.</li>
           </ul>
 
-          <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">3. User Content</h3>
+          <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">3. User Content & Intellectual Property</h3>
           <p>
-            You retain all rights to the data, files, and content you upload to Doculoom. By uploading content, you grant us a license to process and store it solely for the purpose of providing the service to you.
-            You are responsible for ensuring you have the rights to use any images or data you upload.
+            You retain ownership of all data and images you upload. You grant us a worldwide, non-exclusive license to host, store, and process your content solely to provide the Service, including the maintenance of your "Product Knowledge" database.
+          </p>
+          <p>
+            Doculoom retains all rights to the platform’s code, design templates, and proprietary document generation logic.
           </p>
 
-          <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">4. Acceptable Use</h3>
+          <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">4. Acceptable Use & AI Policy</h3>
+          <p>You agree not to use Doculoom to:</p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>Generate content that violates local or international laws.</li>
+            <li>Attempt to bypass usage limits, scrape the platform, or reverse-engineer AI features.</li>
+            <li>Upload malicious code or content that infringes on third-party intellectual property.</li>
+          </ul>
+
+          <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">5. Disclaimers & Service Limitations</h3>
           <p>
-            You agree not to use the service to generate illegal, offensive, or malicious content. We reserve the right to suspend accounts that violate this policy.
+            <strong>"As Is" Basis:</strong> Doculoom is provided without warranties of any kind. We do not guarantee that document generation will be error-free or that the Service will be uninterrupted.
+          </p>
+          <p>
+            <strong>AI Outputs:</strong> AI-generated content (enrichment, translation, formatting) is provided for convenience. We are not responsible for inaccuracies in AI-generated data; you are responsible for verifying all final document outputs.
           </p>
 
-          <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">5. Limitation of Liability</h3>
+          <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">6. Termination</h3>
           <p>
-            Doculoom is provided "as is" without warranties of any kind. We shall not be liable for any indirect, incidental, special, consequential, or punitive damages resulting from your use of the service.
+            We reserve the right to suspend or terminate your access for non-payment, violation of these Terms, or at our sole discretion to protect the integrity of the Service.
           </p>
 
-          <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">6. Contact</h3>
+          <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">7. Contact</h3>
           <p>
-            Questions about the Terms of Service should be sent to us at: <a href="mailto:support@doculoom.io" className="text-[#2A9D90]">support@doculoom.io</a>
+            Questions should be sent to: <a href="mailto:support@doculoom.io" className="text-[#2A9D90]">support@doculoom.io</a>
           </p>
         </div>
       </main>

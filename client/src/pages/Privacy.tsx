@@ -19,43 +19,57 @@ export default function Privacy() {
 
           <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">1. Introduction</h3>
           <p>
-            Welcome to Doculoom ("we," "our," or "us"). We are committed to protecting your privacy and ensuring the security of your data. 
-            This Privacy Policy explains how we collect, use, and safeguard your information when you use our website and services.
+            Welcome to Doculoom ("we," "our," or "us"). We provide a platform for professional document generation and data enrichment. 
+            This Privacy Policy describes how we handle information across our platform and services.
           </p>
 
           <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">2. Information We Collect</h3>
+          <p>We collect information you provide directly and data generated through your use of the Service:</p>
           <ul className="list-disc pl-5 space-y-2">
-            <li><strong>Account Information:</strong> When you sign up, we collect your email address and name via our authentication provider (Clerk).</li>
-            <li><strong>User Content:</strong> We process the files you upload (Excel/CSV) and the images you add solely for the purpose of generating your documents. We do not use this data for marketing or share it with third parties.</li>
-            <li><strong>Payment Information:</strong> All payments are processed securely by Stripe. We do not store your credit card information on our servers.</li>
+            <li><strong>Account & Profile:</strong> Email address and authentication metadata provided during registration.</li>
+            <li><strong>User Content:</strong> Data files (CSV/Excel), images, and text you upload for document generation.</li>
+            <li><strong>AI Interaction Data:</strong> We log prompts and inputs used to generate content via our AI features to improve service delivery and track usage credits.</li>
+            <li><strong>Usage Metadata:</strong> Information regarding document export history, scan counts for generated QR codes, and system logs.</li>
           </ul>
 
           <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">3. How We Use Your Information</h3>
-          <p>We use your information to:</p>
+          <p>We process your information to:</p>
           <ul className="list-disc pl-5 space-y-2">
-            <li>Provide and maintain the Service (generating PDFs).</li>
-            <li>Process your subscription payments.</li>
-            <li>Notify you about changes to our Service.</li>
-            <li>Provide customer support.</li>
+            <li>Operate and maintain your account and document workspace.</li>
+            <li>Execute PDF generation and bulk export jobs.</li>
+            <li>Provide AI-powered data enrichment and standardization.</li>
+            <li>Process subscription billing and prevent fraudulent transactions.</li>
+            <li>Maintain a "Product Knowledge" base for your account to streamline future document creation.</li>
           </ul>
 
-          <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">4. Data Storage & Security</h3>
+          <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">4. Third-Party Service Providers</h3>
           <p>
-            Your data is stored securely using industry-standard encryption. We use Google Cloud Platform for storage and Replit for hosting. 
-            While we strive to use commercially acceptable means to protect your Personal Data, we cannot guarantee its absolute security.
+            We do not sell your data. We share information with a limited number of service providers who help us operate our business. 
+            These providers are grouped into the following categories:
+          </p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li><strong>Authentication & Identity:</strong> To manage secure user logins.</li>
+            <li><strong>Payment Processing:</strong> To handle secure billing (we do not store your full payment card details).</li>
+            <li><strong>Cloud Infrastructure:</strong> For hosting, database management, and file storage.</li>
+            <li><strong>AI Model Providers:</strong> To process your data enrichment requests.</li>
+          </ul>
+
+          <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">5. Data Retention & Security</h3>
+          <p>
+            We implement industry-standard security measures to protect your data. Your content is stored for as long as your account is active 
+            or as needed to provide you with the Service. You may delete your saved designs or product knowledge entries at any time via the user interface.
           </p>
 
-          <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">5. Third-Party Services</h3>
-          <p>We may share data with the following trusted third-party service providers solely for the operation of our service:</p>
-          <ul className="list-disc pl-5 space-y-2">
-            <li><strong>Stripe:</strong> Payment processing.</li>
-            <li><strong>Clerk:</strong> User authentication.</li>
-            <li><strong>Google Cloud:</strong> Infrastructure and storage.</li>
-          </ul>
-
-          <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">6. Contact Us</h3>
+          <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">6. Your Rights</h3>
           <p>
-            If you have any questions about this Privacy Policy, please contact us at: <a href="mailto:privacy@doculoom.io" className="text-[#2A9D90]">privacy@doculoom.io</a>
+            Depending on your location, you may have the right to access, correct, or delete your personal data. 
+            To exercise these rights, please contact our support team.
+          </p>
+
+          <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">7. Contact Us</h3>
+          <p>
+            If you have any questions about this Privacy Policy, please contact us at: 
+            <a href="mailto:privacy@doculoom.io" className="text-[#2A9D90]"> privacy@doculoom.io</a>
           </p>
         </div>
       </main>

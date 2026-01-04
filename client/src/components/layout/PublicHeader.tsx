@@ -20,7 +20,7 @@ export function PublicHeader() {
         {/* ... rest of your code remains the same ... */}
         <a href="/" className="flex items-center gap-2">
           <img 
-            src="https://res.cloudinary.com/olilepage/image/upload/t_transparent_background/v1765033347/doculoom-io-wordmark-logo-cropped_iwkw3v.png" 
+            src="https://res.cloudinary.com/olilepage/image/upload/t_transparent_background/v1767054291/doculoom/logos/doculoom-io-wordmark-logo-cropped.png" 
             alt="Doculoom" 
             className="h-8"
           />

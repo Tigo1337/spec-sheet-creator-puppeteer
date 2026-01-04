@@ -82,12 +82,12 @@ export function Header() {
       <div className="flex items-center gap-3 min-w-0">
         <div className="flex items-center gap-2">
           <img 
-            src="https://res.cloudinary.com/olilepage/image/upload/t_transparent_background/v1765033347/doculoom-io-wordmark-logo-cropped_iwkw3v.png" 
+            src="https://res.cloudinary.com/olilepage/image/upload/t_transparent_background/v1767054291/doculoom/logos/doculoom-io-wordmark-logo-cropped.png" 
             alt="Doculoom" 
             className="h-8 hidden sm:block"
           />
           <img 
-            src="https://res.cloudinary.com/olilepage/image/upload/t_transparent_background/v1765033347/doculoom-io-wordmark-logo-cropped_iwkw3v.png" 
+            src="https://res.cloudinary.com/olilepage/image/upload/t_transparent_background/v1767054291/doculoom/logos/doculoom-io-wordmark-logo-cropped.png" 
             alt="Doculoom" 
             className="h-6 sm:hidden"
           />

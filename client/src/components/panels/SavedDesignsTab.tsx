@@ -56,6 +56,23 @@ import { availableFonts, openSourceFontMap } from "@shared/schema";
 import * as pdfjsLib from 'pdfjs-dist';
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
+// --- NEW COMPONENT FOR REAL-TIME RELATIVE TIME ---
+function LiveTimestamp({ date }: { date: string | Date }) {
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    // Re-render every 30 seconds to update the "time ago" string
+    const interval = setInterval(() => setTick(t => t + 1), 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <span className="text-[10px] text-muted-foreground">
+      {formatDistanceToNow(new Date(date), { addSuffix: true })}
+    </span>
+  );
+}
+
 export function SavedDesignsTab() {
   const { user } = useUser();
   const { toast } = useToast();
@@ -104,7 +121,7 @@ export function SavedDesignsTab() {
     activeSectionType,
     activeChapterGroup,
     loadCatalogDesign,
-    loadDesignState // NEW: Destructured to enable auto-save link
+    loadDesignState 
   } = useCanvasStore();
 
   // --- QUERIES ---
@@ -141,7 +158,6 @@ export function SavedDesignsTab() {
       toast({ title: "Design saved", description: "Your design has been saved successfully." });
       setSaveDialogOpen(false);
 
-      // Update state to active design for auto-save
       loadDesignState(savedDesign.id, savedDesign.name);
 
       setDesignName("");
@@ -241,8 +257,8 @@ export function SavedDesignsTab() {
         sections: design.catalogData.sections,
         chapterDesigns: design.catalogData.chapterDesigns,
         canvasWidth: design.canvasWidth,
-        canvasHeight: design.canvasHeight,
-        excelData: design.catalogData.excelData
+        canvasHeight: design.canvasHeight
+        // UPDATED: Removed restoring excelData from layout object
       });
       toast({ title: "Catalog Loaded", description: `"${design.name}" loaded in Catalog Mode.` });
     } else {
@@ -261,9 +277,7 @@ export function SavedDesignsTab() {
         previewImages: []
       });
 
-      if (design.catalogData?.excelData) {
-        useCanvasStore.getState().setExcelData(design.catalogData.excelData);
-      }
+      // UPDATED: Do not restore excelData from the saved design
 
       const imageFields = new Set(
         design.elements
@@ -275,7 +289,6 @@ export function SavedDesignsTab() {
       toast({ title: "Design loaded", description: `"${design.name}" has been loaded.` });
     }
 
-    // CRITICAL FIX: Set the active design ID so Auto-Save works
     loadDesignState(design.id, design.name);
   };
 
@@ -311,7 +324,7 @@ export function SavedDesignsTab() {
         catalogData: {
           sections: finalSections,
           chapterDesigns: finalChapterDesigns,
-          excelData: excelData
+          // UPDATED: Removed excelData from save payload
         }
       });
     } else {
@@ -324,12 +337,13 @@ export function SavedDesignsTab() {
         pageCount,
         backgroundColor,
         elements,
-        catalogData: { excelData: excelData }
+        // UPDATED: Removed excelData from save payload
+        catalogData: {} 
       });
     }
   };
 
-  // ... (HTML Generation & Preview Logic remains unchanged) ...
+  // ... (HTML Generation Logic remains unchanged) ...
   const generateHTMLForPage = async (pageIndex: number) => {
     const container = document.createElement("div");
     container.style.width = `${canvasWidth}px`;
@@ -357,7 +371,6 @@ export function SavedDesignsTab() {
 
       if (element.type === "text" || element.type === "dataField") {
         const textStyle = element.textStyle || {};
-        // Map font
         const rawFont = textStyle.fontFamily || "Inter";
         const mappedFont = openSourceFontMap[rawFont] || rawFont;
         elementDiv.style.fontFamily = `"${mappedFont}", sans-serif`;
@@ -725,7 +738,6 @@ export function SavedDesignsTab() {
                 <Label>Description</Label>
                 <Input value={newTemplateDesc} onChange={(e) => setNewTemplateDesc(e.target.value)} placeholder="Description" />
               </div>
-              {/* NEW PREVIEW URL FIELD */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   Preview Image URL (Optional)
@@ -857,9 +869,9 @@ export function SavedDesignsTab() {
                           <LayoutTemplate className="h-3 w-3" /> Single
                         </span>
                       )}
-                      <span className="text-[10px] text-muted-foreground">
-                        {formatDistanceToNow(new Date(design.updatedAt), { addSuffix: true })}
-                      </span>
+
+                      {/* UPDATED: REAL-TIME TIMESTAMP COMPONENT */}
+                      <LiveTimestamp date={design.updatedAt} />
                     </div>
 
                     {design.description && (

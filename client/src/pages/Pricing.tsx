@@ -165,7 +165,7 @@ export default function Pricing() {
               >
                 Annual 
                 <span className="bg-[#2A9D90]/10 text-[#2A9D90] text-xs px-2 py-0.5 rounded-full font-medium border border-[#2A9D90]/20">
-                  Save ~17%
+                  Get 2 months on us when you pay annually.
                 </span>
               </Label>
             </div>
@@ -290,9 +290,9 @@ export default function Pricing() {
 
                   {/* Usage & Limits */}
                   <tr className="bg-slate-50/50"><td colSpan={4} className="py-3 px-6 font-semibold text-xs text-slate-400 uppercase tracking-wider">Usage & Limits</td></tr>
-                  <TableRow feature="PDF Exports / mo" starter="50" pro="Unlimited" scale="Unlimited" />
-                  <TableRow feature="AI Credits / mo" starter="50" pro="1,000" scale="10k - 100k+" tooltip="Credits are used for AI text generation and standardization." />
-                  <TableRow feature="Projects" starter="Unlimited" pro="Unlimited" scale="Unlimited" />
+                  <TableRow feature="PDF Exports / mo" starter="50 Pages" pro="Unlimited" scale="Unlimited" />
+                  <TableRow feature="AI Credits" starter="50" pro="1,000 / mo" scale="10k - 100k+ / mo" tooltip="Credits are used for AI text generation and standardization." />
+                  <TableRow feature="Projects" starter="3" pro="Unlimited" scale="Unlimited" />
 
                   {/* Design & Export */}
                   <tr className="bg-slate-50/50"><td colSpan={4} className="py-3 px-6 font-semibold text-xs text-slate-400 uppercase tracking-wider">Design & Export</td></tr>
@@ -300,7 +300,7 @@ export default function Pricing() {
                   <TableRow feature="Watermark-free" starter={false} pro={true} scale={true} />
                   <TableRow feature="Print Ready (CMYK)" starter={false} pro={true} scale={true} tooltip="Exports converted to CMYK color profile for professional printing." />
                   <TableRow feature="QR Codes" starter="Static" pro="Dynamic" scale="Dynamic" />
-                  <TableRow feature="Custom Font Uploads" starter={false} pro={false} scale={true} />
+                  {/*<TableRow feature="Custom Font Uploads" starter={false} pro={false} scale={true} />*/}
 
                   {/* AI & Automation */}
                   <tr className="bg-slate-50/50"><td colSpan={4} className="py-3 px-6 font-semibold text-xs text-slate-400 uppercase tracking-wider">AI & Automation</td></tr>

@@ -175,8 +175,7 @@ export function DesignManagerDialog({ children }: { children: React.ReactNode })
            sections: design.catalogData.sections,
            chapterDesigns: design.catalogData.chapterDesigns,
            canvasWidth: design.canvasWidth,
-           canvasHeight: design.canvasHeight,
-           excelData: design.catalogData.excelData 
+           canvasHeight: design.canvasHeight
         });
         toast({ title: "Catalog Loaded", description: `"${design.name}" loaded in Catalog Mode.` });
     } else {
