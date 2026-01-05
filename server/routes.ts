@@ -14,6 +14,17 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Storage } from "@google-cloud/storage";
 import { desc, eq } from "drizzle-orm";
 
+// --- ANTI-ABUSE HELPER ---
+function normalizeEmail(email: string): string {
+  const [localPart, domain] = email.toLowerCase().split('@');
+  if (domain === 'gmail.com' || domain === 'googlemail.com') {
+    // Gmail ignores '.' and everything after '+'
+    const cleanLocal = localPart.split('+')[0].replace(/\./g, '');
+    return `${cleanLocal}@${domain}`;
+  }
+  return email.toLowerCase();
+}
+
 // --- HELPER FUNCTIONS ---
 async function checkAdmin(userId: string): Promise<boolean> {
   if (process.env.ADMIN_USER_ID && process.env.ADMIN_USER_ID.trim().length > 0 && userId === process.env.ADMIN_USER_ID) {
@@ -214,7 +225,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (error) { console.error("Enrichment Error:", error); res.status(500).json({ error: "Failed to generate content" }); }
   });
 
-  // UPDATED: Standardize Route
   app.post("/api/ai/standardize", async (req, res) => {
     const auth = getAuth(req);
     if (!auth.userId) return res.status(401).json({ error: "Unauthorized" });
@@ -222,7 +232,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     if (!values?.length) return res.status(400).json({ error: "Invalid data" });
 
-    // Lower cost for standardization
     const allowed = await checkAndDeductAiCredits(auth.userId, values.length * 25);
     if (!allowed) return res.status(403).json({ error: "Insufficient AI Credits" });
 
@@ -238,18 +247,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const standardized = JSON.parse(result.response.text().replace(/```json|```/g, "").trim());
       const usage = result.response.usageMetadata;
 
-      // --- LOGGING (Includes Token Counts) ---
       storage.logAiRequest({
           userId: auth.userId,
           requestType: "standardize",
           promptContent: prompt,
           generatedResponse: JSON.stringify(standardized),
-          tokenCost: values.length * 25, // Credits
+          tokenCost: values.length * 25, 
           promptTokens: usage?.promptTokenCount || 0,
           completionTokens: usage?.candidatesTokenCount || 0
       }).catch(err => console.error("Failed to log AI request:", err));
 
-      // SAVE TO MEMORY LOGIC
       if (keys && keys.length > 0 && keyName && fieldName) {
           const user = await storage.getUser(auth.userId);
           if (user?.plan && (user.plan.includes("scale") || user.plan.includes("business"))) {
@@ -269,7 +276,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (error) { console.error("Standardize Error:", error); res.status(500).json({ error: "Processing failed" }); }
   });
 
-  // ... (rest of routes match existing file) ...
   app.post("/api/ai/knowledge/check", async (req, res) => {
       const auth = getAuth(req);
       if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
@@ -534,15 +540,48 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/plans", async (req, res) => res.json(await stripeService.getActivePrices()));
   app.get("/api/stripe/config", async (req, res) => res.json({ publishableKey: await getStripePublishableKey() }));
 
+  // UPDATED: Sync User with Abuse Check
   app.post("/api/users/sync", async (req, res) => {
     const auth = getAuth(req);
     if (!auth.userId) return res.status(401).json({ error: "Auth required" });
+
+    const { fingerprint } = req.body; 
     let user = await storage.getUser(auth.userId);
+
     if (!user) {
         const clerkUser = await clerkClient.users.getUser(auth.userId);
         const email = clerkUser.emailAddresses[0]?.emailAddress;
         if (!email) return res.status(400).json({ error: "No email" });
-        user = await storage.createUser({ id: auth.userId, email, plan: "free", planStatus: "active" });
+
+        const normalized = normalizeEmail(email);
+
+        // WHITELIST: Allow your own accounts to bypass trial abuse checks
+        const isWhitelisted = email.includes("tigolivier1337");
+        let initialCredits = 5000;
+
+        if (!isWhitelisted) {
+            // 1. Check if normalized email already exists
+            const existingNormalized = await storage.getUserByNormalizedEmail(normalized);
+            // 2. Check if device fingerprint already exists
+            const existingFingerprint = fingerprint ? await storage.getUserByFingerprint(fingerprint) : null;
+            // 3. Check Stripe for existing customer with same email
+            const stripeCustomer = await stripeService.findCustomerByEmail(email);
+
+            if (existingNormalized || existingFingerprint || stripeCustomer) {
+                console.warn(`Potential trial abuse detected for ${email}. Setting 0 initial credits.`);
+                initialCredits = 0; 
+            }
+        }
+
+        user = await storage.createUser({ 
+            id: auth.userId, 
+            email, 
+            normalizedEmail: normalized,
+            deviceFingerprint: fingerprint || null,
+            plan: "free", 
+            planStatus: "active",
+            aiCredits: initialCredits 
+        });
     }
     res.json(user);
   });

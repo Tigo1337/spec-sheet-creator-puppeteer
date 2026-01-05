@@ -363,6 +363,11 @@ export const templatesTable = pgTable("templates", {
 export const usersTable = pgTable("users", {
   id: varchar("id", { length: 255 }).primaryKey(),
   email: varchar("email", { length: 255 }).notNull(),
+
+  // Anti-Abuse Fields
+  normalizedEmail: varchar("normalized_email", { length: 255 }), 
+  deviceFingerprint: varchar("device_fingerprint", { length: 255 }),
+
   stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
   stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
 
@@ -388,6 +393,8 @@ export type InsertDbUser = typeof usersTable.$inferInsert;
 export const dbUserSchema = z.object({
   id: z.string(),
   email: z.string().email(),
+  normalizedEmail: z.string().nullable(),
+  deviceFingerprint: z.string().nullable(),
   stripeCustomerId: z.string().nullable(),
   stripeSubscriptionId: z.string().nullable(),
   plan: z.string().default("free"), 

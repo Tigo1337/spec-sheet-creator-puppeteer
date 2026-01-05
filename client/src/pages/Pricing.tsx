@@ -296,7 +296,6 @@ export default function Pricing() {
 
                   {/* Design & Export */}
                   <tr className="bg-slate-50/50"><td colSpan={4} className="py-3 px-6 font-semibold text-xs text-slate-400 uppercase tracking-wider">Design & Export</td></tr>
-                  <TableRow feature="Spreadsheet Import" starter={true} pro={true} scale={true} />
                   <TableRow feature="Watermark-free" starter={false} pro={true} scale={true} />
                   <TableRow feature="Print Ready (CMYK)" starter={false} pro={true} scale={true} tooltip="Exports converted to CMYK color profile for professional printing." />
                   <TableRow feature="QR Codes" starter="Static" pro="Dynamic" scale="Dynamic" />

@@ -9,6 +9,16 @@ export class StripeService {
     });
   }
 
+  // NEW: Search for existing customers by email
+  async findCustomerByEmail(email: string) {
+    const stripe = await getUncachableStripeClient();
+    const customers = await stripe.customers.list({
+      email: email,
+      limit: 1,
+    });
+    return customers.data[0];
+  }
+
   async createCheckoutSession(
     customerId: string, 
     priceId: string, 
@@ -43,7 +53,6 @@ export class StripeService {
     });
   }
 
-  // --- NEW METHOD ---
   async getActivePrices() {
     const stripe = await getUncachableStripeClient();
     const prices = await stripe.prices.list({
@@ -52,7 +61,6 @@ export class StripeService {
       expand: ['data.product'] 
     });
 
-    // Filter to only include prices that have our specific metadata from the seed script
     return prices.data.filter(p => p.metadata?.planId || (p.product as any)?.metadata?.planId);
   }
 }

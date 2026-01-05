@@ -19,6 +19,8 @@ export interface IStorage {
   deleteDesign(id: string, userId: string): Promise<boolean>;
   getUser(id: string): Promise<DbUser | undefined>;
   getUserByEmail(email: string): Promise<DbUser | undefined>;
+  getUserByNormalizedEmail(normalizedEmail: string): Promise<DbUser | undefined>; // Added
+  getUserByFingerprint(fingerprint: string): Promise<DbUser | undefined>; // Added
   getUserByStripeCustomerId(stripeCustomerId: string): Promise<DbUser | undefined>;
   createUser(user: InsertDbUser): Promise<DbUser>;
   updateUser(id: string, updates: Partial<InsertDbUser>): Promise<DbUser | undefined>;
@@ -160,6 +162,8 @@ export class DatabaseStorage implements IStorage {
     return {
       id: row.id,
       email: row.email,
+      normalizedEmail: row.normalizedEmail,
+      deviceFingerprint: row.deviceFingerprint,
       stripeCustomerId: row.stripeCustomerId,
       stripeSubscriptionId: row.stripeSubscriptionId,
       plan: row.plan,
@@ -184,6 +188,16 @@ export class DatabaseStorage implements IStorage {
     return rows[0] ? this.toDbUser(rows[0]) : undefined;
   }
 
+  async getUserByNormalizedEmail(normalizedEmail: string): Promise<DbUser | undefined> {
+    const rows = await this.db.select().from(usersTable).where(eq(usersTable.normalizedEmail, normalizedEmail)).limit(1);
+    return rows[0] ? this.toDbUser(rows[0]) : undefined;
+  }
+
+  async getUserByFingerprint(fingerprint: string): Promise<DbUser | undefined> {
+    const rows = await this.db.select().from(usersTable).where(eq(usersTable.deviceFingerprint, fingerprint)).limit(1);
+    return rows[0] ? this.toDbUser(rows[0]) : undefined;
+  }
+
   async getUserByStripeCustomerId(stripeCustomerId: string): Promise<DbUser | undefined> {
     const rows = await this.db.select().from(usersTable).where(eq(usersTable.stripeCustomerId, stripeCustomerId)).limit(1);
     return rows[0] ? this.toDbUser(rows[0]) : undefined;
@@ -195,7 +209,7 @@ export class DatabaseStorage implements IStorage {
       ...user, 
       pdfUsageCount: 0,
       pdfUsageResetDate: now,
-      aiCredits: 0,
+      aiCredits: user.aiCredits ?? 0,
       createdAt: now, 
       updatedAt: now 
     }).returning();
@@ -264,7 +278,6 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  // --- UPDATED PRODUCT KNOWLEDGE SAVE WITH OVERWRITE LOGIC ---
   async batchSaveProductKnowledge(userId: string, items: InsertProductKnowledge[]): Promise<void> {
     if (items.length === 0) return;
     const validItems = items.filter(i => i.content && i.content.trim().length > 0).map(item => ({
@@ -276,7 +289,6 @@ export class DatabaseStorage implements IStorage {
     }));
 
     if (validItems.length > 0) { 
-        // Use onConflictDoUpdate to overwrite content if User/SKU/Field combination already exists
         await this.db.insert(productKnowledgeTable)
             .values(validItems)
             .onConflictDoUpdate({
@@ -337,7 +349,6 @@ export class DatabaseStorage implements IStorage {
       .limit(20);
   }
 
-  // --- NEW: AI LOGGING ---
   async logAiRequest(log: InsertAiLog): Promise<void> {
     await this.db.insert(aiLogsTable).values({
         id: randomUUID(),
@@ -375,8 +386,10 @@ export class MemStorage implements IStorage {
 
   async getUser(id: string) { return this.users.get(id); }
   async getUserByEmail(email: string) { return Array.from(this.users.values()).find(u => u.email === email); }
+  async getUserByNormalizedEmail(normalizedEmail: string) { return Array.from(this.users.values()).find(u => u.normalizedEmail === normalizedEmail); }
+  async getUserByFingerprint(fingerprint: string) { return Array.from(this.users.values()).find(u => u.deviceFingerprint === fingerprint); }
   async getUserByStripeCustomerId(cid: string) { return Array.from(this.users.values()).find(u => u.stripeCustomerId === cid); }
-  async createUser(u: InsertDbUser) { const now = new Date().toISOString(); const dbUser = { ...u, stripeCustomerId: u.stripeCustomerId||null, stripeSubscriptionId: u.stripeSubscriptionId||null, plan: u.plan||'free', planStatus: u.planStatus||'active', pdfUsageCount: 0, pdfUsageResetDate: new Date(), aiCredits: 0, aiCreditsLimit: 5000, aiCreditsResetDate: new Date(), createdAt: now, updatedAt: now }; this.users.set(u.id, dbUser); return dbUser; }
+  async createUser(u: InsertDbUser) { const now = new Date().toISOString(); const dbUser = { ...u, normalizedEmail: u.normalizedEmail||null, deviceFingerprint: u.deviceFingerprint||null, stripeCustomerId: u.stripeCustomerId||null, stripeSubscriptionId: u.stripeSubscriptionId||null, plan: u.plan||'free', planStatus: u.planStatus||'active', pdfUsageCount: 0, pdfUsageResetDate: new Date(), aiCredits: u.aiCredits ?? 0, aiCreditsLimit: 5000, aiCreditsResetDate: new Date(), createdAt: now, updatedAt: now }; this.users.set(u.id, dbUser); return dbUser; }
   async updateUser(id: string, u: Partial<InsertDbUser>) { const e = this.users.get(id); if(!e) return undefined; const n = { ...e, ...u, updatedAt: new Date().toISOString() }; this.users.set(id, n); return n; }
   async updateUserStripeInfo(uid: string, info: any) { return this.updateUser(uid, info); }
 
@@ -458,7 +471,6 @@ export class MemStorage implements IStorage {
       .slice(0, 20);
   }
 
-  // --- LOGGING ---
   async logAiRequest(log: InsertAiLog) {
     console.log("[AI Log Saved]:", log.requestType);
   }
