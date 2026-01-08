@@ -1013,7 +1013,7 @@ export function PropertiesTab() {
                   </div>
 
                   <div className="space-y-2 p-3 bg-muted/20 rounded border">
-                      <Label className="text-xs font-semibold">Borders & Spacing</Label>
+                      <Label className="text-xs font-semibold">Borders</Label>
                       <div className="grid grid-cols-2 gap-2 items-center">
                           <div>
                               <Label className="text-[10px] text-muted-foreground">Color</Label>
@@ -1022,10 +1022,6 @@ export function PropertiesTab() {
                           <div>
                               <Label className="text-[10px] text-muted-foreground">Width</Label>
                               <Input type="number" className="h-6 text-xs" value={selectedElement.tableSettings.borderWidth} onChange={(e) => updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, borderWidth: Number(e.target.value) } })} />
-                          </div>
-                          <div className="col-span-2">
-                              <Label className="text-[10px] text-muted-foreground">Cell Padding</Label>
-                              <Input type="number" className="h-6 text-xs" value={selectedElement.tableSettings.cellPadding} onChange={(e) => updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, cellPadding: Number(e.target.value) } })} />
                           </div>
                       </div>
                   </div>

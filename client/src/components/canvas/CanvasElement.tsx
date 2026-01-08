@@ -523,67 +523,55 @@ export function CanvasElement({
             }
         };
 
+        const minWidthPx = (tableSettings.minColumnWidth || 50) * zoom;
+
         return (
           <div className="w-full h-full overflow-hidden flex flex-col bg-white" style={{
               borderColor: tableSettings.borderColor,
               borderWidth: tableSettings.borderWidth * zoom,
               borderStyle: "solid"
           }}>
-            {/* Table Header */}
-            <div className="flex w-full" style={{ backgroundColor: tableSettings.headerBackgroundColor }}>
-                {tableSettings.columns.map((col: any, idx) => {
-                    // NEW: Prioritize column-specific alignment, fallback to header row style
-                    const alignment = col.align || tableSettings.headerStyle?.textAlign || 'left';
-                    return (
-                          <div key={col.id} className="p-1 px-2 border-r last:border-r-0 flex items-center overflow-hidden" style={{
-                            width: columnWidths[col.id],
-                            justifyContent: getJustifyContent(col.headerAlign || tableSettings.headerStyle?.textAlign), 
-                            textAlign: (col.headerAlign || tableSettings.headerStyle?.textAlign || 'left') as any,
-                            borderColor: tableSettings.borderColor,
-                            borderRightWidth: tableSettings.borderWidth * zoom,
-                            borderStyle: "solid",
-                            fontFamily: tableSettings.headerStyle?.fontFamily || "Inter",
-                            fontSize: (tableSettings.headerStyle?.fontSize || 14) * zoom,
-                            fontWeight: tableSettings.headerStyle?.fontWeight || 700,
-                            color: tableSettings.headerStyle?.color,
-                            minHeight: 30 * zoom 
-                        }}>
-                            {col.header}
-                        </div>
-                    );
-                })}
+            {/* 1. Header Row - No flex-1 (Natural height) */}
+            <div className="flex w-full shrink-0" style={{ backgroundColor: tableSettings.headerBackgroundColor }}>
+                {tableSettings.columns.map((col: any, idx) => (
+                    <div key={col.id} className="flex items-center overflow-hidden" style={{
+                        width: columnWidths[col.id],
+                        justifyContent: getJustifyContent(col.headerAlign || tableSettings.headerStyle?.textAlign), 
+                        borderRightWidth: idx === tableSettings.columns.length - 1 ? 0 : tableSettings.borderWidth * zoom,
+                        borderStyle: "solid",
+                        borderColor: tableSettings.borderColor,
+                        fontFamily: tableSettings.headerStyle?.fontFamily || "Inter",
+                        fontSize: (tableSettings.headerStyle?.fontSize || 14) * zoom,
+                        padding: `2px ${4 * zoom}px`, // Fixed minimal padding for legibility
+                    }}>
+                        {col.header}
+                    </div>
+                ))}
             </div>
 
-            {/* Table Body - Scalable Rows */}
+            {/* 2. Body Rows - These still use flex-1 to fill the remaining table height */}
             <div className="flex-1 flex flex-col w-full overflow-hidden">
                 {displayRows.map((row, rIdx) => (
-                    <div key={rIdx} className="flex w-full border-t flex-1" style={{  // flex-1 forces equal scaling
+                    <div key={rIdx} className="flex w-full border-t flex-1" style={{
                         backgroundColor: (tableSettings.alternateRowColor && rIdx % 2 === 1) ? tableSettings.alternateRowColor : tableSettings.rowBackgroundColor,
                         borderColor: tableSettings.borderColor,
                         borderTopWidth: tableSettings.borderWidth * zoom,
                         borderStyle: "solid"
                     }}>
-                        {tableSettings.columns.map((col: any, cIdx) => {
-                            // NEW: Prioritize column-specific alignment, fallback to default body row style
-                            const alignment = col.align || tableSettings.rowStyle?.textAlign || 'left';
-                            return (
-                                  <div key={col.id} className="p-1 px-2 border-r last:border-r-0 overflow-hidden flex items-center" style={{
-                                    width: columnWidths[col.id],
-                                    justifyContent: getJustifyContent(col.rowAlign || tableSettings.rowStyle?.textAlign), 
-                                    textAlign: (col.rowAlign || tableSettings.rowStyle?.textAlign || 'left') as any,
-                                    borderColor: tableSettings.borderColor,
-                                    borderRightWidth: tableSettings.borderWidth * zoom,
-                                    borderStyle: "solid",
-                                    fontFamily: tableSettings.rowStyle?.fontFamily || "Inter",
-                                    fontSize: (tableSettings.rowStyle?.fontSize || 12) * zoom,
-                                    fontWeight: tableSettings.rowStyle?.fontWeight || 400,
-                                    color: tableSettings.rowStyle?.color,
-                                    padding: (tableSettings.cellPadding || 8) * zoom
-                                }}>
-                                    <span className="truncate w-full">{row[col.dataField || ""] || "-"}</span>
-                                </div>
-                            );
-                        })}
+                        {tableSettings.columns.map((col: any, cIdx) => (
+                            <div key={col.id} className="overflow-hidden flex items-center" style={{
+                                width: columnWidths[col.id],
+                                justifyContent: getJustifyContent(col.rowAlign || tableSettings.rowStyle?.textAlign), 
+                                borderRightWidth: cIdx === tableSettings.columns.length - 1 ? 0 : tableSettings.borderWidth * zoom,
+                                borderStyle: "solid",
+                                borderColor: tableSettings.borderColor,
+                                fontFamily: tableSettings.rowStyle?.fontFamily || "Inter",
+                                fontSize: (tableSettings.rowStyle?.fontSize || 12) * zoom,
+                                padding: `0 ${4 * zoom}px`, // Fixed minimal padding
+                            }}>
+                                <span className="truncate w-full">{row[col.dataField || ""] || "-"}</span>
+                            </div>
+                        ))}
                     </div>
                 ))}
             </div>

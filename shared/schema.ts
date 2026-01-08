@@ -74,7 +74,10 @@ export type TableColumn = z.infer<typeof tableColumnSchema>;
 export const tableSettingsSchema = z.object({
   columns: z.array(tableColumnSchema).default([]),
   groupByField: z.string().optional(),
-  autoFitColumns: z.boolean().default(false), 
+  autoFitColumns: z.boolean().default(false),
+  minColumnWidth: z.number().default(50), // Prevent columns from disappearing
+  equalRowHeights: z.boolean().default(true), // Toggle for the "Perfect World" heights
+  minRowHeight: z.number().default(24), // Minimum height for a single row to remain readable
 
   // Styles
   headerStyle: textStyleSchema.default({

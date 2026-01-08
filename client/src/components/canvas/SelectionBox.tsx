@@ -52,9 +52,7 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
   useEffect(() => {
     if (!isResizing || !activeHandle) return;
 
-    // UPDATED: Treat QR codes like images for resizing (Fixed Aspect Ratio)
     const isFixedRatio = element.type === "image" || element.type === "qrcode";
-
     const isCornerHandle = activeHandle === "nw" || activeHandle === "ne" || activeHandle === "se" || activeHandle === "sw";
 
     const handleMouseMove = (e: MouseEvent) => {
@@ -66,10 +64,49 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
       let newX = startPosition.x;
       let newY = startPosition.y;
 
+      // --- NEW DYNAMIC HEIGHT CALCULATION (NO PADDING) ---
+      let minHeight = 20;
+
+      if (element.type === "table" && element.tableSettings) {
+        const { excelData, selectedRowIndex } = useCanvasStore.getState();
+        const settings = element.tableSettings;
+
+        // Exactly match the row counting logic from CanvasElement.tsx
+        let dataRowCount = 3; 
+        if (excelData && excelData.rows.length > 0) {
+          if (settings.groupByField) {
+            const currentRow = excelData.rows[selectedRowIndex];
+            const groupValue = currentRow[settings.groupByField];
+            dataRowCount = groupValue 
+              ? excelData.rows.filter(r => r[settings.groupByField!] === groupValue).length 
+              : 1;
+          } else {
+            dataRowCount = Math.min(excelData.rows.length, 5); 
+          }
+        }
+
+        const borderWidth = settings.borderWidth || 1;
+
+        // Calculate minimal text heights based on specific styles
+        const hFS = settings.headerStyle?.fontSize || 14;
+        const hLH = settings.headerStyle?.lineHeight || 1.2;
+        const headerTextHeight = hFS * hLH;
+
+        const rFS = settings.rowStyle?.fontSize || 12;
+        const rLH = settings.rowStyle?.lineHeight || 1.2;
+        const rowTextHeight = rFS * rLH;
+
+        // Total floor = Header Height + (Rows * Row Height) + Borders
+        // Added a 6px safety margin per row to prevent clipping of font descenders (like 'g' or 'y')
+        const safetyMargin = 6;
+        minHeight = (headerTextHeight + safetyMargin) + 
+                    (dataRowCount * (rowTextHeight + safetyMargin)) + 
+                    ((2 + dataRowCount) * borderWidth);
+      }
+
       if (isFixedRatio) {
         if (isCornerHandle) {
           const ratio = startDimension.width / startDimension.height;
-
           if (activeHandle === "se") {
             newWidth = Math.max(20, startDimension.width + deltaX);
             newHeight = newWidth / ratio;
@@ -81,15 +118,13 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
           } else if (activeHandle === "ne") {
             newWidth = Math.max(20, startDimension.width + deltaX);
             newHeight = newWidth / ratio;
-            const heightChange = startDimension.height - newHeight;
-            newY = startPosition.y + heightChange;
+            newY = startPosition.y + (startDimension.height - newHeight);
           } else if (activeHandle === "nw") {
             const widthChange = Math.min(deltaX, startDimension.width - 20);
             newWidth = startDimension.width - widthChange;
             newHeight = newWidth / ratio;
             newX = startPosition.x + widthChange;
-            const heightChange = startDimension.height - newHeight;
-            newY = startPosition.y + heightChange;
+            newY = startPosition.y + (startDimension.height - newHeight);
           }
         }
       } else {
@@ -102,10 +137,10 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
           newX = startPosition.x + widthChange;
         }
         if (activeHandle.includes("s")) {
-          newHeight = Math.max(20, startDimension.height + deltaY);
+          newHeight = Math.max(minHeight, startDimension.height + deltaY);
         }
         if (activeHandle.includes("n")) {
-          const heightChange = Math.min(deltaY, startDimension.height - 20);
+          const heightChange = Math.min(deltaY, startDimension.height - minHeight);
           newHeight = startDimension.height - heightChange;
           newY = startPosition.y + heightChange;
         }
@@ -143,7 +178,7 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isResizing, activeHandle, startPos, startDimension, startPosition, zoom, elementId, resizeElement, moveElement, shouldSnap, element.type]);
+  }, [isResizing, activeHandle, startPos, startDimension, startPosition, zoom, elementId, resizeElement, moveElement, shouldSnap, element]);
 
   const { position, dimension } = element;
   const left = position.x * zoom;
@@ -151,48 +186,21 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
   const width = dimension.width * zoom;
   const height = dimension.height * zoom;
 
-  // UPDATED: Check for fixed ratio here as well to hide edge handles
   const isFixedRatio = element.type === "image" || element.type === "qrcode";
 
   return (
     <div data-html2canvas-ignore="true">
-      {/* Corner handles - always shown */}
-      <div
-        style={{ ...handleStyle, left: left - 4, top: top - 4, cursor: "nw-resize" }}
-        onMouseDown={handleMouseDown("nw")}
-      />
-      <div
-        style={{ ...handleStyle, left: left + width - 4, top: top - 4, cursor: "ne-resize" }}
-        onMouseDown={handleMouseDown("ne")}
-      />
-      <div
-        style={{ ...handleStyle, left: left + width - 4, top: top + height - 4, cursor: "se-resize" }}
-        onMouseDown={handleMouseDown("se")}
-      />
-      <div
-        style={{ ...handleStyle, left: left - 4, top: top + height - 4, cursor: "sw-resize" }}
-        onMouseDown={handleMouseDown("sw")}
-      />
+      <div style={{ ...handleStyle, left: left - 4, top: top - 4, cursor: "nw-resize" }} onMouseDown={handleMouseDown("nw")} />
+      <div style={{ ...handleStyle, left: left + width - 4, top: top - 4, cursor: "ne-resize" }} onMouseDown={handleMouseDown("ne")} />
+      <div style={{ ...handleStyle, left: left + width - 4, top: top + height - 4, cursor: "se-resize" }} onMouseDown={handleMouseDown("se")} />
+      <div style={{ ...handleStyle, left: left - 4, top: top + height - 4, cursor: "sw-resize" }} onMouseDown={handleMouseDown("sw")} />
 
-      {/* Edge handles - only for non-image/non-QR elements */}
       {!isFixedRatio && (
         <>
-          <div
-            style={{ ...handleStyle, left: left + width / 2 - 4, top: top - 4, cursor: "n-resize" }}
-            onMouseDown={handleMouseDown("n")}
-          />
-          <div
-            style={{ ...handleStyle, left: left + width - 4, top: top + height / 2 - 4, cursor: "e-resize" }}
-            onMouseDown={handleMouseDown("e")}
-          />
-          <div
-            style={{ ...handleStyle, left: left + width / 2 - 4, top: top + height - 4, cursor: "s-resize" }}
-            onMouseDown={handleMouseDown("s")}
-          />
-          <div
-            style={{ ...handleStyle, left: left - 4, top: top + height / 2 - 4, cursor: "w-resize" }}
-            onMouseDown={handleMouseDown("w")}
-          />
+          <div style={{ ...handleStyle, left: left + width / 2 - 4, top: top - 4, cursor: "n-resize" }} onMouseDown={handleMouseDown("n")} />
+          <div style={{ ...handleStyle, left: left + width - 4, top: top + height / 2 - 4, cursor: "e-resize" }} onMouseDown={handleMouseDown("e")} />
+          <div style={{ ...handleStyle, left: left + width / 2 - 4, top: top + height - 4, cursor: "s-resize" }} onMouseDown={handleMouseDown("s")} />
+          <div style={{ ...handleStyle, left: left - 4, top: top + height / 2 - 4, cursor: "w-resize" }} onMouseDown={handleMouseDown("w")} />
         </>
       )}
     </div>
