@@ -90,7 +90,7 @@ export function CanvasElement({
       element.tableSettings?.rowStyle?.fontFamily
   ]);
 
-  // --- REFINED: Path to Safety Validator ---
+  // --- FINAL: "Path to Safety" Solver ---
   useEffect(() => {
     if ((element.type !== 'text' && element.type !== 'dataField') || !excelData?.rows.length || isEditing) {
       setOverflowReport({ count: 0, firstIndex: null });
@@ -98,7 +98,7 @@ export function CanvasElement({
     }
 
     const validateDataset = async () => {
-      // 1. Wait for fonts to be ready (prevents measurement drift from fallback fonts)
+      // 1. Wait for fonts to be ready to ensure measurements are accurate
       await document.fonts.ready;
 
       const isDataField = element.type === "dataField";
@@ -107,6 +107,12 @@ export function CanvasElement({
       const activeFont = element.textStyle?.fontFamily || (isDataField ? "JetBrains Mono" : "Inter");
       const fontValue = activeFont.includes(" ") ? `"${activeFont}"` : activeFont;
 
+      const verticalAlignMap = {
+        top: "flex-start",
+        middle: "center",
+        bottom: "flex-end",
+      };
+
       const measurer = document.createElement('div');
       measurer.style.position = 'absolute';
       measurer.style.visibility = 'hidden';
@@ -114,10 +120,16 @@ export function CanvasElement({
       measurer.style.wordBreak = 'break-word';
       measurer.style.overflowWrap = 'anywhere';
 
-      // Mirror component styling exactly
+      // Strict Flexbox Layout Parity
+      measurer.style.display = 'flex';
+      measurer.style.flexDirection = 'column';
+      measurer.style.justifyContent = verticalAlignMap[element.textStyle?.verticalAlign || "middle"];
+
       measurer.style.fontFamily = fontValue;
       measurer.style.fontSize = `${(element.textStyle?.fontSize || (isDataField ? 14 : 16)) * zoom}px`;
       measurer.style.fontWeight = String(element.textStyle?.fontWeight || (isDataField ? 500 : 400));
+      measurer.style.color = element.textStyle?.color || "#000000";
+      measurer.style.textAlign = (element.textStyle?.textAlign || "left") as any;
       measurer.style.lineHeight = String(element.textStyle?.lineHeight || (isDataField ? 1.4 : 1.5));
       measurer.style.letterSpacing = `${(element.textStyle?.letterSpacing || 0) * zoom}px`;
       measurer.style.padding = `${4 * zoom}px`;
@@ -126,7 +138,6 @@ export function CanvasElement({
         measurer.style.border = `${2 * zoom}px solid transparent`;
       }
 
-      // Mirror the HTML list styles precisely
       const styleTag = document.createElement('style');
       styleTag.textContent = `
         .safety-measurer ul { list-style-type: ${hasCustomListStyle ? listStyleProp : 'disc'} !important; }
@@ -143,10 +154,25 @@ export function CanvasElement({
       let maxHAtCurrentW = 0;
       let maxWToFitCurrentH = 0;
 
-      // Buffer of 4px ensures the validator is helpful but not annoying
-      const TOLERANCE = 4; 
+      // This TOLERANCE must match the warning threshold logic exactly (1px)
+      const TOLERANCE = 1; 
       const currentWidthPx = element.dimension.width * zoom;
       const currentHeightPx = element.dimension.height * zoom;
+
+      // --- HELPER: Strict Pass/Fail Check ---
+      // Returns TRUE if the content fits within the given width/height
+      const checkFit = (w: number, h: number, content: string, isHtml: boolean) => {
+        measurer.style.width = `${w}px`;
+        measurer.style.height = `${h}px`;
+        measurer.style.whiteSpace = isHtml ? 'normal' : 'pre-wrap';
+        if (isHtml) measurer.innerHTML = content; else measurer.innerText = content;
+
+        // Strict overflow check: Is scrollable area larger than visible area?
+        const fitsHeight = measurer.scrollHeight <= measurer.clientHeight + TOLERANCE;
+        const fitsWidth = measurer.scrollWidth <= measurer.clientWidth + TOLERANCE;
+
+        return fitsHeight && fitsWidth;
+      };
 
       excelData.rows.forEach((row, idx) => {
         let content = (element.content || (element.dataBinding ? `{{${element.dataBinding}}}` : ""))
@@ -155,25 +181,55 @@ export function CanvasElement({
         content = formatContent(content, element.format);
         const isHtml = isHtmlContent(content);
 
-        // A. Measure Height needed at current Width
-        measurer.style.width = `${currentWidthPx}px`;
-        measurer.style.whiteSpace = isHtml ? 'normal' : 'pre-wrap';
-        if (isHtml) measurer.innerHTML = content; else measurer.innerText = content;
+        // 1. Initial Check: Does it fit currently?
+        const fitsCurrently = checkFit(currentWidthPx, currentHeightPx, content, isHtml);
 
-        const h = measurer.scrollHeight;
-        maxHAtCurrentW = Math.max(maxHAtCurrentW, h);
-
-        // B. Measure Width needed to fit within current Height
-        // Logic: If height overflows, we find how wide we need to go to stop the wrap.
-        if (h > currentHeightPx + TOLERANCE) {
-          measurer.style.width = 'auto';
-          const naturalW = measurer.scrollWidth;
-          maxWToFitCurrentH = Math.max(maxWToFitCurrentH, naturalW);
-        }
-
-        if (h > currentHeightPx + TOLERANCE) {
+        if (!fitsCurrently) {
           overflowCount++;
           if (firstIdx === null) firstIdx = idx;
+
+          // 2. SOLVE: Find Minimum Safe Height (keeping width fixed)
+          // Start with 'auto' height to get the browser's rendered max
+          measurer.style.height = 'auto';
+          const autoHeight = Math.ceil(measurer.getBoundingClientRect().height);
+
+          // Optimization: Iterate DOWNWARDS from autoHeight to find the absolute minimum passing pixel
+          // We limit the search to 10px to avoid performance hits, assuming autoHeight is close.
+          let safeH = autoHeight;
+          for (let h = autoHeight; h > currentHeightPx; h--) {
+             if (checkFit(currentWidthPx, h, content, isHtml)) {
+                safeH = h;
+             } else {
+                break; // Failed, so safeH + 1 was the limit
+             }
+          }
+          maxHAtCurrentW = Math.max(maxHAtCurrentW, safeH);
+
+          // 3. SOLVE: Find Minimum Safe Width (keeping height fixed)
+          // We use Binary Search to find the width that stops the wrap/overflow
+          measurer.style.width = 'auto';
+          measurer.style.height = `${currentHeightPx}px`; // Fix height
+          const singleLineWidth = Math.ceil(measurer.scrollWidth);
+
+          let low = currentWidthPx;
+          let high = singleLineWidth + 100; // Search space
+          let safeW = singleLineWidth;
+
+          if (checkFit(high, currentHeightPx, content, isHtml)) {
+             while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                if (checkFit(mid, currentHeightPx, content, isHtml)) {
+                   safeW = mid;
+                   high = mid - 1; // Try smaller
+                } else {
+                   low = mid + 1; // Needs to be bigger
+                }
+             }
+             maxWToFitCurrentH = Math.max(maxWToFitCurrentH, safeW);
+          } else {
+             // Edge case: Even max width doesn't fix it (e.g. huge font size)
+             maxWToFitCurrentH = Math.max(maxWToFitCurrentH, singleLineWidth);
+          }
         }
       });
 
@@ -182,8 +238,9 @@ export function CanvasElement({
 
       setOverflowReport({ count: overflowCount, firstIndex: firstIdx });
       setAuditDimensions({ 
+        // We use the exact pixel values found by the solver
         neededHeightAtCurrentWidth: maxHAtCurrentW / zoom, 
-        neededWidthToFitCurrentHeight: Math.max(element.dimension.width, maxWToFitCurrentH / zoom) 
+        neededWidthToFitCurrentHeight: maxWToFitCurrentH / zoom 
       });
     };
 
@@ -461,7 +518,7 @@ export function CanvasElement({
                   e.stopPropagation();
                   if (overflowReport.firstIndex !== null) setSelectedRowIndex(overflowReport.firstIndex);
                 }}
-                title={`${overflowReport.count} rows will be cut off. Click to view first error.`}
+                title={`${overflowReport.count} rows will be cut off. Click to view first case.`}
               >
                 <AlertTriangle size={14} />
                 <span className="text-[10px] font-bold">{overflowReport.count}</span>
@@ -766,8 +823,8 @@ export function CanvasElement({
           {/* Path to Safety Ghost Guides */}
           {isSelected && (element.type === 'text' || element.type === 'dataField') && overflowReport.count > 0 && (
             <>
-              {/* FIX HEIGHT (Red): Minimum height to fit content at current width */}
-              {auditDimensions.neededHeightAtCurrentWidth > element.dimension.height + 2 && (
+              {/* FIX HEIGHT (Red): Outer height required at current width */}
+              {auditDimensions.neededHeightAtCurrentWidth > element.dimension.height + 0.1 && (
                 <div 
                   className="absolute top-0 left-0 border-2 border-dashed border-red-500/40 pointer-events-none z-[-1]"
                   style={{
@@ -777,13 +834,13 @@ export function CanvasElement({
                   }}
                 >
                   <span className="absolute -bottom-5 left-0 text-[9px] text-red-600 font-bold bg-white/90 px-1 rounded shadow-sm whitespace-nowrap border border-red-100">
-                    Fix: taller container ({Math.ceil(auditDimensions.neededHeightAtCurrentWidth) - 4}px)
+                    Fix: taller container ({Math.ceil(auditDimensions.neededHeightAtCurrentWidth)}px)
                   </span>
                 </div>
               )}
 
-              {/* FIX WIDTH (Blue): Minimum width to stop overflow at current height */}
-              {auditDimensions.neededWidthToFitCurrentHeight > element.dimension.width + 2 && (
+              {/* FIX WIDTH (Blue): Outer width required to stop wrapping/overflow at current height */}
+              {auditDimensions.neededWidthToFitCurrentHeight > element.dimension.width + 0.1 && (
                 <div 
                   className="absolute top-0 left-0 border-2 border-dashed border-blue-500/40 pointer-events-none z-[-1]"
                   style={{
@@ -793,7 +850,7 @@ export function CanvasElement({
                   }}
                 >
                   <span className="absolute top-[-18px] right-0 text-[9px] text-blue-600 font-bold bg-white/90 px-1 rounded shadow-sm whitespace-nowrap border border-blue-100">
-                    Fix: wider container ({Math.ceil(auditDimensions.neededWidthToFitCurrentHeight) - 2}px)
+                    Fix: wider container ({Math.ceil(auditDimensions.neededWidthToFitCurrentHeight)}px)
                   </span>
                 </div>
               )}
