@@ -42,6 +42,7 @@ export function CanvasElement({
   const { 
     excelData, 
     selectedRowIndex, 
+    setSelectedRowIndex, 
     updateElement, 
     duplicateElement, 
     deleteElement, 
@@ -60,6 +61,13 @@ export function CanvasElement({
   const [isLowQuality, setIsLowQuality] = useState(false);
   const [effectiveDpi, setEffectiveDpi] = useState(0);
 
+  // --- Dataset Audit State ---
+  const [overflowReport, setOverflowReport] = useState<{ count: number; firstIndex: number | null }>({ count: 0, firstIndex: null });
+  const [auditDimensions, setAuditDimensions] = useState<{ 
+    neededHeightAtCurrentWidth: number; 
+    neededWidthToFitCurrentHeight: number; 
+  }>({ neededHeightAtCurrentWidth: 0, neededWidthToFitCurrentHeight: 0 });
+
   const elementScopeId = `el-${element.id}`;
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -72,7 +80,6 @@ export function CanvasElement({
     if (element.textStyle?.fontFamily) loadFont(element.textStyle.fontFamily);
     if (element.tocSettings?.titleStyle?.fontFamily) loadFont(element.tocSettings.titleStyle.fontFamily);
     if (element.tocSettings?.chapterStyle?.fontFamily) loadFont(element.tocSettings.chapterStyle.fontFamily);
-    // Table fonts
     if (element.tableSettings?.headerStyle?.fontFamily) loadFont(element.tableSettings.headerStyle.fontFamily);
     if (element.tableSettings?.rowStyle?.fontFamily) loadFont(element.tableSettings.rowStyle.fontFamily);
   }, [
@@ -82,6 +89,106 @@ export function CanvasElement({
       element.tableSettings?.headerStyle?.fontFamily,
       element.tableSettings?.rowStyle?.fontFamily
   ]);
+
+  // --- REFINED: Path to Safety Validator ---
+  useEffect(() => {
+    if ((element.type !== 'text' && element.type !== 'dataField') || !excelData?.rows.length || isEditing) {
+      setOverflowReport({ count: 0, firstIndex: null });
+      return;
+    }
+
+    const validateDataset = async () => {
+      // 1. Wait for fonts to be ready (prevents measurement drift from fallback fonts)
+      await document.fonts.ready;
+
+      const isDataField = element.type === "dataField";
+      const listStyleProp = element.format?.listStyle;
+      const hasCustomListStyle = listStyleProp && listStyleProp !== 'none';
+      const activeFont = element.textStyle?.fontFamily || (isDataField ? "JetBrains Mono" : "Inter");
+      const fontValue = activeFont.includes(" ") ? `"${activeFont}"` : activeFont;
+
+      const measurer = document.createElement('div');
+      measurer.style.position = 'absolute';
+      measurer.style.visibility = 'hidden';
+      measurer.style.boxSizing = 'border-box';
+      measurer.style.wordBreak = 'break-word';
+      measurer.style.overflowWrap = 'anywhere';
+
+      // Mirror component styling exactly
+      measurer.style.fontFamily = fontValue;
+      measurer.style.fontSize = `${(element.textStyle?.fontSize || (isDataField ? 14 : 16)) * zoom}px`;
+      measurer.style.fontWeight = String(element.textStyle?.fontWeight || (isDataField ? 500 : 400));
+      measurer.style.lineHeight = String(element.textStyle?.lineHeight || (isDataField ? 1.4 : 1.5));
+      measurer.style.letterSpacing = `${(element.textStyle?.letterSpacing || 0) * zoom}px`;
+      measurer.style.padding = `${4 * zoom}px`;
+
+      if (isDataField) {
+        measurer.style.border = `${2 * zoom}px solid transparent`;
+      }
+
+      // Mirror the HTML list styles precisely
+      const styleTag = document.createElement('style');
+      styleTag.textContent = `
+        .safety-measurer ul { list-style-type: ${hasCustomListStyle ? listStyleProp : 'disc'} !important; }
+        .safety-measurer ol { list-style-type: ${hasCustomListStyle ? listStyleProp : 'decimal'} !important; }
+        .safety-measurer ul, .safety-measurer ol { margin: 0 !important; padding-left: 1.5em !important; display: block !important; }
+        .safety-measurer li { position: relative !important; margin: 0.2em 0 !important; display: list-item !important; text-align: left !important; }
+      `;
+      measurer.className = "safety-measurer";
+      document.body.appendChild(styleTag);
+      document.body.appendChild(measurer);
+
+      let overflowCount = 0;
+      let firstIdx = null;
+      let maxHAtCurrentW = 0;
+      let maxWToFitCurrentH = 0;
+
+      // Buffer of 4px ensures the validator is helpful but not annoying
+      const TOLERANCE = 4; 
+      const currentWidthPx = element.dimension.width * zoom;
+      const currentHeightPx = element.dimension.height * zoom;
+
+      excelData.rows.forEach((row, idx) => {
+        let content = (element.content || (element.dataBinding ? `{{${element.dataBinding}}}` : ""))
+          .replace(/{{(.*?)}}/g, (_, p1) => row[p1.trim()] !== undefined ? row[p1.trim()] : "");
+
+        content = formatContent(content, element.format);
+        const isHtml = isHtmlContent(content);
+
+        // A. Measure Height needed at current Width
+        measurer.style.width = `${currentWidthPx}px`;
+        measurer.style.whiteSpace = isHtml ? 'normal' : 'pre-wrap';
+        if (isHtml) measurer.innerHTML = content; else measurer.innerText = content;
+
+        const h = measurer.scrollHeight;
+        maxHAtCurrentW = Math.max(maxHAtCurrentW, h);
+
+        // B. Measure Width needed to fit within current Height
+        // Logic: If height overflows, we find how wide we need to go to stop the wrap.
+        if (h > currentHeightPx + TOLERANCE) {
+          measurer.style.width = 'auto';
+          const naturalW = measurer.scrollWidth;
+          maxWToFitCurrentH = Math.max(maxWToFitCurrentH, naturalW);
+        }
+
+        if (h > currentHeightPx + TOLERANCE) {
+          overflowCount++;
+          if (firstIdx === null) firstIdx = idx;
+        }
+      });
+
+      document.body.removeChild(measurer);
+      document.body.removeChild(styleTag);
+
+      setOverflowReport({ count: overflowCount, firstIndex: firstIdx });
+      setAuditDimensions({ 
+        neededHeightAtCurrentWidth: maxHAtCurrentW / zoom, 
+        neededWidthToFitCurrentHeight: Math.max(element.dimension.width, maxWToFitCurrentH / zoom) 
+      });
+    };
+
+    validateDataset();
+  }, [element.dimension, element.textStyle, element.content, element.dataBinding, element.format, excelData, zoom, isEditing]);
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -137,7 +244,6 @@ export function CanvasElement({
     return content;
   };
 
-  // --- 1. DERIVE URL DIRECTLY (No State) ---
   const getImageUrl = () => {
     if (element.type === "image") {
       if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
@@ -158,7 +264,6 @@ export function CanvasElement({
 
   const activeUrl = getImageUrl();
 
-  // --- 2. ROBUST IMAGE LOADER ---
   useEffect(() => {
     if (element.type !== "image" || !activeUrl) return;
 
@@ -187,7 +292,6 @@ export function CanvasElement({
       setImageDimensions(null);
     };
 
-    // Keep crossOrigin here for calculation (prevents tainting logic issues)
     img.crossOrigin = "anonymous";
     img.src = activeUrl;
 
@@ -227,7 +331,6 @@ export function CanvasElement({
     }
   }, [imageDimensions, element.dimension.width]);
 
-  // STABLE DEPENDENCIES FOR TOC
   const elementType = element.type;
   const elementHeight = element.dimension.height;
   const elementDataBinding = element.dataBinding;
@@ -261,14 +364,7 @@ export function CanvasElement({
     };
 
     return paginateTOC(tempElement, dummyMap, elementHeight);
-  }, [
-      elementType, 
-      elementHeight, 
-      tocSettingsString, 
-      textStyleString,
-      elementDataBinding, 
-      excelData
-  ]);
+  }, [elementType, elementHeight, tocSettingsString, textStyleString, elementDataBinding, excelData]);
 
   useEffect(() => {
     if (tocData && previewPage >= tocData.length) {
@@ -353,8 +449,25 @@ export function CanvasElement({
               borderColor: isDataField ? "#8b5cf6" : "transparent",
               backgroundColor: isDataField ? "transparent" : "rgba(139, 92, 246, 0.05)",
               whiteSpace: hasHtml ? "normal" : "pre-wrap", 
+              wordBreak: "break-word",
+              overflowWrap: "anywhere",
             }}
           >
+            {/* Audit Warning Badge */}
+            {overflowReport.count > 0 && !element.locked && (
+              <div 
+                className="absolute top-0 left-0 m-1 bg-destructive text-white p-1 rounded-sm shadow-md z-[100] flex items-center gap-1 cursor-pointer animate-in fade-in zoom-in duration-200"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (overflowReport.firstIndex !== null) setSelectedRowIndex(overflowReport.firstIndex);
+                }}
+                title={`${overflowReport.count} rows will be cut off. Click to view first error.`}
+              >
+                <AlertTriangle size={14} />
+                <span className="text-[10px] font-bold">{overflowReport.count}</span>
+              </div>
+            )}
+
             {hasHtml ? (
                <div style={{ width: "100%" }}>
                  <style>{`
@@ -404,27 +517,17 @@ export function CanvasElement({
           const tooltipText = `Quality: ${effectiveDpi} DPI\nFor 300 DPI print quality at this size, use an image at least ${neededWidth} x ${neededHeight} pixels.`;
 
           return (
-            <div 
-              className="relative w-full h-full" 
-              style={{ opacity: element.shapeStyle?.opacity ?? 1 }}
-            >
+            <div className="relative w-full h-full" style={{ opacity: element.shapeStyle?.opacity ?? 1 }}>
               <img
                 src={displayImageUrl}
                 alt=""
                 loading="eager" 
                 className="w-full h-full object-contain"
                 draggable={false}
-                style={{ 
-                    objectPosition: "center",
-                    transform: "translateZ(0)", 
-                    backfaceVisibility: "hidden"
-                }}
+                style={{ objectPosition: "center", transform: "translateZ(0)", backfaceVisibility: "hidden" }}
               />
                {isLowQuality && !element.locked && (
-                <div 
-                  className="absolute top-0 right-0 m-1 bg-yellow-500 text-white p-1 rounded-sm shadow-md z-50 flex items-center gap-1 cursor-help"
-                  title={tooltipText}
-                >
+                <div className="absolute top-0 right-0 m-1 bg-yellow-500 text-white p-1 rounded-sm shadow-md z-50 flex items-center gap-1 cursor-help" title={tooltipText}>
                   <AlertTriangle size={14} />
                 </div>
               )}
@@ -440,18 +543,12 @@ export function CanvasElement({
         );
 
       case "qrcode": 
-        return (
-          <div 
-            className="w-full h-full"
-            dangerouslySetInnerHTML={{ __html: qrSvg }}
-          />
-        );
+        return <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: qrSvg }} />;
 
       case "table":
         const tableSettings = element.tableSettings;
         if (!tableSettings) return null;
 
-        // --- 1. Data Processing ---
         const previewRows = [
             { "Name": "Product A", "Description": "Sample Item", "Price": "$10.00" },
             { "Name": "Product B", "Description": "Sample Item", "Price": "$20.00" },
@@ -462,10 +559,8 @@ export function CanvasElement({
 
         if (excelData && excelData.rows.length > 0) {
             if (tableSettings.groupByField && selectedRowIndex !== undefined) {
-               // Grouping Logic
                const currentRow = excelData.rows[selectedRowIndex];
                const groupValue = currentRow[tableSettings.groupByField];
-
                if (groupValue) {
                    displayRows = excelData.rows.filter(r => r[tableSettings.groupByField!] === groupValue);
                } else {
@@ -476,45 +571,28 @@ export function CanvasElement({
             }
         }
 
-        // --- 2. Dynamic Layout Calculations ---
-
-        // Column Width Logic (Manual vs Autofit)
-        let columnWidths: Record<string, string> = {}; // map id -> percentage string
+        let columnWidths: Record<string, string> = {}; 
 
         if (tableSettings.autoFitColumns) {
-            // Calculate weights based on character length
             const colWeights = tableSettings.columns.map(col => {
                 const headerLen = (col.header || "").length;
-
-                // Find max length among all displayed rows for this column
                 const maxContentLen = displayRows.reduce((max, row) => {
                     const cellValue = row[col.dataField || ""] || "";
                     return Math.max(max, String(cellValue).length);
                 }, 0);
-
-                // Weight = Max length (min 3 chars to prevent collapse)
-                return { 
-                    id: col.id, 
-                    weight: Math.max(headerLen, maxContentLen, 3) 
-                };
+                return { id: col.id, weight: Math.max(headerLen, maxContentLen, 3) };
             });
-
             const totalWeight = colWeights.reduce((sum, c) => sum + c.weight, 0);
-
-            // Convert to percentages
             colWeights.forEach(c => {
                 columnWidths[c.id] = `${(c.weight / totalWeight) * 100}%`;
             });
-
         } else {
-            // Existing Manual Width Logic
             const totalConfigWidth = tableSettings.columns.reduce((acc, col) => acc + (col.width || 100), 0);
             tableSettings.columns.forEach(col => {
                 columnWidths[col.id] = `${((col.width || 100) / totalConfigWidth) * 100}%`;
             });
         }
 
-        // Map text-align (left/center/right) to flex justify-content (start/center/end)
         const getJustifyContent = (align?: string) => {
             switch(align) {
                 case 'center': return 'center';
@@ -523,15 +601,12 @@ export function CanvasElement({
             }
         };
 
-        const minWidthPx = (tableSettings.minColumnWidth || 50) * zoom;
-
         return (
           <div className="w-full h-full overflow-hidden flex flex-col bg-white" style={{
               borderColor: tableSettings.borderColor,
               borderWidth: tableSettings.borderWidth * zoom,
               borderStyle: "solid"
           }}>
-            {/* 1. Header Row - No flex-1 (Natural height) */}
             <div className="flex w-full shrink-0" style={{ backgroundColor: tableSettings.headerBackgroundColor }}>
                 {tableSettings.columns.map((col: any, idx) => (
                     <div key={col.id} className="flex items-center overflow-hidden" style={{
@@ -542,14 +617,12 @@ export function CanvasElement({
                         borderColor: tableSettings.borderColor,
                         fontFamily: tableSettings.headerStyle?.fontFamily || "Inter",
                         fontSize: (tableSettings.headerStyle?.fontSize || 14) * zoom,
-                        padding: `2px ${4 * zoom}px`, // Fixed minimal padding for legibility
+                        padding: `2px ${4 * zoom}px`, 
                     }}>
                         {col.header}
                     </div>
                 ))}
             </div>
-
-            {/* 2. Body Rows - These still use flex-1 to fill the remaining table height */}
             <div className="flex-1 flex flex-col w-full overflow-hidden">
                 {displayRows.map((row, rIdx) => (
                     <div key={rIdx} className="flex w-full border-t flex-1" style={{
@@ -567,7 +640,7 @@ export function CanvasElement({
                                 borderColor: tableSettings.borderColor,
                                 fontFamily: tableSettings.rowStyle?.fontFamily || "Inter",
                                 fontSize: (tableSettings.rowStyle?.fontSize || 12) * zoom,
-                                padding: `0 ${4 * zoom}px`, // Fixed minimal padding
+                                padding: `0 ${4 * zoom}px`, 
                             }}>
                                 <span className="truncate w-full">{row[col.dataField || ""] || "-"}</span>
                             </div>
@@ -581,25 +654,20 @@ export function CanvasElement({
       case "toc-list":
         const settings = element.tocSettings || { title: "Table of Contents", showTitle: true, columnCount: 1 };
         const columnCount = settings.columnCount || 1;
-
         const currentItems = tocData ? tocData[previewPage] || [] : [];
         const isMultiPage = (tocData?.length || 0) > 1;
         const isFirstPage = previewPage === 0;
 
         const titleFont = settings.titleStyle?.fontFamily || "Inter";
         const titleFontValue = titleFont.includes(" ") ? `"${titleFont}"` : titleFont;
-
         const chapterFont = settings.chapterStyle?.fontFamily || "Inter";
         const chapterFontValue = chapterFont.includes(" ") ? `"${chapterFont}"` : chapterFont;
-
         const itemFont = element.textStyle?.fontFamily || "Inter";
         const itemFontValue = itemFont.includes(" ") ? `"${itemFont}"` : itemFont;
 
         return (
           <>
-            <div 
-              className="w-full h-full p-4 border border-dashed border-muted-foreground/20 bg-white rounded flex flex-col overflow-hidden relative group"
-            >
+            <div className="w-full h-full p-4 border border-dashed border-muted-foreground/20 bg-white rounded flex flex-col overflow-hidden relative group">
               {settings.showTitle && isFirstPage && (
                   <div style={{
                       fontFamily: titleFontValue,
@@ -614,7 +682,6 @@ export function CanvasElement({
                       {settings.title}
                   </div>
               )}
-
               <div className="flex-1 overflow-hidden" style={{
                   fontFamily: itemFontValue,
                   fontSize: (element.textStyle?.fontSize || 14) * zoom,
@@ -651,39 +718,18 @@ export function CanvasElement({
                   })}
               </div>
             </div>
-
             {isSelected && isMultiPage && (
                 <>
-                    <div 
-                        className="absolute left-[-50px] top-1/2 -translate-y-1/2 z-50"
-                        onMouseDown={(e) => e.stopPropagation()} 
-                    >
-                        <Button 
-                            size="icon" 
-                            variant="outline" 
-                            className="h-10 w-10 rounded-full shadow-md bg-white hover:bg-gray-50 border-gray-300" 
-                            disabled={previewPage === 0}
-                            onClick={(e) => { e.stopPropagation(); setPreviewPage(p => p - 1); }}
-                        >
+                    <div className="absolute left-[-50px] top-1/2 -translate-y-1/2 z-50" onMouseDown={(e) => e.stopPropagation()}>
+                        <Button size="icon" variant="outline" className="h-10 w-10 rounded-full shadow-md bg-white hover:bg-gray-50 border-gray-300" disabled={previewPage === 0} onClick={(e) => { e.stopPropagation(); setPreviewPage(p => p - 1); }}>
                             <ChevronLeft className="h-6 w-6 text-gray-700" />
                         </Button>
                     </div>
-
-                    <div 
-                        className="absolute right-[-50px] top-1/2 -translate-y-1/2 z-50"
-                        onMouseDown={(e) => e.stopPropagation()} 
-                    >
-                        <Button 
-                            size="icon" 
-                            variant="outline" 
-                            className="h-10 w-10 rounded-full shadow-md bg-white hover:bg-gray-50 border-gray-300" 
-                            disabled={previewPage === (tocData?.length || 1) - 1}
-                            onClick={(e) => { e.stopPropagation(); setPreviewPage(p => p + 1); }}
-                        >
+                    <div className="absolute right-[-50px] top-1/2 -translate-y-1/2 z-50" onMouseDown={(e) => e.stopPropagation()}>
+                        <Button size="icon" variant="outline" className="h-10 w-10 rounded-full shadow-md bg-white hover:bg-gray-50 border-gray-300" disabled={previewPage === (tocData?.length || 1) - 1} onClick={(e) => { e.stopPropagation(); setPreviewPage(p => p + 1); }}>
                             <ChevronRight className="h-6 w-6 text-gray-700" />
                         </Button>
                     </div>
-
                     <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm border shadow-sm rounded-full px-3 py-1 text-xs font-medium text-gray-600 whitespace-nowrap z-50">
                         Page {previewPage + 1} of {tocData?.length}
                     </div>
@@ -717,6 +763,43 @@ export function CanvasElement({
           onClick={handleClick}
           onDoubleClick={handleDoubleClick}
         >
+          {/* Path to Safety Ghost Guides */}
+          {isSelected && (element.type === 'text' || element.type === 'dataField') && overflowReport.count > 0 && (
+            <>
+              {/* FIX HEIGHT (Red): Minimum height to fit content at current width */}
+              {auditDimensions.neededHeightAtCurrentWidth > element.dimension.height + 2 && (
+                <div 
+                  className="absolute top-0 left-0 border-2 border-dashed border-red-500/40 pointer-events-none z-[-1]"
+                  style={{
+                    width: element.dimension.width * zoom,
+                    height: auditDimensions.neededHeightAtCurrentWidth * zoom,
+                    backgroundColor: "rgba(239, 68, 68, 0.02)"
+                  }}
+                >
+                  <span className="absolute -bottom-5 left-0 text-[9px] text-red-600 font-bold bg-white/90 px-1 rounded shadow-sm whitespace-nowrap border border-red-100">
+                    Fix: taller container ({Math.ceil(auditDimensions.neededHeightAtCurrentWidth) - 4}px)
+                  </span>
+                </div>
+              )}
+
+              {/* FIX WIDTH (Blue): Minimum width to stop overflow at current height */}
+              {auditDimensions.neededWidthToFitCurrentHeight > element.dimension.width + 2 && (
+                <div 
+                  className="absolute top-0 left-0 border-2 border-dashed border-blue-500/40 pointer-events-none z-[-1]"
+                  style={{
+                    width: auditDimensions.neededWidthToFitCurrentHeight * zoom,
+                    height: element.dimension.height * zoom,
+                    backgroundColor: "rgba(59, 130, 246, 0.02)"
+                  }}
+                >
+                  <span className="absolute top-[-18px] right-0 text-[9px] text-blue-600 font-bold bg-white/90 px-1 rounded shadow-sm whitespace-nowrap border border-blue-100">
+                    Fix: wider container ({Math.ceil(auditDimensions.neededWidthToFitCurrentHeight) - 2}px)
+                  </span>
+                </div>
+              )}
+            </>
+          )}
+
           {renderContent()}
         </div>
       </ContextMenuTrigger>
