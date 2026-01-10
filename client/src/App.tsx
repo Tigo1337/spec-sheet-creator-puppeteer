@@ -19,6 +19,7 @@ import NotFound from "@/pages/not-found";
 // Legal Pages
 import Privacy from "@/pages/Privacy";
 import Terms from "@/pages/Terms";
+import CookieBanner from "@/components/layout/CookieBanner";
 
 // Support Widget Import
 import { SupportWidget } from "@/components/support/SupportWidget";
@@ -99,6 +100,7 @@ function AppContent() {
 
       {/* Persistent Support Widget (Visible on all pages) */}
       <SupportWidget />
+      <CookieBanner />
     </>
   );
 }

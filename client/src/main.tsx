@@ -14,6 +14,20 @@ import { HelmetProvider } from "react-helmet-async";
 // In development mode (Vite dev server), use DEV keys if available
 // In production builds, always use production keys
 const isDevelopment = import.meta.env.DEV;
+const consent = localStorage.getItem('doculoom_cookie_consent');
+
+if (consent === 'accepted') {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN || "",
+    integrations: [
+      Sentry.browserTracingIntegration(),
+      Sentry.replayIntegration(),
+    ],
+    tracesSampleRate: 1.0,
+    replaysSessionSampleRate: 0.1,
+    replaysOnErrorSampleRate: 1.0,
+  });
+}
 
 const PUBLISHABLE_KEY = isDevelopment 
   ? (import.meta.env.VITE_CLERK_PUBLISHABLE_KEY_DEV || import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
@@ -39,12 +53,11 @@ Sentry.init({
 });
 
 createRoot(document.getElementById("root")!).render(
-  // ClerkProvider must wrap the App so useClerk works inside App.tsx
   <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
     <QueryClientProvider client={queryClient}>
-      {/* 2. Wrap App in HelmetProvider for SEO management */}
       <HelmetProvider>
-        {/* Sentry Error Boundary catches crashes in the App */}
+        {/* Even if Sentry isn't initialized, the ErrorBoundary component 
+            from @sentry/react will still work as a standard UI fallback */}
         <Sentry.ErrorBoundary fallback={<div className="p-4 text-red-500 font-bold">An unexpected error has occurred.</div>}>
           <App />
           <Toaster />
