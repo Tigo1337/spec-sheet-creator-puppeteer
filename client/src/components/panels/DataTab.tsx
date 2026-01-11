@@ -407,13 +407,16 @@ export function DataTab() {
              <h3 className="font-medium text-sm">Import Data</h3>
              {isLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
           </div>
-          <div className="flex items-center space-x-2 mb-4 p-2 bg-muted/40 rounded-md border">
+
+          {/* HIDDEN FOR PRODUCTION: AI Auto-Mapping toggle is hidden but code is preserved below */}
+          <div className="hidden flex-items-center space-x-2 mb-4 p-2 bg-muted/40 rounded-md border">
              <Switch id="ai-mode" checked={useAI} onCheckedChange={setUseAI} />
              <Label htmlFor="ai-mode" className="flex items-center gap-2 text-xs font-medium cursor-pointer">
                 <Sparkles className={`h-3 w-3 ${useAI ? "text-purple-500" : "text-muted-foreground"}`} />
                 Enable AI Auto-Mapping
              </Label>
           </div>
+
           {!excelData ? (
             <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer group" onClick={() => !isLoading && fileInputRef.current?.click()}>
               <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv,.ods" className="hidden" onChange={handleFileChange} disabled={isLoading} />
@@ -435,10 +438,10 @@ export function DataTab() {
                   {/* --- UNIFIED GENERATE BUTTON --- */}
                   <Dialog open={genDialogOpen} onOpenChange={setGenDialogOpen}>
                     <DialogTrigger asChild>
-                       <Button size="sm" className="flex-1 gap-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white border-0" onClick={openGenerate}>
-                          <Sparkles className="h-4 w-4" />
-                          Generate / Standardize
-                       </Button>
+                        <Button size="sm" className="flex-1 gap-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white border-0" onClick={openGenerate}>
+                           <Sparkles className="h-4 w-4" />
+                           Generate / Standardize
+                        </Button>
                     </DialogTrigger>
 
                     <DialogContent className="bg-white dark:bg-zinc-950 text-black dark:text-white sm:max-w-[500px]">
