@@ -19,10 +19,10 @@ import { createDataFieldElement, createImageFieldElement, snapToGrid } from "@/l
 import { detectAlignmentGuides, type ActiveGuides } from "@/lib/alignment-guides";
 import { Database, Sparkles, GripVertical } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { useMutation, useQueryClient } from "@tanstack/react-query"; // Updated import
+import { useMutation, useQueryClient } from "@tanstack/react-query"; 
 
 export default function Editor() {
-  const queryClient = useQueryClient(); // Access query client
+  const queryClient = useQueryClient(); 
   const { 
     isCatalogMode, 
     addElement, 
@@ -30,6 +30,7 @@ export default function Editor() {
     elements, 
     zoom, 
     snapToGrid: shouldSnap, 
+    gridSize, // ADDED: Destructure gridSize from store
     canvasWidth, 
     canvasHeight,
     selectElement,
@@ -63,7 +64,6 @@ export default function Editor() {
     })
   );
 
-  // --- UPDATED AUTO SAVE LOGIC ---
   const updateDesignMutation = useMutation({
     mutationFn: async (data: any) => {
       const res = await fetch(`/api/designs/${currentDesignId}`, {
@@ -76,7 +76,6 @@ export default function Editor() {
     },
     onSuccess: () => {
       setSaveStatus("saved");
-      // CRITICAL: Invalidate designs query so the "last updated" time refreshes in panels
       queryClient.invalidateQueries({ queryKey: ["/api/designs"] });
     },
     onError: () => {
@@ -115,13 +114,12 @@ export default function Editor() {
             payload.catalogData = {
                 sections: finalSections,
                 chapterDesigns: finalChapterDesigns,
-                // excelData REMOVED: Layout only
             };
             payload.elements = []; 
         } else {
             payload.type = "single";
             payload.elements = elements;
-            payload.catalogData = {}; // excelData REMOVED
+            payload.catalogData = {}; 
         }
 
         updateDesignMutation.mutate(payload);
@@ -159,10 +157,13 @@ export default function Editor() {
       if (!element) return;
       let newX = startPosRef.current.x + delta.x / zoom;
       let newY = startPosRef.current.y + delta.y / zoom;
+
+      // FIXED: Passed dynamic gridSize from store to snapToGrid
       if (shouldSnap) {
-        newX = snapToGrid(newX);
-        newY = snapToGrid(newY);
+        newX = snapToGrid(newX, gridSize);
+        newY = snapToGrid(newY, gridSize);
       }
+
       newX = Math.max(0, Math.min(newX, canvasWidth - element.dimension.width));
       newY = Math.max(0, Math.min(newY, canvasHeight - element.dimension.height));
       const pageElements = elements.filter((el) => el.id !== active.id && el.pageIndex === element.pageIndex);
@@ -185,8 +186,13 @@ export default function Editor() {
           // @ts-ignore
           const dropRect = active.rect.current.translated; 
           if (dropRect) {
-            const x = (dropRect.left - rect.left) / zoom;
-            const y = (dropRect.top - rect.top) / zoom;
+            const rawX = (dropRect.left - rect.left) / zoom;
+            const rawY = (dropRect.top - rect.top) / zoom;
+
+            // FIXED: Ensure drops from sidebar also respect grid size
+            const x = shouldSnap ? snapToGrid(rawX, gridSize) : rawX;
+            const y = shouldSnap ? snapToGrid(rawY, gridSize) : rawY;
+
             const isManuallyMarked = imageFieldNames.has(header);
             const isAutoDetected = /image|photo|picture|url|thumbnail|img|avatar|logo/i.test(header);
             const isImageColumn = isManuallyMarked || isAutoDetected;

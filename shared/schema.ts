@@ -75,7 +75,7 @@ export const tableSettingsSchema = z.object({
   columns: z.array(tableColumnSchema).default([]),
   groupByField: z.string().optional(),
   autoFitColumns: z.boolean().default(false),
-  autoHeightAdaptation: z.boolean().default(false), // NEW: Toggle for dynamic auto-flow
+  autoHeightAdaptation: z.boolean().default(false), // NEW: Toggle for dynamic flow
   minColumnWidth: z.number().default(50), 
   equalRowHeights: z.boolean().default(true), 
   minRowHeight: z.number().default(24), 

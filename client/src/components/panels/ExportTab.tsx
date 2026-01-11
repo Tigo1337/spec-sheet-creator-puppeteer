@@ -255,6 +255,59 @@ export function ExportTab() {
 
     const sourceData = Object.keys(rowData).length > 0 ? rowData : (excelData?.rows[selectedRowIndex] || {});
 
+    // --- BLOCK START: DYNAMIC EXPORT PRE-FLIGHT (ADAPTATION LOGIC) ---
+    const shifts: Record<string, number> = {};
+    const adjustedHeights: Record<string, number> = {};
+
+    // Sort elements by Y to handle cascading selective pushes correctly
+    const ySortedElements = [...targetElements].sort((a, b) => a.position.y - b.position.y);
+
+    ySortedElements.forEach(el => {
+      if (el.type === 'table' && el.tableSettings?.autoHeightAdaptation) {
+        const settings = el.tableSettings;
+        const groupValue = settings.groupByField ? sourceData[settings.groupByField] : null;
+
+        const currentRowsCount = groupValue 
+            ? excelData!.rows.filter(r => r[settings.groupByField!] === groupValue).length 
+            : Math.min(excelData!.rows.length, 5);
+
+        const hFS = settings.headerStyle?.fontSize || 14;
+        const hLH = settings.headerStyle?.lineHeight || 1.2;
+        const rFS = settings.rowStyle?.fontSize || 12;
+        const rLH = settings.rowStyle?.lineHeight || 1.2;
+        const bWidth = settings.borderWidth || 1;
+        const safety = 6;
+
+        const calculatedH = (hFS * hLH + safety) + (currentRowsCount * (rFS * rLH + safety)) + ((currentRowsCount + 2) * bWidth);
+        const deltaH = calculatedH - el.dimension.height;
+
+        if (Math.abs(deltaH) > 0.5) {
+          adjustedHeights[el.id] = calculatedH;
+          const currentTableBottom = el.position.y + calculatedH;
+          const safetyBuffer = 10;
+
+          // Perform selective push on elements below this table
+          ySortedElements.forEach(otherEl => {
+            if (otherEl.id === el.id) return;
+
+            // Check horizontal overlap
+            const hasOverlap = (otherEl.position.x < el.position.x + el.dimension.width) && 
+                               (otherEl.position.x + otherEl.dimension.width > el.position.x);
+
+            // Selective push: only if below and within 10px of the new bottom
+            if (hasOverlap && otherEl.position.y > el.position.y) {
+               const otherYWithPriorShifts = otherEl.position.y + (shifts[otherEl.id] || 0);
+               if (otherYWithPriorShifts < currentTableBottom + safetyBuffer) {
+                  const pushNeeded = (currentTableBottom + safetyBuffer) - otherYWithPriorShifts;
+                  shifts[otherEl.id] = (shifts[otherEl.id] || 0) + pushNeeded;
+               }
+            }
+          });
+        }
+      }
+    });
+    // --- BLOCK END: DYNAMIC EXPORT PRE-FLIGHT ---
+
     const sortedElements = [...targetElements].sort((a, b) => a.zIndex - b.zIndex);
 
     for (const element of sortedElements) {
@@ -262,10 +315,15 @@ export function ExportTab() {
 
       const elementDiv = document.createElement("div");
       elementDiv.style.position = "absolute";
+
+      // Apply the pre-calculated dynamic shift and height
+      const finalY = element.position.y + (shifts[element.id] || 0);
+      const finalH = adjustedHeights[element.id] || element.dimension.height;
+
       elementDiv.style.left = `${element.position.x}px`;
-      elementDiv.style.top = `${element.position.y}px`;
+      elementDiv.style.top = `${finalY}px`;
       elementDiv.style.width = `${element.dimension.width}px`;
-      elementDiv.style.height = `${element.dimension.height}px`;
+      elementDiv.style.height = `${finalH}px`;
       elementDiv.style.transform = element.rotation ? `rotate(${element.rotation}deg)` : "";
       elementDiv.style.boxSizing = "border-box";
       elementDiv.style.zIndex = String(element.zIndex ?? 0);

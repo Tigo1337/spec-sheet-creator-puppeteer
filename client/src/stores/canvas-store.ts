@@ -2,7 +2,6 @@ import { create } from "zustand";
 import type { CanvasElement, ExcelData, Template, ExportSettings } from "@shared/schema";
 import { nanoid } from "nanoid";
 
-// --- CATALOG TYPES ---
 export type CatalogSectionType = "cover" | "toc" | "chapter" | "product" | "back";
 
 export interface CatalogSection {
@@ -35,7 +34,6 @@ function calculateGridSize(width: number, height: number): number {
 }
 
 interface CanvasState {
-  // Canvas settings
   canvasWidth: number;
   canvasHeight: number;
   gridSize: number;
@@ -43,78 +41,54 @@ interface CanvasState {
   zoom: number;
   showGrid: boolean;
   snapToGrid: boolean;
-
-  // Multi-page state
   pageCount: number;
   activePageIndex: number;
-
-  // Elements
   elements: CanvasElement[];
   selectedElementIds: string[];
-
-  // Identity & Persistence
-  currentDesignId: string | null;      // NEW: Tracks the DB ID
-  saveStatus: "saved" | "saving" | "unsaved" | "error"; // NEW: UI status
-  lastSavedAt: Date | null;            // NEW: Timestamp
-
+  currentDesignId: string | null;      
+  saveStatus: "saved" | "saving" | "unsaved" | "error"; 
+  lastSavedAt: Date | null;            
   currentTemplate: Template | null;
   hasUnsavedChanges: boolean;
-
-  // Data
   excelData: ExcelData | null;
   selectedRowIndex: number;
   imageFieldNames: Set<string>;
   aiFieldNames: Set<string>; 
   uniqueIdColumn: string | null;
-
-  // Export
   exportSettings: ExportSettings;
-
-  // UI State
   activeTool: "select" | "text" | "shape" | "image";
   rightPanelTab: "properties" | "data" | "export" | "designs";
-
-  // Catalog State
   isCatalogMode: boolean;
   activeSectionType: CatalogSectionType;
   catalogSections: Record<CatalogSectionType, CatalogSection>;
   chapterDesigns: Record<string, { elements: CanvasElement[]; backgroundColor: string }>;
   activeChapterGroup: string | null; 
-
-  // Support State
   isSupportOpen: boolean;
   setSupportOpen: (open: boolean) => void;
-
-  // Actions
   setCanvasSize: (width: number, height: number) => void;
   setBackgroundColor: (color: string) => void;
   setZoom: (zoom: number) => void;
   toggleGrid: () => void;
+  setGridSize: (size: 5 | 10) => void; 
   toggleSnapToGrid: () => void;
-
   addPage: () => void;
   removePage: (index: number) => void;
   setActivePage: (index: number) => void;
-
   addElement: (element: CanvasElement) => void;
   updateElement: (id: string, updates: Partial<CanvasElement>) => void;
   updateAllTextFonts: (fontFamily: string) => void;
   deleteElement: (id: string) => void;
   deleteSelectedElements: () => void;
   duplicateElement: (id: string) => void;
-
   selectElement: (id: string, addToSelection?: boolean) => void;
   selectElements: (ids: string[]) => void;
   clearSelection: () => void;
   selectAll: () => void;
-
   moveElement: (id: string, x: number, y: number) => void;
   resizeElement: (id: string, width: number, height: number) => void;
   toggleAspectRatioLock: (id: string) => void; 
-
   bringToFront: (id: string) => void;
   sendToBack: (id: string) => void;
-
   alignLeft: () => void;
   alignCenter: () => void;
   alignRight: () => void;
@@ -123,42 +97,31 @@ interface CanvasState {
   alignBottom: () => void;
   distributeHorizontal: () => void;
   distributeVertical: () => void;
-
   setExcelData: (data: ExcelData | null) => void;
   updateExcelData: (data: ExcelData) => void;
   setSelectedRowIndex: (index: number) => void;
   toggleImageField: (fieldName: string) => void;
   markAiField: (header: string) => void; 
   setUniqueIdColumn: (col: string | null) => void;
-
   setCurrentTemplate: (template: Template | null) => void;
-
-  // Persistence Actions
-  loadDesignState: (designId: string | null, name: string) => void; // NEW
-  setSaveStatus: (status: "saved" | "saving" | "unsaved" | "error") => void; // NEW
-
+  loadDesignState: (designId: string | null, name: string) => void; 
+  setSaveStatus: (status: "saved" | "saving" | "unsaved" | "error") => void; 
   saveAsTemplate: (name: string, description?: string, previewImages?: string[]) => Template;
   loadTemplate: (template: Template) => void;
-
   loadCatalogDesign: (data: { 
     sections: Record<CatalogSectionType, CatalogSection>, 
     chapterDesigns: any, 
     canvasWidth: number, 
     canvasHeight: number,
   }) => void;
-
   setExportSettings: (settings: Partial<ExportSettings>) => void;
-
   setActiveTool: (tool: "select" | "text" | "shape" | "image") => void;
   setRightPanelTab: (tab: "properties" | "data" | "export" | "designs") => void;
-
   setCatalogMode: (enabled: boolean) => void;
   setActiveSection: (type: CatalogSectionType) => void;
   setActiveChapterGroup: (groupName: string) => void;
-
   undo: () => void;
   redo: () => void;
-
   resetCanvas: () => void;
 }
 
@@ -183,40 +146,30 @@ const initialWidth = 810;
 const initialHeight = 1050;
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
-  // Initial state
   canvasWidth: initialWidth,
   canvasHeight: initialHeight,
-  gridSize: calculateGridSize(initialWidth, initialHeight),
+  gridSize: 10,
   backgroundColor: "#ffffff",
   zoom: 1,
   showGrid: true,
   snapToGrid: true,
-
   pageCount: 1,
   activePageIndex: 0,
-
   elements: [],
   selectedElementIds: [],
-
-  // NEW: Persistence State
   currentDesignId: null,
   saveStatus: "saved",
   lastSavedAt: null,
-
   currentTemplate: null,
   hasUnsavedChanges: false,
-
   excelData: null,
   selectedRowIndex: 0,
   imageFieldNames: new Set(),
   aiFieldNames: new Set(), 
   uniqueIdColumn: null,
-
   exportSettings: { pageSize: "letter", orientation: "portrait", quality: 0.92, margin: 0 },
-
   activeTool: "select",
   rightPanelTab: "properties",
-
   isCatalogMode: false,
   activeSectionType: "product",
   catalogSections: {
@@ -228,16 +181,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
   chapterDesigns: {},
   activeChapterGroup: null,
-
   isSupportOpen: false,
   setSupportOpen: (open) => set({ isSupportOpen: open }),
-
-  setCanvasSize: (width, height) => set({ canvasWidth: width, canvasHeight: height, gridSize: calculateGridSize(width, height), hasUnsavedChanges: true, saveStatus: "unsaved" }),
+  setCanvasSize: (width, height) => set({ canvasWidth: width, canvasHeight: height, hasUnsavedChanges: true, saveStatus: "unsaved" }),
   setBackgroundColor: (color) => set({ backgroundColor: color, hasUnsavedChanges: true, saveStatus: "unsaved" }),
   setZoom: (zoom) => set({ zoom: Math.max(0.25, Math.min(2, zoom)) }),
   toggleGrid: () => set((state) => ({ showGrid: !state.showGrid })),
+  setGridSize: (size) => set({ gridSize: size }), 
   toggleSnapToGrid: () => set((state) => ({ snapToGrid: !state.snapToGrid })),
-
   addPage: () => set((state) => ({ pageCount: state.pageCount + 1, activePageIndex: state.pageCount })),
   removePage: (index) => {
     const { pageCount, elements } = get();
@@ -250,7 +201,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ pageCount: pageCount - 1, elements: shiftedElements, activePageIndex: Math.max(0, index - 1), hasUnsavedChanges: true, saveStatus: "unsaved" });
   },
   setActivePage: (index) => set({ activePageIndex: index }),
-
   addElement: (element) => {
     const { elements, activePageIndex } = get();
     const maxZ = Math.max(...elements.map(el => el.zIndex), 0);
@@ -259,13 +209,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(newElements);
     set({ elements: newElements, hasUnsavedChanges: true, saveStatus: "unsaved" });
   },
-
   updateElement: (id, updates) => {
     const elements = get().elements.map((el) => el.id === id ? { ...el, ...updates } : el);
     saveToHistory(elements);
     set({ elements, hasUnsavedChanges: true, saveStatus: "unsaved" });
   },
-
   updateAllTextFonts: (fontFamily: string) => {
     const { elements } = get();
     const updatedElements = elements.map((el) => {
@@ -285,13 +233,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(updatedElements);
     set({ elements: updatedElements, hasUnsavedChanges: true, saveStatus: "unsaved" });
   },
-
   deleteElement: (id) => {
     const elements = get().elements.filter((el) => el.id !== id);
     saveToHistory(elements);
     set({ elements, selectedElementIds: get().selectedElementIds.filter((eid) => eid !== id), hasUnsavedChanges: true, saveStatus: "unsaved" });
   },
-
   deleteSelectedElements: () => {
     const selectedIds = get().selectedElementIds;
     if (selectedIds.length === 0) return;
@@ -299,7 +245,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(elements);
     set({ elements, selectedElementIds: [], hasUnsavedChanges: true, saveStatus: "unsaved" });
   },
-
   duplicateElement: (id) => {
     const element = get().elements.find((el) => el.id === id);
     if (!element) return;
@@ -309,7 +254,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(elements);
     set({ elements, selectedElementIds: [newElement.id], hasUnsavedChanges: true, saveStatus: "unsaved" });
   },
-
   selectElement: (id, addToSelection = false) => {
     if (addToSelection) {
       const currentIds = get().selectedElementIds;
@@ -318,11 +262,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       set({ selectedElementIds: [id] });
     }
   },
-
   selectElements: (ids) => set({ selectedElementIds: ids }),
   clearSelection: () => set({ selectedElementIds: [] }),
   selectAll: () => set({ selectedElementIds: get().elements.map((el) => el.id) }),
-
   moveElement: (id, x, y) => {
     const { snapToGrid: shouldSnap, gridSize } = get();
     const finalX = shouldSnap ? Math.round(x / gridSize) * gridSize : x;
@@ -330,7 +272,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const elements = get().elements.map((el) => el.id === id ? { ...el, position: { x: finalX, y: finalY } } : el);
     set({ elements, hasUnsavedChanges: true, saveStatus: "unsaved" });
   },
-
   resizeElement: (id, width, height) => {
     const elements = get().elements.map((el) => {
       if (el.id !== id) return el;
@@ -348,7 +289,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     });
     set({ elements, hasUnsavedChanges: true, saveStatus: "unsaved" });
   },
-
   toggleAspectRatioLock: (id) => {
     const elements = get().elements.map((el) => {
       if (el.id !== id) return el;
@@ -360,14 +300,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(elements);
     set({ elements, hasUnsavedChanges: true, saveStatus: "unsaved" });
   },
-
   bringToFront: (id) => {
     const maxZ = Math.max(...get().elements.map((el) => el.zIndex), 0);
     const elements = get().elements.map((el) => el.id === id ? { ...el, zIndex: maxZ + 1 } : el);
     saveToHistory(elements);
     set({ elements, hasUnsavedChanges: true, saveStatus: "unsaved" });
   },
-
   sendToBack: (id) => {
     const allElements = get().elements;
     const currentMin = Math.min(...allElements.map((el) => el.zIndex), 0);
@@ -377,7 +315,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(updatedElements);
     set({ elements: updatedElements, hasUnsavedChanges: true, saveStatus: "unsaved" });
   },
-
   alignLeft: () => {
     const { selectedElementIds, elements } = get();
     if (selectedElementIds.length < 2) return;
@@ -387,8 +324,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(updated);
     set({ elements: updated, hasUnsavedChanges: true, saveStatus: "unsaved" });
   },
-
-  // ... (Other align methods use same pattern) ...
   alignCenter: () => { const { selectedElementIds, elements } = get(); if (selectedElementIds.length < 2) return; const selected = elements.filter((el) => selectedElementIds.includes(el.id)); const avgX = selected.reduce((sum, el) => sum + el.position.x + el.dimension.width / 2, 0) / selected.length; const updated = elements.map((el) => selectedElementIds.includes(el.id) ? { ...el, position: { ...el.position, x: avgX - el.dimension.width / 2 } } : el); saveToHistory(updated); set({ elements: updated, hasUnsavedChanges: true, saveStatus: "unsaved" }); },
   alignRight: () => { const { selectedElementIds, elements } = get(); if (selectedElementIds.length < 2) return; const selected = elements.filter((el) => selectedElementIds.includes(el.id)); const maxX = Math.max(...selected.map((el) => el.position.x + el.dimension.width)); const updated = elements.map((el) => selectedElementIds.includes(el.id) ? { ...el, position: { ...el.position, x: maxX - el.dimension.width } } : el); saveToHistory(updated); set({ elements: updated, hasUnsavedChanges: true, saveStatus: "unsaved" }); },
   alignTop: () => { const { selectedElementIds, elements } = get(); if (selectedElementIds.length < 2) return; const selected = elements.filter((el) => selectedElementIds.includes(el.id)); const minY = Math.min(...selected.map((el) => el.position.y)); const updated = elements.map((el) => selectedElementIds.includes(el.id) ? { ...el, position: { ...el.position, y: minY } } : el); saveToHistory(updated); set({ elements: updated, hasUnsavedChanges: true, saveStatus: "unsaved" }); },
@@ -396,7 +331,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   alignBottom: () => { const { selectedElementIds, elements } = get(); if (selectedElementIds.length < 2) return; const selected = elements.filter((el) => selectedElementIds.includes(el.id)); const maxY = Math.max(...selected.map((el) => el.position.y + el.dimension.height)); const updated = elements.map((el) => selectedElementIds.includes(el.id) ? { ...el, position: { ...el.position, y: maxY - el.dimension.height } } : el); saveToHistory(updated); set({ elements: updated, hasUnsavedChanges: true, saveStatus: "unsaved" }); },
   distributeHorizontal: () => { const { selectedElementIds, elements } = get(); if (selectedElementIds.length < 3) return; const selected = elements.filter((el) => selectedElementIds.includes(el.id)).sort((a, b) => a.position.x - b.position.x); const minX = selected[0].position.x; const maxX = selected[selected.length - 1].position.x + selected[selected.length - 1].dimension.width; const totalGap = maxX - minX - selected.reduce((sum, el) => sum + el.dimension.width, 0); const gap = totalGap / (selected.length - 1); let currentX = minX; const updated = elements.map((el) => { if (!selectedElementIds.includes(el.id)) return el; const idx = selected.findIndex((s) => s.id === el.id); const newX = currentX; currentX += el.dimension.width + gap; return { ...el, position: { ...el.position, x: newX } }; }); saveToHistory(updated); set({ elements: updated, hasUnsavedChanges: true, saveStatus: "unsaved" }); },
   distributeVertical: () => { const { selectedElementIds, elements } = get(); if (selectedElementIds.length < 3) return; const selected = elements.filter((el) => selectedElementIds.includes(el.id)).sort((a, b) => a.position.y - b.position.y); const minY = selected[0].position.y; const maxY = selected[selected.length - 1].position.y + selected[selected.length - 1].dimension.height; const totalGap = maxY - minY - selected.reduce((sum, el) => sum + el.dimension.width, 0); const gap = totalGap / (selected.length - 1); let currentY = minY; const updated = elements.map((el) => { if (!selectedElementIds.includes(el.id)) return el; const idx = selected.findIndex((s) => s.id === el.id); const newY = currentY; currentY += el.dimension.height + gap; return { ...el, position: { ...el.position, y: newY } }; }); saveToHistory(updated); set({ elements: updated, hasUnsavedChanges: true, saveStatus: "unsaved" }); },
-
   setExcelData: (data) => set({ excelData: data, selectedRowIndex: 0, imageFieldNames: new Set(), aiFieldNames: new Set(), uniqueIdColumn: null }),
   updateExcelData: (data) => set((state) => ({ excelData: data, selectedRowIndex: Math.min(state.selectedRowIndex, data.rows.length - 1) })),
   setSelectedRowIndex: (index) => set({ selectedRowIndex: index }),
@@ -404,44 +338,31 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   markAiField: (header) => set((state) => { const newSet = new Set(state.aiFieldNames); newSet.add(header); return { aiFieldNames: newSet }; }),
   setUniqueIdColumn: (col) => set({ uniqueIdColumn: col }),
   setCurrentTemplate: (template) => set({ currentTemplate: template }),
-
-  // NEW: Manual load state for design (used when creating/loading design)
   loadDesignState: (designId, name) => {
      const t = get().currentTemplate;
-     set({ 
-       currentDesignId: designId, 
-       currentTemplate: t ? { ...t, name } : { id: 'temp', name, canvasWidth: 810, canvasHeight: 1050, pageCount: 1, backgroundColor: "#ffffff", elements: [], createdAt: "", updatedAt: "" },
-       saveStatus: "saved",
-       lastSavedAt: new Date(),
-       hasUnsavedChanges: false
-     });
+     set({ currentDesignId: designId, currentTemplate: t ? { ...t, name } : { id: 'temp', name, canvasWidth: 810, canvasHeight: 1050, pageCount: 1, backgroundColor: "#ffffff", elements: [], createdAt: "", updatedAt: "" }, saveStatus: "saved", lastSavedAt: new Date(), hasUnsavedChanges: false });
   },
-
   setSaveStatus: (status) => {
     const updates: Partial<CanvasState> = { saveStatus: status };
     if (status === "saved") updates.lastSavedAt = new Date();
     set(updates);
   },
-
   saveAsTemplate: (name, description, previewImages = []) => {
     const { elements, canvasWidth, canvasHeight, backgroundColor, pageCount } = get();
     const template: Template = { id: nanoid(), name, description, canvasWidth, canvasHeight, pageCount, previewImages, backgroundColor, elements: JSON.parse(JSON.stringify(elements)), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     set({ currentTemplate: template, hasUnsavedChanges: false });
     return template;
   },
-
   loadTemplate: (template) => {
     history = []; historyIndex = -1;
     const maxPageIndex = template.elements.reduce((max, el) => Math.max(max, el.pageIndex ?? 0), 0);
-    set({ elements: JSON.parse(JSON.stringify(template.elements)), canvasWidth: template.canvasWidth, canvasHeight: template.canvasHeight, gridSize: calculateGridSize(template.canvasWidth, template.canvasHeight), backgroundColor: template.backgroundColor, currentTemplate: template, selectedElementIds: [], hasUnsavedChanges: false, pageCount: maxPageIndex + 1, activePageIndex: 0, currentDesignId: null, saveStatus: "saved" });
+    set({ elements: JSON.parse(JSON.stringify(template.elements)), canvasWidth: template.canvasWidth, canvasHeight: template.canvasHeight, gridSize: get().gridSize, backgroundColor: template.backgroundColor, currentTemplate: template, selectedElementIds: [], hasUnsavedChanges: false, pageCount: maxPageIndex + 1, activePageIndex: 0, currentDesignId: null, saveStatus: "saved" });
     saveToHistory(template.elements);
   },
-
   loadCatalogDesign: (data) => {
       history = []; historyIndex = -1;
-      set({ isCatalogMode: true, catalogSections: data.sections, chapterDesigns: data.chapterDesigns, activeSectionType: "cover", activeChapterGroup: null, elements: data.sections.cover.elements, backgroundColor: data.sections.cover.backgroundColor, canvasWidth: data.canvasWidth, canvasHeight: data.canvasHeight, gridSize: calculateGridSize(data.canvasWidth, data.canvasHeight), hasUnsavedChanges: false, pageCount: 1, activePageIndex: 0 });
+      set({ isCatalogMode: true, catalogSections: data.sections, chapterDesigns: data.chapterDesigns, activeSectionType: "cover", activeChapterGroup: null, elements: data.sections.cover.elements, backgroundColor: data.sections.cover.backgroundColor, canvasWidth: data.canvasWidth, canvasHeight: data.canvasHeight, gridSize: get().gridSize, hasUnsavedChanges: false, pageCount: 1, activePageIndex: 0 });
   },
-
   setExportSettings: (settings) => {
     const state = get();
     const newState: any = { exportSettings: { ...state.exportSettings, ...settings } };
@@ -451,21 +372,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const isLandscape = settings.orientation === "landscape" || (settings.orientation === undefined && state.exportSettings.orientation === "landscape");
       newState.canvasWidth = isLandscape ? pageSize.height : pageSize.width;
       newState.canvasHeight = isLandscape ? pageSize.width : pageSize.height;
-      newState.gridSize = calculateGridSize(newState.canvasWidth, newState.canvasHeight);
     } else if (settings.orientation && settings.pageSize === undefined) {
       const pageSizes = { letter: { width: 810, height: 1050 }, a4: { width: 790, height: 1120 }, legal: { width: 810, height: 1340 } };
       const pageSize = pageSizes[state.exportSettings.pageSize];
       const isLandscape = settings.orientation === "landscape";
       newState.canvasWidth = isLandscape ? pageSize.height : pageSize.width;
       newState.canvasHeight = isLandscape ? pageSize.width : pageSize.height;
-      newState.gridSize = calculateGridSize(newState.canvasWidth, newState.canvasHeight);
     }
     set({ ...newState, hasUnsavedChanges: true, saveStatus: "unsaved" });
   },
-
   setActiveTool: (tool) => set({ activeTool: tool }),
   setRightPanelTab: (tab) => set({ rightPanelTab: tab }),
-
   setCatalogMode: (enabled) => set({ isCatalogMode: enabled }),
   setActiveSection: (type) => {
     const { activeSectionType, activeChapterGroup, elements, backgroundColor, catalogSections, chapterDesigns } = get();
@@ -477,12 +394,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     history = []; historyIndex = -1;
     set({ activeSectionType: type, activeChapterGroup: null, catalogSections: updatedSections, chapterDesigns: updatedChapterDesigns, elements: targetSection.elements, backgroundColor: targetSection.backgroundColor, selectedElementIds: [] });
   },
-
   setActiveChapterGroup: (groupName) => {
     const { activeSectionType, activeChapterGroup, elements, backgroundColor, catalogSections, chapterDesigns } = get();
     let updatedSections = { ...catalogSections };
     let updatedChapterDesigns = { ...chapterDesigns };
-    if (activeSectionType === 'chapter' && activeChapterGroup) { updatedChapterDesigns[activeChapterGroup] = { elements, backgroundColor }; } 
+    if (activeSectionType === 'chapter' && activeChapterGroup) { updatedChapterDesigns[groupName] = { elements, backgroundColor }; } 
     else { updatedSections[activeSectionType] = { ...updatedSections[activeSectionType], elements: elements, backgroundColor: backgroundColor }; }
     let nextElements: CanvasElement[] = [];
     let nextBg = "#ffffff";
@@ -491,8 +407,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     history = []; historyIndex = -1;
     set({ activeSectionType: 'chapter', activeChapterGroup: groupName, catalogSections: updatedSections, chapterDesigns: updatedChapterDesigns, elements: nextElements, backgroundColor: nextBg, selectedElementIds: [] });
   },
-
   undo: () => { if (historyIndex > 0) { historyIndex--; const state = history[historyIndex]; set({ elements: JSON.parse(JSON.stringify(state.elements)), hasUnsavedChanges: true, saveStatus: "unsaved" }); } },
   redo: () => { if (historyIndex < history.length - 1) { historyIndex++; const state = history[historyIndex]; set({ elements: JSON.parse(JSON.stringify(state.elements)), hasUnsavedChanges: true, saveStatus: "unsaved" }); } },
-  resetCanvas: () => { history = []; historyIndex = -1; set({ elements: [], selectedElementIds: [], currentTemplate: null, hasUnsavedChanges: false, excelData: null, selectedRowIndex: 0, canvasWidth: initialWidth, canvasHeight: initialHeight, gridSize: calculateGridSize(initialWidth, initialHeight), backgroundColor: "#ffffff", zoom: 1, pageCount: 1, activePageIndex: 0, isCatalogMode: false, chapterDesigns: {}, activeChapterGroup: null, imageFieldNames: new Set(), aiFieldNames: new Set(), uniqueIdColumn: null, isSupportOpen: false, currentDesignId: null, saveStatus: "saved", catalogSections: { cover: { type: "cover", name: "Cover Page", elements: [], backgroundColor: "#ffffff" }, toc: { type: "toc", name: "Table of Contents", elements: [], backgroundColor: "#ffffff" }, chapter: { type: "chapter", name: "Chapter Divider", elements: [], backgroundColor: "#ffffff" }, product: { type: "product", name: "Product Page", elements: [], backgroundColor: "#ffffff" }, back: { type: "back", name: "Back Cover", elements: [], backgroundColor: "#ffffff" }, } }); },
+  resetCanvas: () => { history = []; historyIndex = -1; set({ elements: [], selectedElementIds: [], currentTemplate: null, hasUnsavedChanges: false, excelData: null, selectedRowIndex: 0, canvasWidth: initialWidth, canvasHeight: initialHeight, gridSize: get().gridSize, backgroundColor: "#ffffff", zoom: 1, pageCount: 1, activePageIndex: 0, isCatalogMode: false, chapterDesigns: {}, activeChapterGroup: null, imageFieldNames: new Set(), aiFieldNames: new Set(), uniqueIdColumn: null, isSupportOpen: false, currentDesignId: null, saveStatus: "saved", catalogSections: { cover: { type: "cover", name: "Cover Page", elements: [], backgroundColor: "#ffffff" }, toc: { type: "toc", name: "Table of Contents", elements: [], backgroundColor: "#ffffff" }, chapter: { type: "chapter", name: "Chapter Divider", elements: [], backgroundColor: "#ffffff" }, product: { type: "product", name: "Product Page", elements: [], backgroundColor: "#ffffff" }, back: { type: "back", name: "Back Cover", elements: [], backgroundColor: "#ffffff" }, } }); },
 }));

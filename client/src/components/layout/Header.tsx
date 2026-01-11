@@ -44,6 +44,8 @@ export function Header() {
     setZoom,
     showGrid,
     toggleGrid,
+    gridSize, // 
+    setGridSize, // 
     snapToGrid,
     toggleSnapToGrid,
     undo,
@@ -51,8 +53,8 @@ export function Header() {
     hasUnsavedChanges,
     currentTemplate,
     setRightPanelTab,
-    saveStatus, // NEW
-    lastSavedAt // NEW
+    saveStatus, 
+    lastSavedAt 
   } = useCanvasStore();
 
   useEffect(() => {
@@ -145,19 +147,44 @@ export function Header() {
         </Button>
         <Separator orientation="vertical" className="h-5 mx-1" />
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button 
-              size="icon" 
-              variant={showGrid ? "default" : "ghost"} 
-              className="h-8 w-8" 
-              onClick={toggleGrid}
-            >
-              <Grid3X3 className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Grid</TooltipContent>
-        </Tooltip>
+        {/* BLOCK START: GRID UI WITH SQUARES SIZE SELECTION */}
+        <div className="flex items-center gap-0.5 border rounded-md px-1 bg-background/50">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  size="icon" 
+                  variant={showGrid ? "default" : "ghost"} 
+                  className="h-7 w-7" 
+                  onClick={toggleGrid}
+                >
+                  <Grid3X3 className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Show Grid</TooltipContent>
+            </Tooltip>
+
+            <Separator orientation="vertical" className="h-4 mx-0.5" />
+
+            <div className="flex items-center">
+                <Button 
+                    variant={gridSize === 10 ? "secondary" : "ghost"} 
+                    className="h-6 px-1.5 text-[10px] font-bold"
+                    onClick={() => setGridSize(10)}
+                    disabled={!showGrid}
+                >
+                    10px
+                </Button>
+                <Button 
+                    variant={gridSize === 5 ? "secondary" : "ghost"} 
+                    className="h-6 px-1.5 text-[10px] font-bold"
+                    onClick={() => setGridSize(5)}
+                    disabled={!showGrid}
+                >
+                    5px
+                </Button>
+            </div>
+        </div>
+        {/* BLOCK END: GRID UI WITH SQUARES SIZE SELECTION */}
 
         <Tooltip>
           <TooltipTrigger asChild>

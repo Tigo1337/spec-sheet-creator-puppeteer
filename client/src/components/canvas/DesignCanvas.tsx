@@ -7,14 +7,12 @@ import { Ruler } from "./Ruler";
 import { FloatingToolbar } from "./FloatingToolbar";
 import { ShortcutsDialog } from "@/components/dialogs/ShortcutsDialog";
 import { createTextElement, createShapeElement } from "@/lib/canvas-utils";
-import { type ActiveGuides } from "@/lib/alignment-guides"; // Type import only
-import { useDroppable } from "@dnd-kit/core"; // NEW: Droppable hook
+import { type ActiveGuides } from "@/lib/alignment-guides"; 
+import { useDroppable } from "@dnd-kit/core"; 
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, Grid3X3 } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
-// --- Helper Component: Droppable Page Zone ---
-// This allows the Editor to know WHICH page an item was dropped onto.
 function DroppablePage({ pageIndex, children, style, onClick, activePageIndex }: any) {
   const { setNodeRef, isOver } = useDroppable({
     id: `page-${pageIndex}`,
@@ -24,11 +22,9 @@ function DroppablePage({ pageIndex, children, style, onClick, activePageIndex }:
     <div
       ref={setNodeRef}
       id={`page-${pageIndex}`}
-      // FIX: Added conditional z-index (z-10 for active, z-0 for inactive)
-      // This ensures elements like FloatingToolbar on the active page are not hidden by subsequent pages
       className={`relative shadow-lg transition-all duration-200 ${
          activePageIndex === pageIndex ? 'ring-2 ring-primary ring-offset-2 z-10' : 'z-0'
-      } ${isOver ? 'ring-2 ring-green-500 ring-offset-2 scale-[1.005]' : ''}`} // Visual feedback on drag over
+      } ${isOver ? 'ring-2 ring-green-500 ring-offset-2 scale-[1.005]' : ''}`} 
       style={style}
       onClick={onClick}
     >
@@ -47,11 +43,7 @@ export function DesignCanvas({
   activeGuides = { vertical: null, horizontal: null, alignments: [] } 
 }: DesignCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // Panning State
   const [isPanning, setIsPanning] = useState(false);
-
-  // Mouse Tracking for Rulers
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   const {
@@ -61,6 +53,7 @@ export function DesignCanvas({
     backgroundColor,
     zoom,
     showGrid,
+    snapToGrid,
     elements,
     selectedElementIds,
     activeTool,
@@ -77,14 +70,12 @@ export function DesignCanvas({
     setRightPanelTab
   } = useCanvasStore();
 
-  // 1. Context-Aware Panel Switching
   useEffect(() => {
     if (selectedElementIds.length > 0) {
       setRightPanelTab("properties");
     }
   }, [selectedElementIds, setRightPanelTab]);
 
-  // 2. Spacebar to Pan Logic
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.code === "Space" && !e.repeat && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
@@ -103,7 +94,6 @@ export function DesignCanvas({
     };
   }, []);
 
-  // 3. Mouse Tracking for Rulers
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     const pageElement = document.getElementById('page-0');
     if (pageElement) {
@@ -114,7 +104,6 @@ export function DesignCanvas({
     }
   }, [zoom]);
 
-  // 4. Handle Clicks (Tool Placement & Selection)
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent, pageIndex: number) => {
       if (isPanning) return; 
@@ -125,8 +114,12 @@ export function DesignCanvas({
 
       if (e.target === e.currentTarget) {
         const rect = e.currentTarget.getBoundingClientRect();
-        const x = (e.clientX - rect.left) / zoom;
-        const y = (e.clientY - rect.top) / zoom;
+        const rawX = (e.clientX - rect.left) / zoom;
+        const rawY = (e.clientY - rect.top) / zoom;
+
+        // FIXED: Ensure placement respects 5px or 10px increments if snap is ON
+        const x = snapToGrid ? Math.round(rawX / gridSize) * gridSize : rawX;
+        const y = snapToGrid ? Math.round(rawY / gridSize) * gridSize : rawY;
 
         if (activeTool === "text") {
           const el = createTextElement(x, y);
@@ -141,10 +134,9 @@ export function DesignCanvas({
         }
       }
     },
-    [activeTool, zoom, addElement, clearSelection, setActiveTool, activePageIndex, setActivePage, isPanning]
+    [activeTool, zoom, addElement, clearSelection, setActiveTool, activePageIndex, setActivePage, isPanning, gridSize, snapToGrid]
   );
 
-  // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
@@ -192,17 +184,14 @@ export function DesignCanvas({
         className="flex-1 flex flex-col relative bg-muted/30 overflow-hidden" 
         onMouseMove={handleMouseMove}
     >
-        {/* Top Ruler */}
         <div className="absolute top-0 left-6 right-0 h-6 bg-muted border-b z-20 overflow-hidden">
             <Ruler type="horizontal" zoom={zoom} length={canvasWidth} mousePos={mousePos.x} />
         </div>
 
-        {/* Left Ruler */}
         <div className="absolute top-6 bottom-0 left-0 w-6 bg-muted border-r z-20 overflow-hidden">
             <Ruler type="vertical" zoom={zoom} length={canvasHeight} mousePos={mousePos.y} />
         </div>
 
-        {/* Toggle Grid */}
         <div className="absolute top-0 left-0 w-6 h-6 bg-muted z-30 border-r border-b flex items-center justify-center">
             <button 
                 onClick={toggleGrid} 
@@ -213,19 +202,13 @@ export function DesignCanvas({
             </button>
         </div>
 
-        {/* Canvas Area */}
         <ScrollArea className={`flex-1 ${isPanning ? 'cursor-grab active:cursor-grabbing' : ''}`}>
         <div
             ref={containerRef}
             className="flex flex-col items-center p-8 pt-12 pl-12 gap-8 min-h-full"
         >
-            {/* NOTE: The DndContext has been removed from here. 
-               It is now located in Editor.tsx to allow cross-pane dragging.
-            */}
-
             {Array.from({ length: pageCount }).map((_, pageIndex) => (
                 <div key={pageIndex} className="relative group">
-                    {/* Page Label */}
                     <div className="absolute -top-6 left-0 text-xs text-muted-foreground font-medium flex justify-between w-full">
                         <span>Page {pageIndex + 1}</span>
                         {pageCount > 1 && (
@@ -239,7 +222,6 @@ export function DesignCanvas({
                         )}
                     </div>
 
-                    {/* Droppable Page Surface */}
                     <DroppablePage
                         pageIndex={pageIndex}
                         activePageIndex={activePageIndex}
@@ -256,7 +238,6 @@ export function DesignCanvas({
                             cursor: activeTool === "text" ? "text" : activeTool === "shape" ? "crosshair" : "default",
                         }}
                     >
-                        {/* Elements */}
                         {sortedElements
                         .filter(el => (el.pageIndex ?? 0) === pageIndex)
                         .map((element) => (
@@ -269,12 +250,10 @@ export function DesignCanvas({
                             />
                         ))}
 
-                        {/* Alignment Guides (Passed from Parent) */}
                         {activeId && activePageIndex === pageIndex && (
                            <AlignmentGuides activeId={activeId} activeGuides={activeGuides} zoom={zoom} />
                         )}
 
-                        {/* Selection Box & Floating Toolbar */}
                         {selectedElementIds.length === 1 && 
                         elements.find(el => el.id === selectedElementIds[0])?.pageIndex === pageIndex && (
                             <>

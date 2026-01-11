@@ -22,7 +22,7 @@ export function createTextElement(
   return {
     id: nanoid(),
     type: "text",
-    position: { x: snapToGrid(x), y: snapToGrid(y) },
+    position: { x, y }, // Removed internal snap to avoid overriding caller
     dimension: { width: 200, height: 40 },
     rotation: 0,
     locked: false,
@@ -46,7 +46,7 @@ export function createTableElement(x: number, y: number): CanvasElement {
   return {
     id: nanoid(),
     type: "table",
-    position: { x: snapToGrid(x), y: snapToGrid(y) },
+    position: { x, y }, // Removed internal snap to avoid overriding caller
     dimension: { width: 400, height: 200 },
     rotation: 0,
     locked: false,
@@ -87,7 +87,6 @@ export function createTableElement(x: number, y: number): CanvasElement {
   };
 }
 
-// NEW: TOC Element Creator (Updated)
 export function createTOCElement(
   x: number,
   y: number
@@ -95,14 +94,13 @@ export function createTOCElement(
   return {
     id: nanoid(),
     type: "toc-list",
-    position: { x: snapToGrid(x), y: snapToGrid(y) },
+    position: { x, y }, // Removed internal snap
     dimension: { width: 500, height: 600 },
     rotation: 0,
     locked: false,
     visible: true,
     zIndex: Date.now(),
 
-    // Default Styling for the Item Rows (Product Names)
     textStyle: {
       fontFamily: "Inter",
       fontSize: 14,
@@ -114,7 +112,6 @@ export function createTOCElement(
       letterSpacing: 0,
     },
 
-    // Detailed Settings
     tocSettings: {
       title: "Table of Contents",
       showTitle: true,
@@ -135,7 +132,7 @@ export function createTOCElement(
         color: "#333333",
         textAlign: "left",
         verticalAlign: "middle",
-        lineHeight: 2.5, // Extra spacing for chapter headers
+        lineHeight: 2.5,
         letterSpacing: 0
       },
       showPageNumbers: true,
@@ -153,7 +150,7 @@ export function createShapeElement(
   return {
     id: nanoid(),
     type: "shape",
-    position: { x: snapToGrid(x), y: snapToGrid(y) },
+    position: { x, y }, // Removed internal snap
     dimension: { width: 100, height: 100 },
     rotation: 0,
     locked: false,
@@ -178,7 +175,7 @@ export function createQRCodeElement(
   return {
     id: nanoid(),
     type: "qrcode",
-    position: { x: snapToGrid(x), y: snapToGrid(y) },
+    position: { x, y }, // Removed internal snap
     dimension: { width: 100, height: 100 },
     rotation: 0,
     locked: false,
@@ -206,7 +203,7 @@ export function createDataFieldElement(
   return {
     id: nanoid(),
     type: "dataField",
-    position: { x: snapToGrid(x), y: snapToGrid(y) },
+    position: { x, y }, // Removed internal snap
     dimension: { width: 150, height: 32 },
     rotation: 0,
     locked: false,
@@ -235,7 +232,7 @@ export function createImageFieldElement(
   return {
     id: nanoid(),
     type: "image",
-    position: { x: snapToGrid(x), y: snapToGrid(y) },
+    position: { x, y }, // Removed internal snap
     dimension: { width: 200, height: 150 },
     rotation: 0,
     locked: false,
@@ -255,7 +252,7 @@ export function createImageElement(
   return {
     id: nanoid(),
     type: "image",
-    position: { x: snapToGrid(x), y: snapToGrid(y) },
+    position: { x, y }, // Removed internal snap
     dimension: { width: 200, height: 150 },
     rotation: 0,
     locked: false,
@@ -358,45 +355,28 @@ export function isHtmlContent(content: string): boolean {
   return /<[a-z][\s\S]*>/i.test(content);
 }
 
-// --- NEW: Shared ToC Pagination Logic (Updated for precision) ---
 export const paginateTOC = (tocElement: CanvasElement, pageMap: any[], elementHeight: number) => {
   const settings = tocElement.tocSettings || { title: "Table of Contents", showTitle: true, columnCount: 1 };
   const columnCount = settings.columnCount || 1;
-
-  // Padding must match the renderer (16px top + 16px bottom = 32px)
   const padding = 32; 
   const availableHeight = elementHeight - padding;
-
   const pages: any[][] = [];
   let currentPage: any[] = [];
-
-  // Heights based on styles
   const titleHeight = settings.showTitle 
     ? ((settings.titleStyle?.fontSize || 24) * (settings.titleStyle?.lineHeight || 1.2)) + 10 
     : 0; 
-
-  // Use actual configured line height for headers, default to 1.5
   const headerFontSize = settings.chapterStyle?.fontSize || 18;
   const headerLineHeight = settings.chapterStyle?.lineHeight || 1.5;
-
-  // UPDATED: Removed +12px margin compensation (was 8px top + 4px bottom)
   const headerHeight = (headerFontSize * headerLineHeight); 
-
-  // Use actual configured line height for items, default to 1.5
   const itemFontSize = tocElement.textStyle?.fontSize || 14;
   const itemLineHeight = tocElement.textStyle?.lineHeight || 1.5;
-  const itemHeight = (itemFontSize * itemLineHeight) + 2; // +2 for safety/padding
-
-  // --- Capacity Logic ---
+  const itemHeight = (itemFontSize * itemLineHeight) + 2; 
   const page1ColumnHeight = availableHeight - titleHeight;
   const page1TotalCapacity = page1ColumnHeight * columnCount;
   const pageNextTotalCapacity = availableHeight * columnCount;
-
   let currentCapacity = page1TotalCapacity;
   let currentUsedHeight = 0;
-
   const groupBy = settings.groupByField;
-
   const flushPage = () => {
     if (currentPage.length > 0) {
       pages.push(currentPage);
@@ -405,7 +385,6 @@ export const paginateTOC = (tocElement: CanvasElement, pageMap: any[], elementHe
       currentCapacity = pageNextTotalCapacity; 
     }
   };
-
   if (groupBy) {
       const groups: Record<string, any[]> = {};
       pageMap.forEach(item => {
@@ -413,37 +392,24 @@ export const paginateTOC = (tocElement: CanvasElement, pageMap: any[], elementHe
           if (!groups[key]) groups[key] = [];
           groups[key].push(item);
       });
-
       Object.keys(groups).forEach(groupTitle => {
-          if (currentUsedHeight + headerHeight > currentCapacity) {
-              flushPage();
-          }
+          if (currentUsedHeight + headerHeight > currentCapacity) { flushPage(); }
           currentPage.push({ type: "header", text: groupTitle });
           currentUsedHeight += headerHeight;
-
           groups[groupTitle].forEach((item) => {
-              if (currentUsedHeight + itemHeight > currentCapacity) {
-                  flushPage();
-              }
+              if (currentUsedHeight + itemHeight > currentCapacity) { flushPage(); }
               currentPage.push({ type: "item", ...item });
               currentUsedHeight += itemHeight;
           });
       });
   } else {
       pageMap.forEach(item => {
-          if (currentUsedHeight + itemHeight > currentCapacity) {
-              flushPage();
-          }
+          if (currentUsedHeight + itemHeight > currentCapacity) { flushPage(); }
           currentPage.push({ type: "item", ...item });
           currentUsedHeight += itemHeight;
       });
   }
-
-  if (currentPage.length > 0) {
-    pages.push(currentPage);
-  }
-
+  if (currentPage.length > 0) { pages.push(currentPage); }
   if (pages.length === 0) return [[]];
-
   return pages;
 };

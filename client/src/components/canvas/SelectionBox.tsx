@@ -9,7 +9,7 @@ interface SelectionBoxProps {
 type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 
 export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
-  const { elements, resizeElement, moveElement, snapToGrid: shouldSnap } = useCanvasStore();
+  const { elements, resizeElement, moveElement, snapToGrid: shouldSnap, gridSize } = useCanvasStore();
   const element = elements.find((el) => el.id === elementId);
 
   const [isResizing, setIsResizing] = useState(false);
@@ -19,6 +19,9 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
   const [startPosition, setStartPosition] = useState({ x: 0, y: 0 });
 
   if (!element) return null;
+
+  // Check if this is a table with Dynamic Height Adaptation enabled
+  const isAutoHeightTable = element.type === "table" && element.tableSettings?.autoHeightAdaptation;
 
   const handleStyle: React.CSSProperties = {
     position: "absolute",
@@ -64,14 +67,12 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
       let newX = startPosition.x;
       let newY = startPosition.y;
 
-      // --- NEW DYNAMIC HEIGHT CALCULATION (NO PADDING) ---
       let minHeight = 20;
 
       if (element.type === "table" && element.tableSettings) {
         const { excelData, selectedRowIndex } = useCanvasStore.getState();
         const settings = element.tableSettings;
 
-        // Exactly match the row counting logic from CanvasElement.tsx
         let dataRowCount = 3; 
         if (excelData && excelData.rows.length > 0) {
           if (settings.groupByField) {
@@ -86,18 +87,12 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
         }
 
         const borderWidth = settings.borderWidth || 1;
-
-        // Calculate minimal text heights based on specific styles
         const hFS = settings.headerStyle?.fontSize || 14;
         const hLH = settings.headerStyle?.lineHeight || 1.2;
         const headerTextHeight = hFS * hLH;
-
         const rFS = settings.rowStyle?.fontSize || 12;
         const rLH = settings.rowStyle?.lineHeight || 1.2;
         const rowTextHeight = rFS * rLH;
-
-        // Total floor = Header Height + (Rows * Row Height) + Borders
-        // Added a 6px safety margin per row to prevent clipping of font descenders (like 'g' or 'y')
         const safetyMargin = 6;
         minHeight = (headerTextHeight + safetyMargin) + 
                     (dataRowCount * (rowTextHeight + safetyMargin)) + 
@@ -136,13 +131,17 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
           newWidth = startDimension.width - widthChange;
           newX = startPosition.x + widthChange;
         }
-        if (activeHandle.includes("s")) {
-          newHeight = Math.max(minHeight, startDimension.height + deltaY);
-        }
-        if (activeHandle.includes("n")) {
-          const heightChange = Math.min(deltaY, startDimension.height - minHeight);
-          newHeight = startDimension.height - heightChange;
-          newY = startPosition.y + heightChange;
+
+        // PREVENT MANUAL HEIGHT ADJUSTMENT IF AUTO-ADAPTATION IS ON
+        if (!isAutoHeightTable) {
+            if (activeHandle.includes("s")) {
+              newHeight = Math.max(minHeight, startDimension.height + deltaY);
+            }
+            if (activeHandle.includes("n")) {
+              const heightChange = Math.min(deltaY, startDimension.height - minHeight);
+              newHeight = startDimension.height - heightChange;
+              newY = startPosition.y + heightChange;
+            }
         }
 
         if (e.shiftKey && isCornerHandle) {
@@ -156,8 +155,11 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
       }
 
       if (shouldSnap) {
-        newWidth = Math.round(newWidth / 10) * 10;
-        newHeight = Math.round(newHeight / 10) * 10;
+        newWidth = Math.round(newWidth / gridSize) * gridSize;
+        // Skip snapping height if it's an auto-height table
+        if (!isAutoHeightTable) {
+            newHeight = Math.round(newHeight / gridSize) * gridSize;
+        }
       }
 
       resizeElement(elementId, newWidth, newHeight);
@@ -178,7 +180,7 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isResizing, activeHandle, startPos, startDimension, startPosition, zoom, elementId, resizeElement, moveElement, shouldSnap, element]);
+  }, [isResizing, activeHandle, startPos, startDimension, startPosition, zoom, elementId, resizeElement, moveElement, shouldSnap, element, gridSize, isAutoHeightTable]);
 
   const { position, dimension } = element;
   const left = position.x * zoom;
@@ -190,6 +192,7 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
 
   return (
     <div data-html2canvas-ignore="true">
+      {/* Corner handles always visible but restricted in logic above */}
       <div style={{ ...handleStyle, left: left - 4, top: top - 4, cursor: "nw-resize" }} onMouseDown={handleMouseDown("nw")} />
       <div style={{ ...handleStyle, left: left + width - 4, top: top - 4, cursor: "ne-resize" }} onMouseDown={handleMouseDown("ne")} />
       <div style={{ ...handleStyle, left: left + width - 4, top: top + height - 4, cursor: "se-resize" }} onMouseDown={handleMouseDown("se")} />
@@ -197,9 +200,18 @@ export function SelectionBox({ elementId, zoom }: SelectionBoxProps) {
 
       {!isFixedRatio && (
         <>
-          <div style={{ ...handleStyle, left: left + width / 2 - 4, top: top - 4, cursor: "n-resize" }} onMouseDown={handleMouseDown("n")} />
+          {/* HIDE NORTH HANDLE IF AUTO-HEIGHT IS ON */}
+          {!isAutoHeightTable && (
+            <div style={{ ...handleStyle, left: left + width / 2 - 4, top: top - 4, cursor: "n-resize" }} onMouseDown={handleMouseDown("n")} />
+          )}
+
           <div style={{ ...handleStyle, left: left + width - 4, top: top + height / 2 - 4, cursor: "e-resize" }} onMouseDown={handleMouseDown("e")} />
-          <div style={{ ...handleStyle, left: left + width / 2 - 4, top: top + height - 4, cursor: "s-resize" }} onMouseDown={handleMouseDown("s")} />
+
+          {/* HIDE SOUTH HANDLE IF AUTO-HEIGHT IS ON */}
+          {!isAutoHeightTable && (
+            <div style={{ ...handleStyle, left: left + width / 2 - 4, top: top + height - 4, cursor: "s-resize" }} onMouseDown={handleMouseDown("s")} />
+          )}
+
           <div style={{ ...handleStyle, left: left - 4, top: top + height / 2 - 4, cursor: "w-resize" }} onMouseDown={handleMouseDown("w")} />
         </>
       )}

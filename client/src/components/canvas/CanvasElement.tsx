@@ -50,7 +50,7 @@ export function CanvasElement({
     deleteElement, 
     bringToFront, 
     sendToBack,
-    elements: allElements //
+    elements: allElements 
   } = useCanvasStore();
 
   const { toast } = useToast();
@@ -117,16 +117,25 @@ export function CanvasElement({
     const safety = 6;
 
     const correctH = (hFS * hLH + safety) + (currentRowsCount * (rFS * rLH + safety)) + ((currentRowsCount + 2) * bWidth);
-    const deltaH = correctH - element.dimension.height;
 
     // 3. Only trigger update if height has changed
-    if (Math.abs(deltaH) > 0.5) {
+    if (Math.abs(correctH - element.dimension.height) > 0.5) {
         updateElement(element.id, { dimension: { ...element.dimension, height: correctH } });
 
         const currentPage = element.pageIndex ?? 0;
+        const newBottom = element.position.y + correctH;
+        const safetyBuffer = 10;
+
         allElements.forEach(el => {
-            if (el.id !== element.id && (el.pageIndex ?? 0) === currentPage && el.position.y > element.position.y) {
-                updateElement(el.id, { position: { ...el.position, y: el.position.y + deltaH } });
+            if (el.id !== element.id && (el.pageIndex ?? 0) === currentPage) {
+                // Check for horizontal overlap
+                const hasOverlap = (el.position.x < element.position.x + element.dimension.width) && 
+                                   (el.position.x + el.dimension.width > element.position.x);
+
+                // Selective push: only if below table and within 10px of the new bottom
+                if (hasOverlap && el.position.y > element.position.y && el.position.y < newBottom + safetyBuffer) {
+                    updateElement(el.id, { position: { ...el.position, y: newBottom + safetyBuffer } });
+                }
             }
         });
     }
@@ -327,8 +336,9 @@ export function CanvasElement({
     if (element.type !== 'table' || overflowReport.count === 0) return;
 
     const neededHeight = auditDimensions.neededHeightAtCurrentWidth;
-    const deltaHeight = neededHeight - element.dimension.height;
     const currentPage = element.pageIndex ?? 0;
+    const newBottom = element.position.y + neededHeight;
+    const safetyBuffer = 10;
 
     updateElement(element.id, { dimension: { ...element.dimension, height: neededHeight } });
 
@@ -336,8 +346,11 @@ export function CanvasElement({
     let shiftCount = 0;
     stateElements.forEach(el => {
       if ((el.pageIndex ?? 0) === currentPage && el.id !== element.id) {
-        if (el.position.y > element.position.y) {
-           updateElement(el.id, { position: { ...el.position, y: el.position.y + deltaHeight } });
+        const hasOverlap = (el.position.x < element.position.x + element.dimension.width) && 
+                           (el.position.x + el.dimension.width > element.position.x);
+
+        if (hasOverlap && el.position.y > element.position.y && el.position.y < newBottom + safetyBuffer) {
+           updateElement(el.id, { position: { ...el.position, y: newBottom + safetyBuffer } });
            shiftCount++;
         }
       }
@@ -345,7 +358,7 @@ export function CanvasElement({
 
     toast({ 
       title: "Table Adjusted", 
-      description: `Table expanded and ${shiftCount} elements pushed down by ${Math.ceil(deltaHeight)}px.` 
+      description: `Table expanded and ${shiftCount} overlapping elements pushed down.` 
     });
   };
 
@@ -609,7 +622,7 @@ export function CanvasElement({
               overflowWrap: "anywhere",
             }}
           >
-            {isSelected && overflowReport.count > 0 && !element.locked && (
+            {overflowReport.count > 0 && !element.locked && (
               <div 
                 className="absolute top-0 left-0 m-1 bg-destructive text-white p-1 rounded-sm shadow-md z-[100] flex items-center gap-1 cursor-pointer animate-in fade-in zoom-in duration-200"
                 onClick={(e) => {
@@ -665,7 +678,7 @@ export function CanvasElement({
         return <div className="w-full h-full" style={shapeStyle} aria-hidden="true" />;
 
       case "image":
-        const displayImageUrl = activeUrl; 
+        const displayImageUrl = activeUrl; 
         if (displayImageUrl) {
           const neededWidth = Math.ceil(element.dimension.width * 3.125);
           const neededHeight = Math.ceil(element.dimension.height * 3.125);
@@ -676,7 +689,7 @@ export function CanvasElement({
               <img
                 src={displayImageUrl}
                 alt={element.dataBinding || "Product image"}
-                loading="eager" 
+                loading="eager" 
                 className="w-full h-full object-contain"
                 draggable={false}
                 style={{ objectPosition: "center", transform: "translateZ(0)", backfaceVisibility: "hidden" }}
@@ -697,7 +710,7 @@ export function CanvasElement({
           </div>
         );
 
-      case "qrcode": 
+      case "qrcode": 
         return <div className="w-full h-full" role="img" aria-label="QR Code" dangerouslySetInnerHTML={{ __html: qrSvg }} />;
 
       case "table":
@@ -719,14 +732,14 @@ export function CanvasElement({
                if (groupValue) {
                    displayRows = excelData.rows.filter(r => r[tableSettings.groupByField!] === groupValue);
                } else {
-                   displayRows = [currentRow]; 
+                   displayRows = [currentRow]; 
                }
             } else {
-               displayRows = excelData.rows.slice(0, 5); 
+               displayRows = excelData.rows.slice(0, 5); 
             }
         }
 
-        let columnWidths: Record<string, string> = {}; 
+        let columnWidths: Record<string, string> = {}; 
 
         if (tableSettings.autoFitColumns) {
             const colWeights = tableSettings.columns.map(col => {
@@ -766,13 +779,13 @@ export function CanvasElement({
                 {tableSettings.columns.map((col: any, idx) => (
                     <div key={col.id} role="columnheader" className="flex items-center overflow-hidden" style={{
                         width: columnWidths[col.id],
-                        justifyContent: getJustifyContent(col.headerAlign || tableSettings.headerStyle?.textAlign), 
+                        justifyContent: getJustifyContent(col.headerAlign || tableSettings.headerStyle?.textAlign), 
                         borderRightWidth: idx === tableSettings.columns.length - 1 ? 0 : tableSettings.borderWidth * zoom,
                         borderStyle: "solid",
                         borderColor: tableSettings.borderColor,
                         fontFamily: tableSettings.headerStyle?.fontFamily || "Inter",
                         fontSize: (tableSettings.headerStyle?.fontSize || 14) * zoom,
-                        padding: `2px ${4 * zoom}px`, 
+                        padding: `2px ${4 * zoom}px`, 
                     }}>
                         {col.header}
                     </div>
@@ -789,13 +802,13 @@ export function CanvasElement({
                         {tableSettings.columns.map((col: any, cIdx) => (
                             <div key={col.id} role="cell" className="overflow-hidden flex items-center" style={{
                                 width: columnWidths[col.id],
-                                justifyContent: getJustifyContent(col.rowAlign || tableSettings.rowStyle?.textAlign), 
+                                justifyContent: getJustifyContent(col.rowAlign || tableSettings.rowStyle?.textAlign), 
                                 borderRightWidth: cIdx === tableSettings.columns.length - 1 ? 0 : tableSettings.borderWidth * zoom,
                                 borderStyle: "solid",
                                 borderColor: tableSettings.borderColor,
                                 fontFamily: tableSettings.rowStyle?.fontFamily || "Inter",
                                 fontSize: (tableSettings.rowStyle?.fontSize || 12) * zoom,
-                                padding: `0 ${4 * zoom}px`, 
+                                padding: `0 ${4 * zoom}px`, 
                             }}>
                                 <span className="truncate w-full">{row[col.dataField || ""] || "-"}</span>
                             </div>
@@ -914,7 +927,7 @@ export function CanvasElement({
           style={{
             ...style,
             ...(isSelected && !isEditing && {
-              outline: "2px solid #3b82f6", 
+              outline: "2px solid #3b82f6", 
               outlineOffset: "0px",
               backgroundColor: "transparent",
             }),
@@ -926,7 +939,7 @@ export function CanvasElement({
           {/* BLOCK START: PERSISTENT GHOST OUTLINE LOGIC */}
           {!element.locked && overflowReport.count > 0 && (
             <>
-              {/* TEXT FIELD GUIDES (only when selected) */}
+              {/* TEXT FIELD GUIDES (only when selected - Red lines with text labels) */}
               {isSelected && (element.type === 'text' || element.type === 'dataField') && (
                 <>
                   {auditDimensions.neededHeightAtCurrentWidth > element.dimension.height + 0.1 && (
@@ -963,23 +976,21 @@ export function CanvasElement({
                 </>
               )}
 
-              {/* TABLE GHOST GUIDE (always when overflow) */}
-                  {element.type === 'table' && (
-                    <div 
-                      className="absolute top-0 left-0 border-2 border-dashed border-yellow-500/50 pointer-events-none z-[-1]"
-                      aria-hidden="true"
-                      style={{
-                        width: element.dimension.width * zoom,
-                        height: auditDimensions.neededHeightAtCurrentWidth * zoom,
-                        backgroundColor: "rgba(234, 179, 8, 0.05)"
-                      }}
-                    >
-                      {/* Text label removed as requested */}
-                    </div>
-                  )}
-                </>
+              {/* TABLE GHOST GUIDE (always persistent yellow line, no text) */}
+              {element.type === 'table' && (
+                <div 
+                  className="absolute top-0 left-0 border-2 border-dashed border-yellow-500/50 pointer-events-none z-[-1]"
+                  aria-hidden="true"
+                  style={{
+                    width: element.dimension.width * zoom,
+                    height: auditDimensions.neededHeightAtCurrentWidth * zoom,
+                    backgroundColor: "rgba(234, 179, 8, 0.05)"
+                  }}
+                />
               )}
-              {/* BLOCK END: PERSISTENT GHOST OUTLINE LOGIC */}
+            </>
+          )}
+          {/* BLOCK END: PERSISTENT GHOST OUTLINE LOGIC */}
 
           {renderContent()}
         </div>
