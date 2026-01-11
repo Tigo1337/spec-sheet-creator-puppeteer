@@ -269,6 +269,7 @@ export function ExportTab() {
       elementDiv.style.transform = element.rotation ? `rotate(${element.rotation}deg)` : "";
       elementDiv.style.boxSizing = "border-box";
       elementDiv.style.zIndex = String(element.zIndex ?? 0);
+      elementDiv.style.overflow = "hidden"; // Clip content to match Canvas truncation behavior
 
       // --- TEXT & DATA FIELDS ---
       if (element.type === "text" || element.type === "dataField") {
@@ -390,118 +391,110 @@ export function ExportTab() {
              } catch (e) { console.error("Error generating QR", e); }
          }
       }
-      // --- TABLE EXPORT ---
+      // --- TABLE EXPORT (ACROBAT WYSIWYG FIX) ---
       else if (element.type === "table") {
          const tableSettings = element.tableSettings;
          if (tableSettings) {
-             elementDiv.style.display = "flex";
-             elementDiv.style.flexDirection = "column";
-             elementDiv.style.backgroundColor = "#ffffff";
-             elementDiv.style.border = `${tableSettings.borderWidth || 1}px solid ${tableSettings.borderColor || "#e5e7eb"}`;
-             elementDiv.style.overflow = "hidden";
+             const tableEl = document.createElement("table");
+
+             // Base Table Styling - Forces identical layout to Canvas
+             tableEl.style.width = "100%";
+             tableEl.style.height = "100%"; // Stretching behavior matches flex-1 in CanvasElement.tsx
+             tableEl.style.borderCollapse = "separate"; // Separate borders fix Acrobat inconsistency artifacts
+             tableEl.style.borderSpacing = "0";
+             tableEl.style.backgroundColor = "#ffffff";
+             tableEl.style.tableLayout = "fixed"; 
+
+             // Outer borders from table element
+             const bWidth = tableSettings.borderWidth || 1;
+             const bColor = tableSettings.borderColor || "#e5e7eb";
+             tableEl.style.borderTop = `${bWidth}px solid ${bColor}`;
+             tableEl.style.borderLeft = `${bWidth}px solid ${bColor}`;
 
              // Data resolution
              let displayRows: any[] = [];
              if (excelData && excelData.rows.length > 0) {
                  if (tableSettings.groupByField) {
-                     // Get current group value from the main row
                      const groupVal = sourceData[tableSettings.groupByField];
-                     if (groupVal) {
-                         displayRows = excelData.rows.filter(r => r[tableSettings.groupByField!] === groupVal);
-                     } else {
-                         displayRows = [sourceData];
-                     }
+                     displayRows = groupVal ? excelData.rows.filter(r => r[tableSettings.groupByField!] === groupVal) : [sourceData];
                  } else {
-                     // Single Row Fallback (or whatever logic for non-grouped)
                      displayRows = [sourceData]; 
                  }
              }
 
-             // --- HEADER ---
-             const headerDiv = document.createElement("div");
-             headerDiv.style.display = "flex";
-             headerDiv.style.width = "100%";
-             headerDiv.style.backgroundColor = tableSettings.headerBackgroundColor || "#f3f4f6";
+             // --- THEAD (HEADER) ---
+             const thead = document.createElement("thead");
+             const headerRow = document.createElement("tr");
+             headerRow.style.backgroundColor = tableSettings.headerBackgroundColor || "#f3f4f6";
 
-             // Font setup for Header
              const hRaw = tableSettings.headerStyle?.fontFamily || "Inter";
              const hMapped = openSourceFontMap[hRaw] || hRaw;
              const hFont = `"${hMapped}", sans-serif`;
-
              const totalWidth = tableSettings.columns.reduce((acc, c) => acc + (c.width || 100), 0);
 
-             tableSettings.columns.forEach((col: any, idx) => {
-                 const cell = document.createElement("div");
-                 cell.textContent = col.header;
-                 cell.style.width = `${(col.width / totalWidth) * 100}%`;
-                 cell.style.padding = "4px 8px";
-                 cell.style.borderRight = idx < tableSettings.columns.length - 1 ? `${tableSettings.borderWidth}px solid ${tableSettings.borderColor}` : "none";
-                 cell.style.fontFamily = hFont;
-                 cell.style.fontSize = `${tableSettings.headerStyle?.fontSize || 14}px`;
-                 cell.style.fontWeight = String(tableSettings.headerStyle?.fontWeight || 700);
-                 cell.style.color = tableSettings.headerStyle?.color || "#000";
-                 cell.style.display = "flex";
-                 cell.style.alignItems = "center";
+             tableSettings.columns.forEach((col: any) => {
+                 const th = document.createElement("th");
+                 th.textContent = col.header;
+                 th.style.width = `${(col.width / totalWidth) * 100}%`;
+                 th.style.padding = "2px 4px"; // Tighter padding matching CanvasElement.tsx header
+                 th.style.borderBottom = `${bWidth}px solid ${bColor}`;
+                 th.style.borderRight = `${bWidth}px solid ${bColor}`;
+                 th.style.fontFamily = hFont;
+                 th.style.fontSize = `${tableSettings.headerStyle?.fontSize || 14}px`;
+                 th.style.fontWeight = String(tableSettings.headerStyle?.fontWeight || 700);
+                 th.style.color = tableSettings.headerStyle?.color || "#000";
 
-                 // NEW: Per-column Alignment logic for Header
-                  const alignment = col.headerAlign || tableSettings.headerStyle?.textAlign || 'left';
-                  cell.style.textAlign = alignment;
-                  cell.style.justifyContent = alignment === 'center' ? 'center' : alignment === 'right' ? 'flex-end' : 'flex-start';
+                 const alignment = col.headerAlign || tableSettings.headerStyle?.textAlign || 'left';
+                 th.style.textAlign = alignment;
+                 th.style.verticalAlign = "middle";
+                 th.style.whiteSpace = "nowrap";
+                 th.style.overflow = "hidden";
+                 th.style.textOverflow = "ellipsis";
 
-                 cell.style.overflow = "hidden";
-                 headerDiv.appendChild(cell);
+                 headerRow.appendChild(th);
              });
-             elementDiv.appendChild(headerDiv);
+             thead.appendChild(headerRow);
+             tableEl.appendChild(thead);
 
-             // --- BODY ---
-             const bodyDiv = document.createElement("div");
-             bodyDiv.style.flex = "1";
-             bodyDiv.style.display = "flex";
-             bodyDiv.style.flexDirection = "column";
-             bodyDiv.style.width = "100%";
-             bodyDiv.style.overflow = "hidden";
-
-             // Font setup for Rows
+             // --- TBODY (BODY) ---
+             const tbody = document.createElement("tbody");
              const rRaw = tableSettings.rowStyle?.fontFamily || "Inter";
              const rMapped = openSourceFontMap[rRaw] || rRaw;
              const rFont = `"${rMapped}", sans-serif`;
 
              displayRows.forEach((row, rIdx) => {
-                 const rowDiv = document.createElement("div");
-                 rowDiv.style.display = "flex";
-                 rowDiv.style.width = "100%";
-                 rowDiv.style.flex = "1"; // Scale height
-                 rowDiv.style.borderTop = `${tableSettings.borderWidth}px solid ${tableSettings.borderColor}`;
-                 rowDiv.style.backgroundColor = (tableSettings.alternateRowColor && rIdx % 2 === 1) 
+                 const tr = document.createElement("tr");
+                 tr.style.backgroundColor = (tableSettings.alternateRowColor && rIdx % 2 === 1) 
                     ? tableSettings.alternateRowColor 
                     : tableSettings.rowBackgroundColor || "#fff";
 
-                 tableSettings.columns.forEach((col: any, cIdx) => {
-                     const cell = document.createElement("div");
-                     cell.textContent = row[col.dataField || ""] || "-";
-                     cell.style.width = `${(col.width / totalWidth) * 100}%`;
-                     cell.style.padding = `${tableSettings.cellPadding || 8}px`;
-                     cell.style.borderRight = cIdx < tableSettings.columns.length - 1 ? `${tableSettings.borderWidth}px solid ${tableSettings.borderColor}` : "none";
+                 tableSettings.columns.forEach((col: any) => {
+                     const td = document.createElement("td");
+                     td.textContent = row[col.dataField || ""] || "-";
+                     td.style.padding = "0px 4px"; // Low padding matching Canvas row implementation
+                     td.style.borderBottom = `${bWidth}px solid ${bColor}`;
+                     td.style.borderRight = `${bWidth}px solid ${bColor}`;
+                     td.style.fontFamily = rFont;
+                     td.style.fontSize = `${tableSettings.rowStyle?.fontSize || 12}px`;
+                     td.style.fontWeight = String(tableSettings.rowStyle?.fontWeight || 400);
+                     td.style.color = tableSettings.rowStyle?.color || "#000";
 
-                     cell.style.fontFamily = rFont;
-                     cell.style.fontSize = `${tableSettings.rowStyle?.fontSize || 12}px`;
-                     cell.style.fontWeight = String(tableSettings.rowStyle?.fontWeight || 400);
-                     cell.style.color = tableSettings.rowStyle?.color || "#000";
-                     cell.style.display = "flex";
-                     cell.style.alignItems = "center"; // Vertical Align Middle
-
-                     // NEW: Per-column Alignment logic for Body
                      const alignment = col.rowAlign || tableSettings.rowStyle?.textAlign || 'left';
-                     cell.style.textAlign = alignment;
-                     cell.style.justifyContent = alignment === 'center' ? 'center' : alignment === 'right' ? 'flex-end' : 'flex-start';
+                     td.style.textAlign = alignment;
+                     td.style.verticalAlign = "middle";
 
-                     cell.style.overflow = "hidden";
+                     // Truncation logic matching the Canvas .truncate class
+                     td.style.whiteSpace = "nowrap"; 
+                     td.style.overflow = "hidden";
+                     td.style.textOverflow = "ellipsis";
 
-                     rowDiv.appendChild(cell);
+                     tr.appendChild(td);
                  });
-                 bodyDiv.appendChild(rowDiv);
+                 tbody.appendChild(tr);
              });
-             elementDiv.appendChild(bodyDiv);
+             tableEl.appendChild(tbody);
+
+             elementDiv.appendChild(tableEl);
          }
       }
       // --- TABLE OF CONTENTS (TOC) ---
@@ -552,7 +545,6 @@ export function ExportTab() {
              listDiv.style.setProperty("column-fill", "auto");
          }
 
-         // FIX: Use the pageMap (calculated structure) if available, falling back to dummy
          const effectivePageMap = pageMap.length > 0 ? pageMap : itemsToRender;
 
          if (effectivePageMap.length > 0) {
@@ -587,7 +579,6 @@ export function ExportTab() {
       container.appendChild(elementDiv);
     }
 
-    // WATERMARK INJECTION FOR FREE USERS
     if (!isPro) {
         const watermark = document.createElement("div");
         watermark.style.position = "absolute";
@@ -660,7 +651,6 @@ export function ExportTab() {
       return div;
   };
 
-  // --- ASYNC POLLING HELPER ---
   const pollJobStatus = async (jobId: string) => {
     return new Promise<{ resultUrl: string, fileName: string }>((resolve, reject) => {
       const interval = setInterval(async () => {
@@ -673,7 +663,6 @@ export function ExportTab() {
 
           if (job.status === "completed") {
             clearInterval(interval);
-            // FIX: Prefer the signed 'downloadUrl' generated by backend
             resolve({ 
                 resultUrl: job.downloadUrl || job.resultUrl, 
                 fileName: job.fileName 
@@ -690,16 +679,11 @@ export function ExportTab() {
     });
   };
 
-  // --- DOWNLOAD TRIGGER HELPER (FIXED) ---
   const triggerDownload = (url: string, filename: string) => {
     try {
         const link = document.createElement('a');
         link.href = url;
         link.setAttribute('download', filename); 
-        // FIX: Removed target="_blank" because long-running async jobs 
-        // lose user activation, causing popup blockers to block the window.open.
-        // Since we use 'Content-Disposition: attachment', it will download safely 
-        // without navigating away.
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -708,7 +692,6 @@ export function ExportTab() {
     }
   };
 
-  // UPDATED: Accept usedFonts parameter to optimize loading
   const wrapHtmlWithStyles = (innerHtml: string, title: string, usedFonts: string[] = ["Inter"]) => {
     const finalFonts = usedFonts.length > 0 ? usedFonts : ["Inter"];
 
@@ -719,7 +702,15 @@ export function ExportTab() {
 
     return `<!DOCTYPE html><html><head><title>${title}</title>
           <link href="https://fonts.googleapis.com/css2?${fontFamilies}&display=swap" rel="stylesheet">
-          <style>@page { size: ${canvasWidth}px ${canvasHeight}px; margin: 0; } body { margin: 0; }</style>
+          <style>
+            @page { size: ${canvasWidth}px ${canvasHeight}px; margin: 0; } 
+            body { 
+                margin: 0; 
+                -webkit-print-color-adjust: exact !important; 
+                print-color-adjust: exact !important; 
+            }
+            table { page-break-inside: avoid; }
+          </style>
         </head><body>${innerHtml}</body></html>`;
   };
 
@@ -742,7 +733,6 @@ export function ExportTab() {
 
       const desiredFilename = `${getConstructedFilename(selectedRowIndex)}.pdf`;
 
-      // OPTIMIZED FONT LOADING
       const usedFonts = getUsedFontsInElements(currentElements);
       const fullHtml = wrapHtmlWithStyles(combinedHtml, desiredFilename, usedFonts);
 
@@ -781,7 +771,7 @@ export function ExportTab() {
     } finally {
       setIsExporting(false);
       setProgress(100);
-      fetchHistory(); // Refresh history
+      fetchHistory(); 
     }
   };
 
@@ -797,8 +787,6 @@ export function ExportTab() {
       const total = Math.min(excelData.rows.length, 50);
 
       const usedFilenames = new Set<string>();
-
-      // OPTIMIZED FONT LOADING
       const usedFonts = getUsedFontsInElements(currentElements);
 
       for (let i = 0; i < total; i++) {
@@ -830,7 +818,6 @@ export function ExportTab() {
         setProgress(Math.round((i / total) * 30)); 
       }
 
-      // --- FIX: USE PROJECT NAME FOR ZIP ---
       const defaultBase = `Bulk_Export_${new Date().toISOString().slice(0, 10)}`;
       const baseName = projectName ? projectName : defaultBase;
       const zipFileName = `${baseName}.zip`;
@@ -844,8 +831,8 @@ export function ExportTab() {
             width: canvasWidth, 
             height: canvasHeight, 
             scale: 2,
-            projectName: baseName, // Pass project name
-            fileName: zipFileName  // Pass zip filename
+            projectName: baseName, 
+            fileName: zipFileName  
         }),
       });
 
@@ -863,11 +850,10 @@ export function ExportTab() {
       toast({ title: "Bulk Export Failed", description: error.message, variant: "destructive" });
     } finally {
       setIsExporting(false);
-      fetchHistory(); // Refresh history
+      fetchHistory(); 
     }
   };
 
-  // --- NEW: GENERATE CATALOG (FULL CHUNKING SUPPORT) ---
   const generateCatalogPDF = async () => {
     if (!excelData || excelData.rows.length === 0) {
         toast({ title: "Error", description: "No data available for catalog.", variant: "destructive" });
@@ -880,29 +866,24 @@ export function ExportTab() {
     setCurrentAction("Planning catalog structure...");
 
     try {
-      // 1. STRUCTURE PLANNING
       let pageIndex = 1;
       const structure: Array<{ type: 'cover' | 'toc' | 'chapter' | 'product' | 'back', data?: any, group?: string }> = [];
       const pageMap: Array<{ title: string, page: number, group?: string }> = [];
 
-      // A. COVER PAGE
       if (catalogSections.cover.elements.length > 0) {
           structure.push({ type: 'cover' });
           pageIndex++;
       }
 
-      // B. TABLE OF CONTENTS
       if (catalogSections.toc.elements.length > 0) {
           structure.push({ type: 'toc' });
           pageIndex++; 
       }
 
-      // C. PRODUCTS & CHAPTERS
       const tocElement = catalogSections.toc.elements.find(e => e.type === 'toc-list');
       const groupByField = tocElement?.tocSettings?.groupByField; 
       let currentGroup = "";
 
-      // --- SMARTER TITLE COLUMN DETECTION ---
       const nameCandidates = ["name", "product name", "item name", "title", "model", "product", "description"];
       let titleKey = excelData.headers.find(h => nameCandidates.includes(h.toLowerCase()));
 
@@ -917,32 +898,25 @@ export function ExportTab() {
       for (let i = 0; i < excelData.rows.length; i++) {
           const row = excelData.rows[i];
 
-          // Handle Grouping / Chapter Dividers
           if (groupByField) {
               const groupVal = row[groupByField] || "Uncategorized";
-
               if (groupVal !== currentGroup) {
                   currentGroup = groupVal;
-
-                  // --- FORCE CHAPTER PAGE IF GROUPING IS ENABLED ---
                   structure.push({ type: 'chapter', group: groupVal });
                   pageIndex++;
               }
           }
 
           const title = row[titleKey] || `Item ${i+1}`;
-
           pageMap.push({ title, page: pageIndex, group: currentGroup });
           structure.push({ type: 'product', data: row });
           pageIndex++;
       }
 
-      // D. BACK COVER
       if (catalogSections.back.elements.length > 0) {
           structure.push({ type: 'back' });
       }
 
-      // 2. Identify all fonts used across ALL sections and custom chapters
       const allElementsForFonts = [
         ...catalogSections.cover.elements,
         ...catalogSections.toc.elements,
@@ -953,7 +927,6 @@ export function ExportTab() {
       ];
       const usedFonts = getUsedFontsInElements(allElementsForFonts);
 
-      // 3. CHUNKED RENDERING (Reduced Size for Stability)
       const CHUNK_SIZE = 5; 
       const chunks: string[] = [];
 
@@ -1019,7 +992,6 @@ export function ExportTab() {
           await new Promise(r => setTimeout(r, 0));
       }
 
-      // --- FIX: USE FILENAME PATTERN ---
       const filenameBase = getConstructedFilename(0); 
       const filename = `${filenameBase}.pdf`;
 
@@ -1029,7 +1001,7 @@ export function ExportTab() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: chunks, // Send chunks instead of full HTML
+          items: chunks, 
           width: canvasWidth,
           height: canvasHeight,
           scale: exportMode === 'print' ? 3.125 : 2, 
@@ -1056,7 +1028,7 @@ export function ExportTab() {
     } finally {
         setIsExporting(false);
         setProgress(100);
-        fetchHistory(); // Refresh history
+        fetchHistory(); 
     }
   };
 
@@ -1266,7 +1238,7 @@ export function ExportTab() {
             <>
               <Button
                 className="w-full gap-2"
-                onClick={generatePDF} // Calls new async function
+                onClick={generatePDF} 
                 disabled={isExporting || currentElements.length === 0}
                 data-testid="btn-export-pdf"
               >
@@ -1278,7 +1250,7 @@ export function ExportTab() {
                 <Button
                   variant="outline"
                   className="w-full gap-2"
-                  onClick={generateBulkPDFs} // Calls new async function
+                  onClick={generateBulkPDFs} 
                   disabled={isExporting}
                   data-testid="btn-export-bulk"
                 >
@@ -1331,7 +1303,6 @@ export function ExportTab() {
                 {history.map((job) => (
                     <div key={job.id} className="flex items-center justify-between p-2.5 border rounded-lg bg-white/50 hover:bg-white transition-colors">
                         <div className="flex flex-col">
-                            {/* UPDATED: Show Project Name if available, else show Type */}
                             <span className="font-medium text-xs truncate max-w-[150px]" title={job.projectName || job.fileName}>
                                 {job.projectName || (job.type === 'pdf_catalog' ? '📚 Full Catalog' : '📄 Single Export')}
                             </span>
@@ -1341,7 +1312,6 @@ export function ExportTab() {
                         </div>
 
                         <div className="flex items-center gap-2">
-                            {/* Status Badge */}
                             <span className={`text-[10px] px-1.5 py-0.5 rounded-full capitalize ${
                                 job.status === 'completed' ? 'bg-green-100 text-green-700' :
                                 job.status === 'failed' ? 'bg-red-100 text-red-700' :
@@ -1350,7 +1320,6 @@ export function ExportTab() {
                                 {job.status}
                             </span>
 
-                            {/* Download Button */}
                             {job.status === 'completed' && job.downloadUrl && (
                                 <a 
                                     href={job.downloadUrl} 
