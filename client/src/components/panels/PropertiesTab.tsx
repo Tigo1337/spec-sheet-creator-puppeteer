@@ -673,23 +673,36 @@ export function PropertiesTab() {
                   <Database className="h-4 w-4" />
                   Data Grouping
                </h3>
-               <div className="space-y-1.5 p-3 bg-primary/5 rounded-md border border-primary/20">
-                  <Label className="text-xs text-muted-foreground">Group Products By</Label>
-                  <Select
-                    value={selectedElement.tableSettings.groupByField || "none"}
-                    onValueChange={(val) => updateElement(selectedElement.id, { 
-                        tableSettings: { ...selectedElement.tableSettings!, groupByField: val === "none" ? undefined : val } 
-                    })}
-                  >
-                    <SelectTrigger className="bg-white"><SelectValue placeholder="None (Show all)" /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="none">None (Single/All)</SelectItem>
-                        {excelData?.headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    If set, the table will only show rows that match this column value for the current page's product.
-                  </p>
+               <div className="space-y-4 p-3 bg-primary/5 rounded-md border border-primary/20">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Group Products By</Label>
+                    <Select
+                      value={selectedElement.tableSettings.groupByField || "none"}
+                      onValueChange={(val) => updateElement(selectedElement.id, { 
+                          tableSettings: { ...selectedElement.tableSettings!, groupByField: val === "none" ? undefined : val } 
+                      })}
+                    >
+                      <SelectTrigger className="bg-white"><SelectValue placeholder="None (Show all)" /></SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="none">None (Single/All)</SelectItem>
+                          {excelData?.headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* BLOCK START: DYNAMIC HEIGHT ADAPTATION TOGGLE */}
+                  <div className="flex items-center justify-between border-t pt-3">
+                    <div className="space-y-0.5">
+                        <Label className="text-[10px] text-primary font-bold uppercase tracking-wider">Dynamic Height Adaptation</Label>
+                        <p className="text-[9px] text-muted-foreground">Auto-adjust height & push content</p>
+                    </div>
+                    <Switch 
+                        checked={selectedElement.tableSettings.autoHeightAdaptation || false} 
+                        onCheckedChange={(checked) => updateElement(selectedElement.id, { tableSettings: { ...selectedElement.tableSettings!, autoHeightAdaptation: checked } })} 
+                        className="scale-75"
+                    />
+                  </div>
+                  {/* BLOCK END: DYNAMIC HEIGHT ADAPTATION TOGGLE */}
                </div>
             </div>
 
@@ -1345,7 +1358,7 @@ export function PropertiesTab() {
           </div>
         )}
 
-        {/* --- QR Code Settings --- */}
+        {/* QR Code Settings */}
         {selectedElement.type === "qrcode" && (
           <div>
             <h3 className="font-medium text-sm mb-3">QR Code Settings</h3>

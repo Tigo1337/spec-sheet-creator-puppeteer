@@ -75,9 +75,10 @@ export const tableSettingsSchema = z.object({
   columns: z.array(tableColumnSchema).default([]),
   groupByField: z.string().optional(),
   autoFitColumns: z.boolean().default(false),
-  minColumnWidth: z.number().default(50), // Prevent columns from disappearing
-  equalRowHeights: z.boolean().default(true), // Toggle for the "Perfect World" heights
-  minRowHeight: z.number().default(24), // Minimum height for a single row to remain readable
+  autoHeightAdaptation: z.boolean().default(false), // NEW: Toggle for dynamic auto-flow
+  minColumnWidth: z.number().default(50), 
+  equalRowHeights: z.boolean().default(true), 
+  minRowHeight: z.number().default(24), 
 
   // Styles
   headerStyle: textStyleSchema.default({
@@ -475,7 +476,7 @@ export const insertExportJobSchema = z.object({
   displayFilename: z.string().optional(), 
 });
 
-// --- UPDATED: AI Logs Table with Token Counts ---
+// --- AI Logs Table with Token Counts ---
 export const aiLogsTable = pgTable("ai_logs", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id", { length: 255 }).notNull(),

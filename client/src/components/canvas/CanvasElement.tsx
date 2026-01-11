@@ -13,11 +13,13 @@ import {
   BringToFront, 
   SendToBack, 
   Lock, 
-  Unlock 
+  Unlock,
+  MoveDown
 } from "lucide-react";
 import QRCode from "qrcode";
 import { Button } from "@/components/ui/button"; 
 import { loadFont } from "@/lib/font-loader"; 
+import { useToast } from "@/hooks/use-toast";
 import { 
   ContextMenu, 
   ContextMenuContent, 
@@ -47,8 +49,11 @@ export function CanvasElement({
     duplicateElement, 
     deleteElement, 
     bringToFront, 
-    sendToBack 
+    sendToBack,
+    elements: allElements //
   } = useCanvasStore();
+
+  const { toast } = useToast();
 
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
 
@@ -90,173 +95,258 @@ export function CanvasElement({
       element.tableSettings?.rowStyle?.fontFamily
   ]);
 
-  // --- FINAL: "Path to Safety" Solver ---
+  // --- DYNAMIC HEIGHT ADAPTATION LOGIC (Real-time Flow) ---
   useEffect(() => {
-    if ((element.type !== 'text' && element.type !== 'dataField') || !excelData?.rows.length || isEditing) {
+    if (element.type !== 'table' || !element.tableSettings?.autoHeightAdaptation || !excelData || selectedRowIndex === undefined) return;
+
+    const settings = element.tableSettings;
+    const currentRow = excelData.rows[selectedRowIndex];
+    const groupValue = settings.groupByField ? currentRow[settings.groupByField] : null;
+
+    // 1. Calculate current row count for this specific group
+    const currentRowsCount = groupValue 
+        ? excelData.rows.filter(r => r[settings.groupByField!] === groupValue).length 
+        : Math.min(excelData.rows.length, 5);
+
+    // 2. Calculate correct height needed
+    const hFS = settings.headerStyle?.fontSize || 14;
+    const hLH = settings.headerStyle?.lineHeight || 1.2;
+    const rFS = settings.rowStyle?.fontSize || 12;
+    const rLH = settings.rowStyle?.lineHeight || 1.2;
+    const bWidth = settings.borderWidth || 1;
+    const safety = 6;
+
+    const correctH = (hFS * hLH + safety) + (currentRowsCount * (rFS * rLH + safety)) + ((currentRowsCount + 2) * bWidth);
+    const deltaH = correctH - element.dimension.height;
+
+    // 3. Only trigger update if height has changed
+    if (Math.abs(deltaH) > 0.5) {
+        updateElement(element.id, { dimension: { ...element.dimension, height: correctH } });
+
+        const currentPage = element.pageIndex ?? 0;
+        allElements.forEach(el => {
+            if (el.id !== element.id && (el.pageIndex ?? 0) === currentPage && el.position.y > element.position.y) {
+                updateElement(el.id, { position: { ...el.position, y: el.position.y + deltaH } });
+            }
+        });
+    }
+  }, [selectedRowIndex, element.tableSettings?.autoHeightAdaptation, element.tableSettings?.groupByField]);
+
+  // --- FINAL: "Path to Safety" Solver (Updated for Tables) ---
+  useEffect(() => {
+    if ((element.type !== 'text' && element.type !== 'dataField' && element.type !== 'table') || !excelData?.rows.length || isEditing) {
       setOverflowReport({ count: 0, firstIndex: null });
       return;
     }
 
     const validateDataset = async () => {
-      // 1. Wait for fonts to be ready to ensure measurements are accurate
-      await document.fonts.ready;
+      if (element.type === 'text' || element.type === 'dataField') {
+        await document.fonts.ready;
 
-      const isDataField = element.type === "dataField";
-      const listStyleProp = element.format?.listStyle;
-      const hasCustomListStyle = listStyleProp && listStyleProp !== 'none';
-      const activeFont = element.textStyle?.fontFamily || (isDataField ? "JetBrains Mono" : "Inter");
-      const fontValue = activeFont.includes(" ") ? `"${activeFont}"` : activeFont;
+        const isDataField = element.type === "dataField";
+        const listStyleProp = element.format?.listStyle;
+        const hasCustomListStyle = listStyleProp && listStyleProp !== 'none';
+        const activeFont = element.textStyle?.fontFamily || (isDataField ? "JetBrains Mono" : "Inter");
+        const fontValue = activeFont.includes(" ") ? `"${activeFont}"` : activeFont;
 
-      const verticalAlignMap = {
-        top: "flex-start",
-        middle: "center",
-        bottom: "flex-end",
-      };
+        const verticalAlignMap = {
+          top: "flex-start",
+          middle: "center",
+          bottom: "flex-end",
+        };
 
-      const measurer = document.createElement('div');
-      measurer.style.position = 'absolute';
-      measurer.style.visibility = 'hidden';
-      measurer.style.boxSizing = 'border-box';
-      measurer.style.wordBreak = 'break-word';
-      measurer.style.overflowWrap = 'anywhere';
+        const measurer = document.createElement('div');
+        measurer.style.position = 'absolute';
+        measurer.style.visibility = 'hidden';
+        measurer.style.boxSizing = 'border-box';
+        measurer.style.wordBreak = 'break-word';
+        measurer.style.overflowWrap = 'anywhere';
 
-      // Strict Flexbox Layout Parity
-      measurer.style.display = 'flex';
-      measurer.style.flexDirection = 'column';
-      measurer.style.justifyContent = verticalAlignMap[element.textStyle?.verticalAlign || "middle"];
+        measurer.style.display = 'flex';
+        measurer.style.flexDirection = 'column';
+        measurer.style.justifyContent = verticalAlignMap[element.textStyle?.verticalAlign || "middle"];
 
-      measurer.style.fontFamily = fontValue;
-      measurer.style.fontSize = `${(element.textStyle?.fontSize || (isDataField ? 14 : 16)) * zoom}px`;
-      measurer.style.fontWeight = String(element.textStyle?.fontWeight || (isDataField ? 500 : 400));
-      measurer.style.color = element.textStyle?.color || "#000000";
-      measurer.style.textAlign = (element.textStyle?.textAlign || "left") as any;
-      measurer.style.lineHeight = String(element.textStyle?.lineHeight || (isDataField ? 1.4 : 1.5));
-      measurer.style.letterSpacing = `${(element.textStyle?.letterSpacing || 0) * zoom}px`;
-      measurer.style.padding = `${4 * zoom}px`;
+        measurer.style.fontFamily = fontValue;
+        measurer.style.fontSize = `${(element.textStyle?.fontSize || (isDataField ? 14 : 16)) * zoom}px`;
+        measurer.style.fontWeight = String(element.textStyle?.fontWeight || (isDataField ? 500 : 400));
+        measurer.style.color = element.textStyle?.color || "#000000";
+        measurer.style.textAlign = (element.textStyle?.textAlign || "left") as any;
+        measurer.style.lineHeight = String(element.textStyle?.lineHeight || (isDataField ? 1.4 : 1.5));
+        measurer.style.letterSpacing = `${(element.textStyle?.letterSpacing || 0) * zoom}px`;
+        measurer.style.padding = `0px`;
 
-      if (isDataField) {
-        measurer.style.border = `${2 * zoom}px solid transparent`;
-      }
-
-      const styleTag = document.createElement('style');
-      styleTag.textContent = `
-        .safety-measurer ul { list-style-type: ${hasCustomListStyle ? listStyleProp : 'disc'} !important; }
-        .safety-measurer ol { list-style-type: ${hasCustomListStyle ? listStyleProp : 'decimal'} !important; }
-        .safety-measurer ul, .safety-measurer ol { margin: 0 !important; padding-left: 1.5em !important; display: block !important; }
-        .safety-measurer li { position: relative !important; margin: 0.2em 0 !important; display: list-item !important; text-align: left !important; }
-      `;
-      measurer.className = "safety-measurer";
-      document.body.appendChild(styleTag);
-      document.body.appendChild(measurer);
-
-      let overflowCount = 0;
-      let firstIdx = null;
-      let maxHAtCurrentW = 0;
-      let maxWToFitCurrentH = 0;
-
-      // This TOLERANCE must match the warning threshold logic exactly (1px)
-      const TOLERANCE = 1; 
-      const currentWidthPx = element.dimension.width * zoom;
-      const currentHeightPx = element.dimension.height * zoom;
-
-      // --- HELPER: Strict Pass/Fail Check ---
-      // Returns TRUE if the content fits within the given width/height
-      const checkFit = (w: number, h: number, content: string, isHtml: boolean) => {
-        measurer.style.width = `${w}px`;
-        measurer.style.height = `${h}px`;
-        measurer.style.whiteSpace = isHtml ? 'normal' : 'pre-wrap';
-        if (isHtml) measurer.innerHTML = content; else measurer.innerText = content;
-
-        // Strict overflow check: Is scrollable area larger than visible area?
-        const fitsHeight = measurer.scrollHeight <= measurer.clientHeight + TOLERANCE;
-        const fitsWidth = measurer.scrollWidth <= measurer.clientWidth + TOLERANCE;
-
-        return fitsHeight && fitsWidth;
-      };
-
-      excelData.rows.forEach((row, idx) => {
-        let content = (element.content || (element.dataBinding ? `{{${element.dataBinding}}}` : ""))
-          .replace(/{{(.*?)}}/g, (_, p1) => row[p1.trim()] !== undefined ? row[p1.trim()] : "");
-
-        content = formatContent(content, element.format);
-        const isHtml = isHtmlContent(content);
-
-        // 1. Initial Check: Does it fit currently?
-        const fitsCurrently = checkFit(currentWidthPx, currentHeightPx, content, isHtml);
-
-        if (!fitsCurrently) {
-          overflowCount++;
-          if (firstIdx === null) firstIdx = idx;
-
-          // 2. SOLVE: Find Minimum Safe Height (keeping width fixed)
-          // Start with 'auto' height to get the browser's rendered max
-          measurer.style.height = 'auto';
-          const autoHeight = Math.ceil(measurer.getBoundingClientRect().height);
-
-          // Optimization: Iterate DOWNWARDS from autoHeight to find the absolute minimum passing pixel
-          // We limit the search to 10px to avoid performance hits, assuming autoHeight is close.
-          let safeH = autoHeight;
-          for (let h = autoHeight; h > currentHeightPx; h--) {
-             if (checkFit(currentWidthPx, h, content, isHtml)) {
-                safeH = h;
-             } else {
-                break; // Failed, so safeH + 1 was the limit
-             }
-          }
-          maxHAtCurrentW = Math.max(maxHAtCurrentW, safeH);
-
-          // 3. SOLVE: Find Minimum Safe Width (keeping height fixed)
-          // We use Binary Search to find the width that stops the wrap/overflow
-          measurer.style.width = 'auto';
-          measurer.style.height = `${currentHeightPx}px`; // Fix height
-          const singleLineWidth = Math.ceil(measurer.scrollWidth);
-
-          let low = currentWidthPx;
-          let high = singleLineWidth + 100; // Search space
-          let safeW = singleLineWidth;
-
-          if (checkFit(high, currentHeightPx, content, isHtml)) {
-             while (low <= high) {
-                const mid = Math.floor((low + high) / 2);
-                if (checkFit(mid, currentHeightPx, content, isHtml)) {
-                   safeW = mid;
-                   high = mid - 1; // Try smaller
-                } else {
-                   low = mid + 1; // Needs to be bigger
-                }
-             }
-             maxWToFitCurrentH = Math.max(maxWToFitCurrentH, safeW);
-          } else {
-             // Edge case: Even max width doesn't fix it (e.g. huge font size)
-             maxWToFitCurrentH = Math.max(maxWToFitCurrentH, singleLineWidth);
-          }
+        if (isDataField) {
+          measurer.style.border = `${2 * zoom}px solid transparent`;
         }
-      });
 
-      document.body.removeChild(measurer);
-      document.body.removeChild(styleTag);
+        const styleTag = document.createElement('style');
+        styleTag.textContent = `
+          .safety-measurer ul { list-style-type: ${hasCustomListStyle ? listStyleProp : 'disc'} !important; }
+          .safety-measurer ol { list-style-type: ${hasCustomListStyle ? listStyleProp : 'decimal'} !important; }
+          .safety-measurer ul, .safety-measurer ol { margin: 0 !important; padding-left: 1.5em !important; display: block !important; }
+          .safety-measurer li { position: relative !important; margin: 0.2em 0 !important; display: list-item !important; text-align: left !important; }
+        `;
+        measurer.className = "safety-measurer";
+        document.body.appendChild(styleTag);
+        document.body.appendChild(measurer);
 
-      setOverflowReport({ count: overflowCount, firstIndex: firstIdx });
-      setAuditDimensions({ 
-        // We use the exact pixel values found by the solver
-        neededHeightAtCurrentWidth: maxHAtCurrentW / zoom, 
-        neededWidthToFitCurrentHeight: maxWToFitCurrentH / zoom 
-      });
+        let overflowCount = 0;
+        let firstIdx = null;
+        let maxHAtCurrentW = 0;
+        let maxWToFitCurrentH = 0;
+
+        const TOLERANCE = 1; 
+        const currentWidthPx = element.dimension.width * zoom;
+        const currentHeightPx = element.dimension.height * zoom;
+
+        const checkFit = (w: number, h: number, content: string, isHtml: boolean) => {
+          measurer.style.width = `${w}px`;
+          measurer.style.height = `${h}px`;
+          measurer.style.whiteSpace = isHtml ? 'normal' : 'pre-wrap';
+          if (isHtml) measurer.innerHTML = content; else measurer.innerText = content;
+
+          const fitsHeight = measurer.scrollHeight <= measurer.clientHeight + TOLERANCE;
+          const fitsWidth = measurer.scrollWidth <= measurer.clientWidth + TOLERANCE;
+
+          return fitsHeight && fitsWidth;
+        };
+
+        excelData.rows.forEach((row, idx) => {
+          let content = (element.content || (element.dataBinding ? `{{${element.dataBinding}}}` : ""))
+            .replace(/{{(.*?)}}/g, (_, p1) => row[p1.trim()] !== undefined ? row[p1.trim()] : "");
+
+          content = formatContent(content, element.format);
+          const isHtml = isHtmlContent(content);
+
+          const fitsCurrently = checkFit(currentWidthPx, currentHeightPx, content, isHtml);
+
+          if (!fitsCurrently) {
+            overflowCount++;
+            if (firstIdx === null) firstIdx = idx;
+
+            measurer.style.height = 'auto';
+            const autoHeight = Math.ceil(measurer.getBoundingClientRect().height);
+
+            let safeH = autoHeight;
+            for (let h = autoHeight; h > currentHeightPx; h--) {
+               if (checkFit(currentWidthPx, h, content, isHtml)) {
+                  safeH = h;
+               } else {
+                  break;
+               }
+            }
+            maxHAtCurrentW = Math.max(maxHAtCurrentW, safeH);
+
+            measurer.style.width = 'auto';
+            measurer.style.height = `${currentHeightPx}px`; 
+            const singleLineWidth = Math.ceil(measurer.scrollWidth);
+
+            let low = currentWidthPx;
+            let high = singleLineWidth + 100; 
+            let safeW = singleLineWidth;
+
+            if (checkFit(high, currentHeightPx, content, isHtml)) {
+               while (low <= high) {
+                  const mid = Math.floor((low + high) / 2);
+                  if (checkFit(mid, currentHeightPx, content, isHtml)) {
+                     safeW = mid;
+                     high = mid - 1; 
+                  } else {
+                     low = mid + 1; 
+                  }
+               }
+               maxWToFitCurrentH = Math.max(maxWToFitCurrentH, safeW);
+            } else {
+               maxWToFitCurrentH = Math.max(maxWToFitCurrentH, singleLineWidth);
+            }
+          }
+        });
+
+        document.body.removeChild(measurer);
+        document.body.removeChild(styleTag);
+
+        setOverflowReport({ count: overflowCount, firstIndex: firstIdx });
+        setAuditDimensions({ 
+          neededHeightAtCurrentWidth: maxHAtCurrentW / zoom, 
+          neededWidthToFitCurrentHeight: maxWToFitCurrentH / zoom 
+        });
+      } else if (element.type === 'table') {
+        // --- TABLE AUDIT LOGIC: SCAN ENTIRE DATASET ---
+        const settings = element.tableSettings;
+        if (!settings) return;
+
+        let maxRowsInAnyGroup = 1;
+        if (settings.groupByField) {
+            const counts: Record<string, number> = {};
+            excelData.rows.forEach(r => {
+                const val = String(r[settings.groupByField!] || "unnamed");
+                counts[val] = (counts[val] || 0) + 1;
+            });
+            maxRowsInAnyGroup = Math.max(...Object.values(counts), 1);
+        } else {
+            maxRowsInAnyGroup = Math.min(excelData.rows.length, 5);
+        }
+
+        const hFS = settings.headerStyle?.fontSize || 14;
+        const hLH = settings.headerStyle?.lineHeight || 1.2;
+        const rFS = settings.rowStyle?.fontSize || 12;
+        const rLH = settings.rowStyle?.lineHeight || 1.2;
+        const bWidth = settings.borderWidth || 1;
+        const safety = 6;
+
+        const neededH = (hFS * hLH + safety) + (maxRowsInAnyGroup * (rFS * rLH + safety)) + ((maxRowsInAnyGroup + 2) * bWidth);
+
+        if (neededH > element.dimension.height + 0.5) {
+            setOverflowReport({ count: 1, firstIndex: null });
+            setAuditDimensions({ 
+                neededHeightAtCurrentWidth: neededH, 
+                neededWidthToFitCurrentHeight: element.dimension.width 
+            });
+        } else {
+            setOverflowReport({ count: 0, firstIndex: null });
+        }
+      }
     };
 
     validateDataset();
-  }, [element.dimension, element.textStyle, element.content, element.dataBinding, element.format, excelData, zoom, isEditing]);
+  }, [element.dimension, element.textStyle, element.content, element.dataBinding, element.format, element.tableSettings, excelData, zoom, isEditing]);
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = (e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation();
     onSelect(element.id, e.shiftKey);
   };
 
-  const handleDoubleClick = (e: React.MouseEvent) => {
+  const handleDoubleInteraction = (e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation();
     if (!element.locked && (element.type === "text" || element.type === "dataField")) {
       setIsEditing(true);
     }
+  };
+
+  const handleAutoFlow = () => {
+    if (element.type !== 'table' || overflowReport.count === 0) return;
+
+    const neededHeight = auditDimensions.neededHeightAtCurrentWidth;
+    const deltaHeight = neededHeight - element.dimension.height;
+    const currentPage = element.pageIndex ?? 0;
+
+    updateElement(element.id, { dimension: { ...element.dimension, height: neededHeight } });
+
+    const stateElements = useCanvasStore.getState().elements;
+    let shiftCount = 0;
+    stateElements.forEach(el => {
+      if ((el.pageIndex ?? 0) === currentPage && el.id !== element.id) {
+        if (el.position.y > element.position.y) {
+           updateElement(el.id, { position: { ...el.position, y: el.position.y + deltaHeight } });
+           shiftCount++;
+        }
+      }
+    });
+
+    toast({ 
+      title: "Table Adjusted", 
+      description: `Table expanded and ${shiftCount} elements pushed down by ${Math.ceil(deltaHeight)}px.` 
+    });
   };
 
   useEffect(() => {
@@ -276,10 +366,17 @@ export function CanvasElement({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
        e.preventDefault();
-       setIsEditing(false);
-       if (editorRef.current) {
-          updateElement(element.id, { content: editorRef.current.value });
+       if (isEditing) {
+         setIsEditing(false);
+         if (editorRef.current) {
+            updateElement(element.id, { content: editorRef.current.value });
+         }
+       } else {
+         handleDoubleInteraction(e);
        }
+    } else if (e.key === " " && !isEditing) {
+       e.preventDefault();
+       handleClick(e);
     }
     if (e.key === "Escape") {
        setIsEditing(false);
@@ -453,6 +550,7 @@ export function CanvasElement({
           defaultValue={element.content}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
+          aria-label="Inline text editor"
           className="w-full h-full resize-none outline-none overflow-hidden bg-transparent p-1"
           style={{
             fontFamily: fontValue,
@@ -462,7 +560,7 @@ export function CanvasElement({
             textAlign: (element.textStyle?.textAlign || "left") as any,
             lineHeight: element.textStyle?.lineHeight || 1.5,
             letterSpacing: `${element.textStyle?.letterSpacing || 0}px`,
-            padding: 4 * zoom,
+            padding: 0, 
           }}
         />
       );
@@ -490,6 +588,7 @@ export function CanvasElement({
         return (
           <div
             id={elementScopeId}
+            role="none"
             className={`w-full h-full overflow-hidden canvas-element-content ${isDataField ? "rounded-md border-2 border-dashed" : ""}`}
             style={{
               display: "flex",
@@ -502,7 +601,7 @@ export function CanvasElement({
               textAlign: element.textStyle?.textAlign || "left",
               lineHeight: element.textStyle?.lineHeight || (isDataField ? 1.4 : 1.5),
               letterSpacing: `${element.textStyle?.letterSpacing || 0}px`,
-              padding: 4 * zoom,
+              padding: 0, 
               borderColor: isDataField ? "#8b5cf6" : "transparent",
               backgroundColor: isDataField ? "transparent" : "rgba(139, 92, 246, 0.05)",
               whiteSpace: hasHtml ? "normal" : "pre-wrap", 
@@ -510,8 +609,7 @@ export function CanvasElement({
               overflowWrap: "anywhere",
             }}
           >
-            {/* Audit Warning Badge */}
-            {overflowReport.count > 0 && !element.locked && (
+            {isSelected && overflowReport.count > 0 && !element.locked && (
               <div 
                 className="absolute top-0 left-0 m-1 bg-destructive text-white p-1 rounded-sm shadow-md z-[100] flex items-center gap-1 cursor-pointer animate-in fade-in zoom-in duration-200"
                 onClick={(e) => {
@@ -520,7 +618,7 @@ export function CanvasElement({
                 }}
                 title={`${overflowReport.count} rows will be cut off. Click to view first case.`}
               >
-                <AlertTriangle size={14} />
+                <AlertTriangle size={14} aria-hidden="true" />
                 <span className="text-[10px] font-bold">{overflowReport.count}</span>
               </div>
             )}
@@ -552,7 +650,7 @@ export function CanvasElement({
 
         if (element.shapeType === "line") {
           return (
-            <div className="w-full h-full flex items-center justify-center">
+            <div className="w-full h-full flex items-center justify-center" aria-hidden="true">
               <div
                 className="w-full"
                 style={{
@@ -564,10 +662,10 @@ export function CanvasElement({
           );
         }
 
-        return <div className="w-full h-full" style={shapeStyle} />;
+        return <div className="w-full h-full" style={shapeStyle} aria-hidden="true" />;
 
       case "image":
-        const displayImageUrl = activeUrl; 
+        const displayImageUrl = activeUrl; 
         if (displayImageUrl) {
           const neededWidth = Math.ceil(element.dimension.width * 3.125);
           const neededHeight = Math.ceil(element.dimension.height * 3.125);
@@ -577,30 +675,30 @@ export function CanvasElement({
             <div className="relative w-full h-full" style={{ opacity: element.shapeStyle?.opacity ?? 1 }}>
               <img
                 src={displayImageUrl}
-                alt=""
-                loading="eager" 
+                alt={element.dataBinding || "Product image"}
+                loading="eager" 
                 className="w-full h-full object-contain"
                 draggable={false}
                 style={{ objectPosition: "center", transform: "translateZ(0)", backfaceVisibility: "hidden" }}
               />
                {isLowQuality && !element.locked && (
                 <div className="absolute top-0 right-0 m-1 bg-yellow-500 text-white p-1 rounded-sm shadow-md z-50 flex items-center gap-1 cursor-help" title={tooltipText}>
-                  <AlertTriangle size={14} />
+                  <AlertTriangle size={14} aria-hidden="true" />
                 </div>
               )}
             </div>
           );
         }
         return (
-          <div className="w-full h-full bg-muted/50 border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
+          <div className="w-full h-full bg-muted/50 border-2 border-dashed border-muted-foreground/30 flex items-center justify-center" role="img" aria-label="Image placeholder">
             <span className="text-muted-foreground text-xs" style={{ fontSize: 12 * zoom }}>
               {element.dataBinding || element.imageSrc || "No image"}
             </span>
           </div>
         );
 
-      case "qrcode": 
-        return <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: qrSvg }} />;
+      case "qrcode": 
+        return <div className="w-full h-full" role="img" aria-label="QR Code" dangerouslySetInnerHTML={{ __html: qrSvg }} />;
 
       case "table":
         const tableSettings = element.tableSettings;
@@ -621,14 +719,14 @@ export function CanvasElement({
                if (groupValue) {
                    displayRows = excelData.rows.filter(r => r[tableSettings.groupByField!] === groupValue);
                } else {
-                   displayRows = [currentRow]; 
+                   displayRows = [currentRow]; 
                }
             } else {
-               displayRows = excelData.rows.slice(0, 5); 
+               displayRows = excelData.rows.slice(0, 5); 
             }
         }
 
-        let columnWidths: Record<string, string> = {}; 
+        let columnWidths: Record<string, string> = {}; 
 
         if (tableSettings.autoFitColumns) {
             const colWeights = tableSettings.columns.map(col => {
@@ -659,45 +757,45 @@ export function CanvasElement({
         };
 
         return (
-          <div className="w-full h-full overflow-hidden flex flex-col bg-white" style={{
+          <div className="w-full h-full overflow-hidden flex flex-col bg-white" role="table" aria-label="Product data table" style={{
               borderColor: tableSettings.borderColor,
               borderWidth: tableSettings.borderWidth * zoom,
               borderStyle: "solid"
           }}>
-            <div className="flex w-full shrink-0" style={{ backgroundColor: tableSettings.headerBackgroundColor }}>
+            <div className="flex w-full shrink-0" role="rowgroup" style={{ backgroundColor: tableSettings.headerBackgroundColor }}>
                 {tableSettings.columns.map((col: any, idx) => (
-                    <div key={col.id} className="flex items-center overflow-hidden" style={{
+                    <div key={col.id} role="columnheader" className="flex items-center overflow-hidden" style={{
                         width: columnWidths[col.id],
-                        justifyContent: getJustifyContent(col.headerAlign || tableSettings.headerStyle?.textAlign), 
+                        justifyContent: getJustifyContent(col.headerAlign || tableSettings.headerStyle?.textAlign), 
                         borderRightWidth: idx === tableSettings.columns.length - 1 ? 0 : tableSettings.borderWidth * zoom,
                         borderStyle: "solid",
                         borderColor: tableSettings.borderColor,
                         fontFamily: tableSettings.headerStyle?.fontFamily || "Inter",
                         fontSize: (tableSettings.headerStyle?.fontSize || 14) * zoom,
-                        padding: `2px ${4 * zoom}px`, 
+                        padding: `2px ${4 * zoom}px`, 
                     }}>
                         {col.header}
                     </div>
                 ))}
             </div>
-            <div className="flex-1 flex flex-col w-full overflow-hidden">
+            <div className="flex-1 flex flex-col w-full overflow-hidden" role="rowgroup">
                 {displayRows.map((row, rIdx) => (
-                    <div key={rIdx} className="flex w-full border-t flex-1" style={{
+                    <div key={rIdx} role="row" className="flex w-full border-t flex-1" style={{
                         backgroundColor: (tableSettings.alternateRowColor && rIdx % 2 === 1) ? tableSettings.alternateRowColor : tableSettings.rowBackgroundColor,
                         borderColor: tableSettings.borderColor,
                         borderTopWidth: tableSettings.borderWidth * zoom,
                         borderStyle: "solid"
                     }}>
                         {tableSettings.columns.map((col: any, cIdx) => (
-                            <div key={col.id} className="overflow-hidden flex items-center" style={{
+                            <div key={col.id} role="cell" className="overflow-hidden flex items-center" style={{
                                 width: columnWidths[col.id],
-                                justifyContent: getJustifyContent(col.rowAlign || tableSettings.rowStyle?.textAlign), 
+                                justifyContent: getJustifyContent(col.rowAlign || tableSettings.rowStyle?.textAlign), 
                                 borderRightWidth: cIdx === tableSettings.columns.length - 1 ? 0 : tableSettings.borderWidth * zoom,
                                 borderStyle: "solid",
                                 borderColor: tableSettings.borderColor,
                                 fontFamily: tableSettings.rowStyle?.fontFamily || "Inter",
                                 fontSize: (tableSettings.rowStyle?.fontSize || 12) * zoom,
-                                padding: `0 ${4 * zoom}px`, 
+                                padding: `0 ${4 * zoom}px`, 
                             }}>
                                 <span className="truncate w-full">{row[col.dataField || ""] || "-"}</span>
                             </div>
@@ -724,7 +822,7 @@ export function CanvasElement({
 
         return (
           <>
-            <div className="w-full h-full p-4 border border-dashed border-muted-foreground/20 bg-white rounded flex flex-col overflow-hidden relative group">
+            <div className="w-full h-full p-4 border border-dashed border-muted-foreground/20 bg-white rounded flex flex-col overflow-hidden relative group" role="navigation" aria-label="Table of contents">
               {settings.showTitle && isFirstPage && (
                   <div style={{
                       fontFamily: titleFontValue,
@@ -778,13 +876,13 @@ export function CanvasElement({
             {isSelected && isMultiPage && (
                 <>
                     <div className="absolute left-[-50px] top-1/2 -translate-y-1/2 z-50" onMouseDown={(e) => e.stopPropagation()}>
-                        <Button size="icon" variant="outline" className="h-10 w-10 rounded-full shadow-md bg-white hover:bg-gray-50 border-gray-300" disabled={previewPage === 0} onClick={(e) => { e.stopPropagation(); setPreviewPage(p => p - 1); }}>
-                            <ChevronLeft className="h-6 w-6 text-gray-700" />
+                        <Button size="icon" variant="outline" className="h-10 w-10 rounded-full shadow-md bg-white hover:bg-gray-50 border-gray-300" disabled={previewPage === 0} onClick={(e) => { e.stopPropagation(); setPreviewPage(p => p - 1); }} aria-label="Previous TOC page">
+                            <ChevronLeft className="h-6 w-6 text-gray-700" aria-hidden="true" />
                         </Button>
                     </div>
                     <div className="absolute right-[-50px] top-1/2 -translate-y-1/2 z-50" onMouseDown={(e) => e.stopPropagation()}>
-                        <Button size="icon" variant="outline" className="h-10 w-10 rounded-full shadow-md bg-white hover:bg-gray-50 border-gray-300" disabled={previewPage === (tocData?.length || 1) - 1} onClick={(e) => { e.stopPropagation(); setPreviewPage(p => p + 1); }}>
-                            <ChevronRight className="h-6 w-6 text-gray-700" />
+                        <Button size="icon" variant="outline" className="h-10 w-10 rounded-full shadow-md bg-white hover:bg-gray-50 border-gray-300" disabled={previewPage === (tocData?.length || 1) - 1} onClick={(e) => { e.stopPropagation(); setPreviewPage(p => p + 1); }} aria-label="Next TOC page">
+                            <ChevronRight className="h-6 w-6 text-gray-700" aria-hidden="true" />
                         </Button>
                     </div>
                     <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm border shadow-sm rounded-full px-3 py-1 text-xs font-medium text-gray-600 whitespace-nowrap z-50">
@@ -807,77 +905,108 @@ export function CanvasElement({
           ref={setNodeRef}
           {...listeners}
           {...attributes}
+          role="button"
+          aria-pressed={isSelected}
+          aria-label={`Canvas element: ${element.type} ${element.dataBinding || ""}`}
+          tabIndex={element.locked ? -1 : 0}
           data-testid={`canvas-element-${element.id}`}
           className={`absolute transition-shadow duration-100 canvas-element-wrapper`}
           style={{
             ...style,
             ...(isSelected && !isEditing && {
-              outline: "2px solid #3b82f6", 
+              outline: "2px solid #3b82f6", 
               outlineOffset: "0px",
               backgroundColor: "transparent",
             }),
           }}
+          onKeyDown={handleKeyDown}
           onClick={handleClick}
-          onDoubleClick={handleDoubleClick}
+          onDoubleClick={handleDoubleInteraction}
         >
-          {/* Path to Safety Ghost Guides */}
-          {isSelected && (element.type === 'text' || element.type === 'dataField') && overflowReport.count > 0 && (
+          {/* BLOCK START: PERSISTENT GHOST OUTLINE LOGIC */}
+          {!element.locked && overflowReport.count > 0 && (
             <>
-              {/* FIX HEIGHT (Red): Outer height required at current width */}
-              {auditDimensions.neededHeightAtCurrentWidth > element.dimension.height + 0.1 && (
-                <div 
-                  className="absolute top-0 left-0 border-2 border-dashed border-red-500/40 pointer-events-none z-[-1]"
-                  style={{
-                    width: element.dimension.width * zoom,
-                    height: auditDimensions.neededHeightAtCurrentWidth * zoom,
-                    backgroundColor: "rgba(239, 68, 68, 0.02)"
-                  }}
-                >
-                  <span className="absolute -bottom-5 left-0 text-[9px] text-red-600 font-bold bg-white/90 px-1 rounded shadow-sm whitespace-nowrap border border-red-100">
-                    Fix: taller container ({Math.ceil(auditDimensions.neededHeightAtCurrentWidth)}px)
-                  </span>
-                </div>
+              {/* TEXT FIELD GUIDES (only when selected) */}
+              {isSelected && (element.type === 'text' || element.type === 'dataField') && (
+                <>
+                  {auditDimensions.neededHeightAtCurrentWidth > element.dimension.height + 0.1 && (
+                    <div 
+                      className="absolute top-0 left-0 border-2 border-dashed border-red-500/40 pointer-events-none z-[-1]"
+                      aria-hidden="true"
+                      style={{
+                        width: element.dimension.width * zoom,
+                        height: auditDimensions.neededHeightAtCurrentWidth * zoom,
+                        backgroundColor: "rgba(239, 68, 68, 0.02)"
+                      }}
+                    >
+                      <span className="absolute -bottom-5 left-0 text-[9px] text-red-600 font-bold bg-white/90 px-1 rounded shadow-sm whitespace-nowrap border border-red-100">
+                        Fix: taller container ({Math.ceil(auditDimensions.neededHeightAtCurrentWidth)}px)
+                      </span>
+                    </div>
+                  )}
+
+                  {auditDimensions.neededWidthToFitCurrentHeight > element.dimension.width + 0.1 && (
+                    <div 
+                      className="absolute top-0 left-0 border-2 border-dashed border-blue-500/40 pointer-events-none z-[-1]"
+                      aria-hidden="true"
+                      style={{
+                        width: auditDimensions.neededWidthToFitCurrentHeight * zoom,
+                        height: element.dimension.height * zoom,
+                        backgroundColor: "rgba(59, 130, 246, 0.02)"
+                      }}
+                    >
+                      <span className="absolute top-[-18px] right-0 text-[9px] text-blue-600 font-bold bg-white/90 px-1 rounded shadow-sm whitespace-nowrap border border-blue-100">
+                        Fix: wider container ({Math.ceil(auditDimensions.neededWidthToFitCurrentHeight)}px)
+                      </span>
+                    </div>
+                  )}
+                </>
               )}
 
-              {/* FIX WIDTH (Blue): Outer width required to stop wrapping/overflow at current height */}
-              {auditDimensions.neededWidthToFitCurrentHeight > element.dimension.width + 0.1 && (
-                <div 
-                  className="absolute top-0 left-0 border-2 border-dashed border-blue-500/40 pointer-events-none z-[-1]"
-                  style={{
-                    width: auditDimensions.neededWidthToFitCurrentHeight * zoom,
-                    height: element.dimension.height * zoom,
-                    backgroundColor: "rgba(59, 130, 246, 0.02)"
-                  }}
-                >
-                  <span className="absolute top-[-18px] right-0 text-[9px] text-blue-600 font-bold bg-white/90 px-1 rounded shadow-sm whitespace-nowrap border border-blue-100">
-                    Fix: wider container ({Math.ceil(auditDimensions.neededWidthToFitCurrentHeight)}px)
-                  </span>
-                </div>
+              {/* TABLE GHOST GUIDE (always when overflow) */}
+                  {element.type === 'table' && (
+                    <div 
+                      className="absolute top-0 left-0 border-2 border-dashed border-yellow-500/50 pointer-events-none z-[-1]"
+                      aria-hidden="true"
+                      style={{
+                        width: element.dimension.width * zoom,
+                        height: auditDimensions.neededHeightAtCurrentWidth * zoom,
+                        backgroundColor: "rgba(234, 179, 8, 0.05)"
+                      }}
+                    >
+                      {/* Text label removed as requested */}
+                    </div>
+                  )}
+                </>
               )}
-            </>
-          )}
+              {/* BLOCK END: PERSISTENT GHOST OUTLINE LOGIC */}
 
           {renderContent()}
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
+        {element.type === 'table' && overflowReport.count > 0 && (
+          <ContextMenuItem onClick={handleAutoFlow} className="text-blue-600 focus:text-blue-700">
+            <MoveDown className="w-4 h-4 mr-2" /> Auto-Fit & Push Below
+          </ContextMenuItem>
+        )}
         <ContextMenuItem onClick={() => bringToFront(element.id)}>
-          <BringToFront className="w-4 h-4 mr-2" /> Bring to Front
+          <BringToFront className="w-4 h-4 mr-2" aria-hidden="true" /> Bring to Front
         </ContextMenuItem>
         <ContextMenuItem onClick={() => sendToBack(element.id)}>
-          <SendToBack className="w-4 h-4 mr-2" /> Send to Back
+          <SendToBack className="w-4 h-4 mr-2" aria-hidden="true" /> Send to Back
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onClick={() => updateElement(element.id, { locked: !element.locked })}>
-          {element.locked ? <Unlock className="w-4 h-4 mr-2" /> : <Lock className="w-4 h-4 mr-2" />}
+          {element.locked ? <Unlock className="w-4 h-4 mr-2" aria-hidden="true" /> : <Lock className="w-4 h-4 mr-2" aria-hidden="true" />}
           {element.locked ? "Unlock" : "Lock"}
         </ContextMenuItem>
         <ContextMenuItem onClick={() => duplicateElement(element.id)}>
-          <Copy className="w-4 h-4 mr-2" /> Duplicate
+          <Copy className="w-4 h-4 mr-2" aria-hidden="true" /> Duplicate
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onClick={() => deleteElement(element.id)} className="text-destructive focus:text-destructive">
-          <Trash2 className="w-4 h-4 mr-2" /> Delete
+          <Trash2 className="w-4 h-4 mr-2" aria-hidden="true" /> Delete
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
