@@ -16,8 +16,6 @@ export default function CookieBanner() {
   const handleConsent = (accepted: boolean) => {
     localStorage.setItem('doculoom_cookie_consent', accepted ? 'accepted' : 'declined');
     setIsVisible(false);
-    // Reload to trigger conditional script loading in main.tsx
-    window.location.reload();
   };
 
   if (!isVisible) return null;
