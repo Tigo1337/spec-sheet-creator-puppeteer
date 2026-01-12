@@ -75,7 +75,8 @@ interface CanvasState {
   removePage: (index: number) => void;
   setActivePage: (index: number) => void;
   addElement: (element: CanvasElement) => void;
-  updateElement: (id: string, updates: Partial<CanvasElement>) => void;
+  // UPDATED: Added skipHistory parameter
+  updateElement: (id: string, updates: Partial<CanvasElement>, skipHistory?: boolean) => void;
   updateAllTextFonts: (fontFamily: string) => void;
   deleteElement: (id: string) => void;
   deleteSelectedElements: () => void;
@@ -209,10 +210,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveToHistory(newElements);
     set({ elements: newElements, hasUnsavedChanges: true, saveStatus: "unsaved" });
   },
-  updateElement: (id, updates) => {
+  // UPDATED: Logic to support skipHistory for previews
+  updateElement: (id, updates, skipHistory = false) => {
     const elements = get().elements.map((el) => el.id === id ? { ...el, ...updates } : el);
-    saveToHistory(elements);
-    set({ elements, hasUnsavedChanges: true, saveStatus: "unsaved" });
+
+    if (skipHistory) {
+        // If we are skipping history (e.g. for dynamic preview resizing), 
+        // we update the state but DO NOT trigger the 'unsaved' status.
+        set({ elements });
+    } else {
+        // Normal update: save history and mark as unsaved
+        saveToHistory(elements);
+        set({ elements, hasUnsavedChanges: true, saveStatus: "unsaved" });
+    }
   },
   updateAllTextFonts: (fontFamily: string) => {
     const { elements } = get();

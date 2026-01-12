@@ -2,7 +2,7 @@ import { useDraggable } from "@dnd-kit/core";
 import type { CanvasElement as CanvasElementType } from "@shared/schema";
 import { useCanvasStore } from "@/stores/canvas-store";
 import { useEffect, useState, useMemo, useRef } from "react";
-import { isHtmlContent, paginateTOC } from "@/lib/canvas-utils"; 
+import { isHtmlContent, paginateTOC, calculateTableHeight } from "@/lib/canvas-utils"; 
 import { formatContent } from "@/lib/formatter";
 import { 
   AlertTriangle, 
@@ -95,53 +95,99 @@ export function CanvasElement({
       element.tableSettings?.rowStyle?.fontFamily
   ]);
 
-  // --- DYNAMIC HEIGHT ADAPTATION LOGIC (Real-time Flow) ---
+  // --- DYNAMIC HEIGHT ADAPTATION LOGIC (Real-time Flow with Delta) ---
   useEffect(() => {
-    if (element.type !== 'table' || !element.tableSettings?.autoHeightAdaptation || !excelData || selectedRowIndex === undefined) return;
+    if (
+      element.type !== 'table' || 
+      !element.tableSettings?.autoHeightAdaptation || 
+      !excelData || 
+      selectedRowIndex === undefined ||
+      isEditing 
+    ) return;
 
-    const settings = element.tableSettings;
     const currentRow = excelData.rows[selectedRowIndex];
-    const groupValue = settings.groupByField ? currentRow[settings.groupByField] : null;
+    const groupValue = element.tableSettings.groupByField ? currentRow[element.tableSettings.groupByField] : null;
 
-    // 1. Calculate current row count for this specific group
-    const currentRowsCount = groupValue 
-        ? excelData.rows.filter(r => r[settings.groupByField!] === groupValue).length 
-        : Math.min(excelData.rows.length, 5);
+    // 1. Calculate correct height using the shared utility
+    const correctH = calculateTableHeight(element, excelData.rows, groupValue);
 
-    // 2. Calculate correct height needed
-    const hFS = settings.headerStyle?.fontSize || 14;
-    const hLH = settings.headerStyle?.lineHeight || 1.2;
-    const rFS = settings.rowStyle?.fontSize || 12;
-    const rLH = settings.rowStyle?.lineHeight || 1.2;
-    const bWidth = settings.borderWidth || 1;
-    const safety = 6;
+    // 2. Calculate Delta (Difference)
+    // Positive = Growing (Push down)
+    // Negative = Shrinking (Pull up)
+    const heightDelta = correctH - element.dimension.height;
 
-    const correctH = (hFS * hLH + safety) + (currentRowsCount * (rFS * rLH + safety)) + ((currentRowsCount + 2) * bWidth);
+    // 3. Only trigger if there is a meaningful change
+    if (Math.abs(heightDelta) > 0.5) {
 
-    // 3. Only trigger update if height has changed
-    if (Math.abs(correctH - element.dimension.height) > 0.5) {
-        updateElement(element.id, { dimension: { ...element.dimension, height: correctH } });
+        // Update the table itself (Transient - skipHistory: true)
+        updateElement(element.id, { dimension: { ...element.dimension, height: correctH } }, true);
 
         const currentPage = element.pageIndex ?? 0;
-        const newBottom = element.position.y + correctH;
-        const safetyBuffer = 10;
 
-        allElements.forEach(el => {
-            if (el.id !== element.id && (el.pageIndex ?? 0) === currentPage) {
-                // Check for horizontal overlap
-                const hasOverlap = (el.position.x < element.position.x + element.dimension.width) && 
-                                   (el.position.x + el.dimension.width > element.position.x);
+        // Use a Set to track what has already been moved to prevent double-moves in this cycle
+        const processedIds = new Set<string>([element.id]);
 
-                // Selective push: only if below table and within 10px of the new bottom
-                if (hasOverlap && el.position.y > element.position.y && el.position.y < newBottom + safetyBuffer) {
-                    updateElement(el.id, { position: { ...el.position, y: newBottom + safetyBuffer } });
+        // Shift Queue: [Element ID, The Delta to apply to things below it]
+        // Initially, the table pushes everything below it by heightDelta
+        const shiftQueue = [{ 
+            id: element.id, 
+            delta: heightDelta,
+            rect: { x: element.position.x, y: element.position.y, width: element.dimension.width, height: element.dimension.height }
+        }];
+
+        // Cascade Logic
+        while (shiftQueue.length > 0) {
+            const pusher = shiftQueue.shift()!;
+
+            allElements.forEach(candidate => {
+                if (
+                    candidate.id !== pusher.id && 
+                    !processedIds.has(candidate.id) && 
+                    (candidate.pageIndex ?? 0) === currentPage &&
+                    !candidate.locked 
+                ) {
+                    const candidateRect = { 
+                        x: candidate.position.x, 
+                        y: candidate.position.y, 
+                        width: candidate.dimension.width, 
+                        height: candidate.dimension.height 
+                    };
+
+                    // Horizontal Overlap Check
+                    const hasHorizontalOverlap = 
+                        (candidateRect.x < pusher.rect.x + pusher.rect.width) && 
+                        (candidateRect.x + candidateRect.width > pusher.rect.x);
+
+                    // Vertical Check: Is the candidate physically "below" the pusher?
+                    // We check if the candidate's top is >= pusher's top.
+                    // This ensures we don't accidentally move headers or things aligned to the top.
+                    if (hasHorizontalOverlap && candidateRect.y > pusher.rect.y) {
+
+                        // Apply Delta (Transient)
+                        const newY = candidate.position.y + pusher.delta;
+                        updateElement(candidate.id, { position: { ...candidate.position, y: newY } }, true);
+
+                        // Add to queue to propagate the shift to items below IT
+                        shiftQueue.push({
+                            id: candidate.id,
+                            delta: pusher.delta,
+                            rect: candidateRect 
+                        });
+
+                        processedIds.add(candidate.id);
+                    }
                 }
-            }
-        });
+            });
+        }
     }
-  }, [selectedRowIndex, element.tableSettings?.autoHeightAdaptation, element.tableSettings?.groupByField]);
+  }, [
+      selectedRowIndex, 
+      element.tableSettings?.autoHeightAdaptation, 
+      element.tableSettings?.groupByField,
+      excelData
+  ]);
 
-  // --- FINAL: "Path to Safety" Solver (Updated for Tables) ---
+  // --- FINAL: "Path to Safety" Solver (Updated to use Shared Calculation) ---
   useEffect(() => {
     if ((element.type !== 'text' && element.type !== 'dataField' && element.type !== 'table') || !excelData?.rows.length || isEditing) {
       setOverflowReport({ count: 0, firstIndex: null });
@@ -284,31 +330,25 @@ export function CanvasElement({
         const settings = element.tableSettings;
         if (!settings) return;
 
-        let maxRowsInAnyGroup = 1;
+        let maxNeededH = 0;
+
         if (settings.groupByField) {
-            const counts: Record<string, number> = {};
-            excelData.rows.forEach(r => {
-                const val = String(r[settings.groupByField!] || "unnamed");
-                counts[val] = (counts[val] || 0) + 1;
+            // Get all unique group keys
+            const groups = [...new Set(excelData.rows.map(r => r[settings.groupByField!]))];
+
+            groups.forEach(groupVal => {
+                const h = calculateTableHeight(element, excelData.rows, groupVal);
+                if (h > maxNeededH) maxNeededH = h;
             });
-            maxRowsInAnyGroup = Math.max(...Object.values(counts), 1);
         } else {
-            maxRowsInAnyGroup = Math.min(excelData.rows.length, 5);
+            // No grouping, just calculate based on max default rows (usually 5 or all)
+            maxNeededH = calculateTableHeight(element, excelData.rows, null);
         }
 
-        const hFS = settings.headerStyle?.fontSize || 14;
-        const hLH = settings.headerStyle?.lineHeight || 1.2;
-        const rFS = settings.rowStyle?.fontSize || 12;
-        const rLH = settings.rowStyle?.lineHeight || 1.2;
-        const bWidth = settings.borderWidth || 1;
-        const safety = 6;
-
-        const neededH = (hFS * hLH + safety) + (maxRowsInAnyGroup * (rFS * rLH + safety)) + ((maxRowsInAnyGroup + 2) * bWidth);
-
-        if (neededH > element.dimension.height + 0.5) {
+        if (maxNeededH > element.dimension.height + 0.5) {
             setOverflowReport({ count: 1, firstIndex: null });
             setAuditDimensions({ 
-                neededHeightAtCurrentWidth: neededH, 
+                neededHeightAtCurrentWidth: maxNeededH, 
                 neededWidthToFitCurrentHeight: element.dimension.width 
             });
         } else {

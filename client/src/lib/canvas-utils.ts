@@ -413,3 +413,39 @@ export const paginateTOC = (tocElement: CanvasElement, pageMap: any[], elementHe
   if (pages.length === 0) return [[]];
   return pages;
 };
+
+/**
+ * Calculates the required height for a table based on its settings and data.
+ * USES SAFETY=6 LOGIC (Matching user preference)
+ */
+export function calculateTableHeight(
+  element: CanvasElement, 
+  rows: any[], 
+  groupByValue?: any
+): number {
+  if (element.type !== 'table' || !element.tableSettings) return element.dimension.height;
+
+  const settings = element.tableSettings;
+
+  let rowCount = 0;
+  if (settings.groupByField && groupByValue) {
+      rowCount = rows.filter(r => r[settings.groupByField!] === groupByValue).length;
+  } else {
+      rowCount = Math.min(rows.length, 5); 
+  }
+
+  rowCount = Math.max(rowCount, 1);
+
+  const hFS = settings.headerStyle?.fontSize || 14;
+  const hLH = settings.headerStyle?.lineHeight || 1.2;
+  const rFS = settings.rowStyle?.fontSize || 12;
+  const rLH = settings.rowStyle?.lineHeight || 1.2;
+  const bWidth = settings.borderWidth || 1;
+  const safety = 6; // Matching your preferred safety buffer
+
+  const headerHeight = (hFS * hLH + safety);
+  const bodyHeight = rowCount * (rFS * rLH + safety);
+  const totalBorderHeight = (rowCount + 2) * bWidth;
+
+  return headerHeight + bodyHeight + totalBorderHeight;
+}

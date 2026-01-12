@@ -35,7 +35,8 @@ import {
   RefreshCw
 } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { isHtmlContent, getImageDimensions } from "@/lib/canvas-utils";
+// UPDATED: Added calculateTableHeight to imports
+import { isHtmlContent, getImageDimensions, calculateTableHeight } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
 import QRCode from "qrcode";
 import { type CanvasElement, availableFonts, openSourceFontMap } from "@shared/schema";
@@ -255,56 +256,82 @@ export function ExportTab() {
 
     const sourceData = Object.keys(rowData).length > 0 ? rowData : (excelData?.rows[selectedRowIndex] || {});
 
-    // --- BLOCK START: DYNAMIC EXPORT PRE-FLIGHT (ADAPTATION LOGIC) ---
-    const shifts: Record<string, number> = {};
-    const adjustedHeights: Record<string, number> = {};
+    // --- BLOCK START: DYNAMIC EXPORT PRE-FLIGHT (DELTA & DOMINO LOGIC) ---
+    // This strictly mirrors CanvasElement.tsx to ensure the PDF looks exactly like the editor
 
-    // Sort elements by Y to handle cascading selective pushes correctly
-    const ySortedElements = [...targetElements].sort((a, b) => a.position.y - b.position.y);
+    // 1. Create a simulation map of where everything is currently
+    // We use this to track positions as they move during the wave
+    const simulatedPositions = new Map(targetElements.map(el => [el.id, { ...el.position, width: el.dimension.width, height: el.dimension.height }]));
 
-    ySortedElements.forEach(el => {
-      if (el.type === 'table' && el.tableSettings?.autoHeightAdaptation) {
-        const settings = el.tableSettings;
+    // 2. Identify Driver Tables (Top to Bottom)
+    // We sort by Y so top tables push lower elements (including lower tables) correctly
+    const driverTables = targetElements
+        .filter(el => el.type === 'table' && el.tableSettings?.autoHeightAdaptation)
+        .sort((a, b) => a.position.y - b.position.y);
+
+    driverTables.forEach(table => {
+        const settings = table.tableSettings!;
         const groupValue = settings.groupByField ? sourceData[settings.groupByField] : null;
 
-        const currentRowsCount = groupValue 
-            ? excelData!.rows.filter(r => r[settings.groupByField!] === groupValue).length 
-            : Math.min(excelData!.rows.length, 5);
+        // Calculate correct height using the shared utility
+        const correctH = calculateTableHeight(table, excelData ? excelData.rows : [], groupValue);
 
-        const hFS = settings.headerStyle?.fontSize || 14;
-        const hLH = settings.headerStyle?.lineHeight || 1.2;
-        const rFS = settings.rowStyle?.fontSize || 12;
-        const rLH = settings.rowStyle?.lineHeight || 1.2;
-        const bWidth = settings.borderWidth || 1;
-        const safety = 6;
+        // Get current state from simulation (it might have already moved down due to a table above it)
+        const currentSimState = simulatedPositions.get(table.id)!;
 
-        const calculatedH = (hFS * hLH + safety) + (currentRowsCount * (rFS * rLH + safety)) + ((currentRowsCount + 2) * bWidth);
-        const deltaH = calculatedH - el.dimension.height;
+        // Calculate Delta
+        const heightDelta = correctH - currentSimState.height;
 
-        if (Math.abs(deltaH) > 0.5) {
-          adjustedHeights[el.id] = calculatedH;
-          const currentTableBottom = el.position.y + calculatedH;
-          const safetyBuffer = 10;
+        if (Math.abs(heightDelta) > 0.5) {
+            // Update the table's height in the simulation
+            simulatedPositions.set(table.id, { ...currentSimState, height: correctH });
 
-          // Perform selective push on elements below this table
-          ySortedElements.forEach(otherEl => {
-            if (otherEl.id === el.id) return;
+            // Start the Domino Wave
+            // We use the current simulated position (which includes prior shifts) to start the push
+            const waveQueue = [{ 
+                id: table.id, 
+                delta: heightDelta, 
+                rect: { ...currentSimState, height: correctH } // Use new height for overlap check
+            }];
 
-            // Check horizontal overlap
-            const hasOverlap = (otherEl.position.x < el.position.x + el.dimension.width) && 
-                               (otherEl.position.x + otherEl.dimension.width > el.position.x);
+            const processedInWave = new Set<string>([table.id]);
 
-            // Selective push: only if below and within 10px of the new bottom
-            if (hasOverlap && otherEl.position.y > el.position.y) {
-               const otherYWithPriorShifts = otherEl.position.y + (shifts[otherEl.id] || 0);
-               if (otherYWithPriorShifts < currentTableBottom + safetyBuffer) {
-                  const pushNeeded = (currentTableBottom + safetyBuffer) - otherYWithPriorShifts;
-                  shifts[otherEl.id] = (shifts[otherEl.id] || 0) + pushNeeded;
-               }
+            while (waveQueue.length > 0) {
+                const pusher = waveQueue.shift()!;
+
+                targetElements.forEach(candidate => {
+                    // Skip self, already processed in this wave, or LOCKED elements
+                    if (candidate.id === pusher.id || processedInWave.has(candidate.id) || candidate.locked) return;
+
+                    const candPos = simulatedPositions.get(candidate.id)!;
+
+                    // Horizontal Overlap Check
+                    const hasHorizontalOverlap = 
+                        (candPos.x < pusher.rect.x + pusher.rect.width) && 
+                        (candPos.x + candPos.width > pusher.rect.x);
+
+                    // Vertical Check: Strictly below the pusher's top edge
+                    // (Using top edge > pusher.y is safer to avoid moving top-aligned headers)
+                    if (hasHorizontalOverlap && candPos.y > pusher.rect.y) {
+
+                        // Apply Delta (Push or Pull)
+                        const newY = candPos.y + pusher.delta;
+                        const newRect = { ...candPos, y: newY };
+
+                        simulatedPositions.set(candidate.id, newRect);
+
+                        // Add to queue to propagate the shift to items below IT
+                        waveQueue.push({
+                            id: candidate.id,
+                            delta: pusher.delta,
+                            rect: newRect
+                        });
+
+                        processedInWave.add(candidate.id);
+                    }
+                });
             }
-          });
         }
-      }
     });
     // --- BLOCK END: DYNAMIC EXPORT PRE-FLIGHT ---
 
@@ -316,14 +343,14 @@ export function ExportTab() {
       const elementDiv = document.createElement("div");
       elementDiv.style.position = "absolute";
 
-      // Apply the pre-calculated dynamic shift and height
-      const finalY = element.position.y + (shifts[element.id] || 0);
-      const finalH = adjustedHeights[element.id] || element.dimension.height;
+      // USE SIMULATED POSITIONS FOR RENDERING
+      const simState = simulatedPositions.get(element.id)!;
 
-      elementDiv.style.left = `${element.position.x}px`;
-      elementDiv.style.top = `${finalY}px`;
-      elementDiv.style.width = `${element.dimension.width}px`;
-      elementDiv.style.height = `${finalH}px`;
+      elementDiv.style.left = `${simState.x}px`;
+      elementDiv.style.top = `${simState.y}px`;
+      elementDiv.style.width = `${simState.width}px`;
+      elementDiv.style.height = `${simState.height}px`;
+
       elementDiv.style.transform = element.rotation ? `rotate(${element.rotation}deg)` : "";
       elementDiv.style.boxSizing = "border-box";
       elementDiv.style.zIndex = String(element.zIndex ?? 0);
