@@ -17,7 +17,11 @@ import {
   Star,
   ChevronRight,
   Check, 
-  Loader2
+  Loader2,
+  Zap,
+  ShieldCheck,
+  MousePointer2,
+  X
 } from 'lucide-react';
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { Footer } from "@/components/layout/Footer";
@@ -138,7 +142,7 @@ export default function Homepage() {
     <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#2A9D90]/20">
       <Helmet>
         <title>Doculoom | Spec Sheet & Catalog Maker</title>
-        <meta name="description" content="Generate data-driven PDF catalogs, price lists, and spec sheets from Excel. Professional CMYK export supported. Try for free." />
+        <meta name="description" content="Generate data-driven PDF catalogs, price lists, and spec sheets from Excel. Professional high-resolution export supported. Try for free." />
         <link rel="canonical" href="https://doculoom.io/" />
         <script type="application/ld+json">
           {JSON.stringify(structuredData)}
@@ -162,7 +166,7 @@ export default function Homepage() {
                 <span className={accentColor}>Professional Spec Sheets</span>
               </h1>
               <p className="text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
-                Batch generate multi-page PDF catalogs, price lists, and technical sheets directly from Excel. Includes professional CMYK color support.
+                Batch generate multi-page PDF catalogs, price lists, and technical sheets directly from Excel. Engineered for speed and design precision.
               </p>
               <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
                 <Button 
@@ -189,27 +193,83 @@ export default function Homepage() {
           </div>
         </section>
 
+        {/* Visual Proof Section: Before & After */}
+        <section className="py-0 overflow-hidden">
+          <div className="max-w-7xl mx-auto px-4">
+             <div className="bg-slate-50 rounded-3xl p-8 lg:p-16 border border-slate-100 relative overflow-hidden">
+                <div className="grid lg:grid-cols-5 gap-12 items-center">
+                   <div className="lg:col-span-2 space-y-6">
+                      <h2 className="text-3xl font-bold tracking-tight">From messy data to <br/>polished design.</h2>
+                      <p className="text-slate-600">Stop fighting with manual copy-pasting. Doculoom bridges the gap between your product database and professional PDF output.</p>
+                      <ul className="space-y-3">
+                         <li className="flex items-center gap-2 text-sm font-medium"><Check className="h-4 w-4 text-[#2A9D90]" /> No more formatting errors</li>
+                         <li className="flex items-center gap-2 text-sm font-medium"><Check className="h-4 w-4 text-[#2A9D90]" /> Instant multi-page generation</li>
+                         <li className="flex items-center gap-2 text-sm font-medium"><Check className="h-4 w-4 text-[#2A9D90]" /> Professional 300 DPI exports</li>
+                      </ul>
+                   </div>
+                   <div className="lg:col-span-3 flex flex-col md:flex-row gap-4 items-center justify-center relative">
+                      {/* Before: Raw Data Card */}
+                      <div className="w-full md:w-64 bg-white border border-slate-200 rounded-lg shadow-sm p-4 rotate-[-2deg] z-10">
+                         <div className="flex items-center gap-2 mb-3 border-b pb-2">
+                            <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                            <span className="text-[10px] font-mono font-bold uppercase text-slate-400">Inventory.csv</span>
+                         </div>
+                         <div className="space-y-2">
+                            <div className="h-2 w-full bg-slate-100 rounded"></div>
+                            <div className="h-2 w-2/3 bg-slate-100 rounded"></div>
+                            <div className="h-2 w-full bg-slate-100 rounded"></div>
+                            <div className="h-2 w-3/4 bg-slate-100 rounded"></div>
+                         </div>
+                      </div>
+
+                      <div className="hidden md:block bg-[#2A9D90] p-2 rounded-full text-white shadow-lg z-20">
+                         <ArrowRight className="h-6 w-6" />
+                      </div>
+
+                      {/* After: Polished Spec Sheet Card */}
+                      <div className="w-full md:w-72 bg-white border-2 border-[#2A9D90] rounded-lg shadow-2xl p-4 rotate-[2deg] z-10 relative overflow-hidden">
+                         <div className="absolute top-0 right-0 bg-[#2A9D90] text-white text-[8px] px-2 py-0.5 font-bold uppercase tracking-widest">PDF Export</div>
+                         <div className="aspect-[3/4] flex flex-col">
+                            <div className="h-32 bg-slate-100 rounded mb-3 overflow-hidden">
+                               <img 
+                                src="https://res.cloudinary.com/olilepage/image/upload/f_auto,q_auto:best,dpr_auto/v1769141734/room-scene-update/modular-corner-sectional-dark-gray-modern-ultra-4k-ar-16-9.webp" 
+                                className="w-full h-full object-cover" 
+                                alt="Sample" 
+                               />
+                            </div>
+                            <div className={`h-3 w-1/2 ${accentBg} rounded mb-2`}></div>
+                            <div className="space-y-1">
+                               <div className="h-1.5 w-full bg-slate-100 rounded"></div>
+                               <div className="h-1.5 w-full bg-slate-100 rounded"></div>
+                               <div className="h-1.5 w-3/4 bg-slate-100 rounded"></div>
+                            </div>
+                            <div className="mt-auto flex justify-between items-end">
+                               <div className="h-4 w-4 bg-slate-200 rounded"></div>
+                               <QrCode className="h-6 w-6 text-slate-900" />
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+                </div>
+             </div>
+          </div>
+        </section>
+
         <section className="py-0 overflow-hidden">
           <div className="max-w-7xl mx-auto px-4 space-y-16">
 
             {/* ROW 1: Import (Visual Left) */}
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
 
-              {/* Visual Container - Matches Row 2/3 Outer Structure */}
+              {/* Visual Container */}
               <div className="w-full h-[515px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative">
-
-                {/* Inner Card - Matches Row 2/3 Inner Structure (w-3/4, aspect ratio, border color) */}
                 <div className="bg-white rounded w-3/4 aspect-[3/4] p-4 relative flex flex-col border border-slate-300">
-
-                  {/* Grid Header */}
                   <div className="grid grid-cols-4 gap-2 text-[10px] text-slate-400 font-mono px-3 shrink-0 mb-2">
                     <div className="truncate">NAME</div>
                     <div className="truncate">SKU</div>
                     <div className="truncate">DESC</div>
                     <div className="truncate">IMAGE</div>
                   </div>
-
-                  {/* Data Rows */}
                   <div className="flex-1 overflow-hidden flex flex-col gap-2 relative [mask-image:linear-gradient(to_bottom,black_90%,transparent)]">
                     {[...Array(11)].map((_, i) => (
                       <div key={i} className="h-8 w-full bg-white border border-slate-100 rounded grid grid-cols-4 items-center px-3 gap-2 shrink-0">
@@ -268,9 +328,6 @@ export default function Homepage() {
 
               {/* Visual Container */}
               <div className="w-full h-[515px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative order-1 lg:order-2">
-                 <div className="absolute top-4 left-6 flex items-center gap-2 text-slate-400 text-xs uppercase tracking-wider font-semibold">
-                 </div>
-                 {/* Original Card Visual */}
                  <div className="bg-white rounded w-3/4 aspect-[3/4] p-4 relative flex flex-col border border-slate-300">
                     <div className="flex justify-between mb-3">
                       <div className={`h-2 w-8 ${accentBg} opacity-80 rounded`}></div>
@@ -298,24 +355,21 @@ export default function Homepage() {
 
               {/* Visual Container */}
               <div className="w-full h-[515px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative">
-                 <div className="absolute top-4 left-6 flex items-center gap-2 text-slate-400 text-xs uppercase tracking-wider font-semibold">
-                 </div>
-                 {/* Original Card Visual */}
                  <div className="bg-white rounded w-3/4 aspect-[3/4] p-4 relative flex flex-col border border-slate-300">
                     <div className="flex justify-between mb-3 items-end shrink-0">
-                      <span className={`text-[10px] font-bold ${accentColor} opacity-80`}>MODERN BATHTUB</span>
-                      <span className={`text-[10px] font-bold ${accentColor} opacity-80`}>MOD-BATH-WHT</span>
+                      <span className={`text-[10px] font-bold ${accentColor} opacity-80`}>FLOATING VANITY</span>
+                      <span className={`text-[10px] font-bold ${accentColor} opacity-80`}>FLT-VAN-WNT</span>
                     </div>
                     <div className="aspect-video w-full bg-slate-50 rounded-sm mb-3 border border-slate-100 overflow-hidden shrink-0">
                         <img 
-                          src="https://res.cloudinary.com/olilepage/image/upload/f_auto,q_auto/v1766578632/fluted-gray-modern-bathtub-japandi-ultra-4k-ar-16-9_q6ppsb.png" 
-                          alt="Modern Bathtub" 
+                          src="https://res.cloudinary.com/olilepage/image/upload/f_auto,q_auto:best,dpr_auto/v1768705685/room-scene-update/floating-vanity-walnut-brown-zen-spa-ultra-4k-ar-16-9.jpg" 
+                          alt="Floating Vanity" 
                           className="w-full h-full object-cover"
                         />
                     </div>
                     <div className="flex flex-col gap-1 flex-1">
                       <p className="text-[10px] text-slate-500 leading-[1.4] text-left">
-                        Transform your bathroom into a private sanctuary with this stunning freestanding bathtub. Featuring a sophisticated fluted exterior, the textured design adds architectural depth and modern elegance to any space.
+                        Transform your bathroom into a private sanctuary with this stunning floating vanity. Featuring a sophisticated fluted exterior, the textured design adds architectural depth and modern elegance to any space.
                       </p>
                     </div>
                     <div className="absolute bottom-4 right-4">
@@ -332,10 +386,10 @@ export default function Homepage() {
                 </div>
                 <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 mb-6">Generate & Export</h2>
                 <p className="text-lg text-slate-600 leading-relaxed mb-8">
-                  Generate hundreds of catalog pages or spec sheets in seconds. Export print-ready CMYK files for your print shop or digital RGB PDFs for the web. Includes automatic QR code generation.
+                  Generate hundreds of catalog pages or spec sheets in seconds. Export professional high-resolution files or digital PDFs for the web. Includes automatic QR code generation for every record.
                 </p>
                 <ul className="space-y-4">
-                  {['CMYK & RGB Support', 'Bulk PDF Generation', 'High-Res 300 DPI'].map((item, i) => (
+                  {['Print & Digital Formats', 'Bulk PDF Generation', 'High-Res 300 DPI'].map((item, i) => (
                     <li key={i} className="flex items-center gap-3">
                       <CheckCircle2 className={`h-5 w-5 ${accentColor}`} />
                       <span className="text-slate-700">{item}</span>
@@ -370,8 +424,8 @@ export default function Homepage() {
               />
                <FeatureCard 
                 icon={<Printer className={accentColor} size={24} />}
-                title="CMYK Print Support"
-                description="Don't risk dull colors. Our rendering engine converts your designs to professional CMYK profiles (Ghostscript) for print shops."
+                title="High-Resolution Output"
+                description="Our rendering engine converts your designs to professional high-resolution PDFs suitable for any professional use."
               />
               <FeatureCard 
                 icon={<QrCode className={accentColor} size={24} />}
@@ -390,6 +444,46 @@ export default function Homepage() {
               />
             </div>
           </div>
+        </section>
+
+        {/* Why Doculoom? */}
+        <section className="py-0 bg-slate-50/50">
+           <div className="max-w-5xl mx-auto px-4 py-20">
+              <div className="text-center mb-12">
+                 <h2 className="text-3xl font-bold mb-4">Why Doculoom?</h2>
+                 <p className="text-slate-600">Most design tools aren't built for data. Most data tools aren't built for design.</p>
+              </div>
+              <div className="grid md:grid-cols-3 gap-8">
+                 <div className="p-8 bg-white border border-slate-200 rounded-xl space-y-4 shadow-sm">
+                    <div className={`w-10 h-10 rounded-lg ${accentBg} bg-opacity-10 flex items-center justify-center`}>
+                       <Palette className={accentColor} size={20} />
+                    </div>
+                    <h3 className="font-bold text-lg">Total Design Control</h3>
+                    <p className="text-sm text-slate-500 leading-relaxed">
+                       Don't settle for rigid layouts. Our free-form canvas gives you the creative freedom of a professional design suite while maintaining strict data integrity.
+                    </p>
+                 </div>
+                 <div className="p-8 bg-white border border-slate-200 rounded-xl space-y-4 shadow-sm">
+                    <div className={`w-10 h-10 rounded-lg ${accentBg} bg-opacity-10 flex items-center justify-center`}>
+                       <FileSpreadsheet className={accentColor} size={20} />
+                    </div>
+                    <h3 className="font-bold text-lg">Seamless Data Linking</h3>
+                    <p className="text-sm text-slate-500 leading-relaxed">
+                       Doculoom was built from the ground up to speak the language of Excel and CSV. Change a value in your spreadsheet, and every related document updates instantly.
+                    </p>
+                 </div>
+                 <div className="p-8 bg-slate-900 text-white rounded-xl space-y-4 shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 bg-[#2A9D90] px-3 py-1 text-[10px] font-bold uppercase">The Advantage</div>
+                    <div className={`w-10 h-10 rounded-lg bg-[#2A9D90] bg-opacity-20 flex items-center justify-center`}>
+                       <Zap className="text-[#2A9D90]" size={20} />
+                    </div>
+                    <h3 className="font-bold text-lg">Production-Grade Speed</h3>
+                    <p className="text-sm text-slate-300 leading-relaxed">
+                       Generate 100 or 1,000 pages with a single click. Our cloud engine handles the heavy lifting, delivering high-resolution PDFs ready for any professional use.
+                    </p>
+                 </div>
+              </div>
+           </div>
         </section>
 
         {/* Use Cases */}
@@ -444,15 +538,13 @@ export default function Homepage() {
           </div>
         </section>
 
-        {/* Pricing Section - Merged Figma Layout + Doculoom Content */}
+        {/* Pricing Section */}
         <section id="pricing" className="py-0 bg-white text-slate-900">
           <div className="max-w-7xl mx-auto px-4">
-            {/* Header */}
             <div className="text-center max-w-3xl mx-auto mb-16">
               <h2 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight">Simple, predictable pricing</h2>
-              <p className="text-xl text-slate-600 mb-8">Start for free, upgrade for professional print features.</p>
+              <p className="text-xl text-slate-600 mb-8">Start for free, upgrade for professional automation features.</p>
 
-              {/* Toggle (Preserved functionality, updated style for light mode) */}
               <div className="flex items-center justify-center gap-4">
                 <Label 
                   className={`text-sm cursor-pointer ${!isAnnual ? "font-bold text-slate-900" : "text-slate-500"}`}
@@ -477,10 +569,8 @@ export default function Homepage() {
               </div>
             </div>
 
-            {/* Figma-Style Pricing Cards */}
             <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto items-start">
 
-              {/* Card 1: Starter (Standard) */}
               <PricingCard 
                 name="Starter"
                 price="$0"
@@ -499,7 +589,6 @@ export default function Homepage() {
                 onAction={handleFreeSignup}
               />
 
-              {/* Card 2: Pro (Highlighted - Most Popular) */}
               <PricingCard 
                 name="Pro"
                 highlighted
@@ -508,12 +597,12 @@ export default function Homepage() {
                   : formatPrice("prod_pro_monthly", "$39.99", false)
                 }
                 period="/mo"
-                description="For growing teams needing print-ready files."
+                description="For growing teams needing professional files."
                 subtext={isAnnual ? `Billed ${formatPrice("prod_pro_annual", "$399.99", false)} yearly` : undefined}
                 features={[
                   'Unlimited PDFs', 
                   '1,000 AI Credits / month',
-                  'Print Ready Exports', 
+                  'Professional Exports', 
                   'Manageable QR Codes', 
                   'Watermark Removal',
                   'Priority Rendering Queue',
@@ -526,10 +615,8 @@ export default function Homepage() {
                 )}
               />
 
-              {/* Card 3: Scale (Dynamic / Dropdown) */}
                <PricingCard 
                 name="Scale"
-                // Uses formatPrice with the new Floor Logic
                 price={isAnnual 
                   ? formatPrice(currentScaleTier.annualId, "Loading...", true) 
                   : formatPrice(currentScaleTier.monthlyId, "Loading...", false)
@@ -539,7 +626,6 @@ export default function Homepage() {
                 subtext={isAnnual ? `Billed ${formatPrice(currentScaleTier.annualId, "...", false)} yearly` : undefined}
                 features={[
                   'Everything in Pro',
-                  // Dropdown Feature for Credits
                   <div key="credits-selector" className="w-full">
                     <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">
                       AI Credit Limit
@@ -596,24 +682,13 @@ export default function Homepage() {
   );
 }
 
-// --- Sub-components ---
-
+// Sub-components
 function FeatureCard({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) {
   return (
     <div className="p-6 rounded-xl border border-slate-100 bg-slate-50 hover:shadow-lg transition-shadow">
       <div className="mb-4 bg-white w-12 h-12 rounded-lg flex items-center justify-center shadow-sm border border-slate-100">{icon}</div>
       <h3 className="text-xl font-bold mb-2 text-slate-900">{title}</h3>
       <p className="text-slate-600 leading-relaxed">{description}</p>
-    </div>
-  );
-}
-
-function Step({ number, title, desc, accentColor }: { number: string, title: string, desc: string, accentColor: string }) {
-  return (
-    <div className="text-center relative z-10">
-      <div className={`w-16 h-16 bg-white border-4 border-[#2A9D90]/20 ${accentColor} rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6 shadow-sm`}>{number}</div>
-      <h3 className="text-xl font-bold mb-2">{title}</h3>
-      <p className="text-slate-600 max-w-xs mx-auto">{desc}</p>
     </div>
   );
 }
@@ -634,83 +709,32 @@ function UseCaseItem({ title, desc, accentColor }: { title: string, desc: string
   );
 }
 
-// Updated PricingCard to match the Figma Layout provided
-function PricingCard({ 
-  name, 
-  price, 
-  period, 
-  description,
-  subtext, 
-  features, 
-  cta, 
-  ctaVariant, // 'teal' | 'dark'
-  highlighted, 
-  onAction 
-}: { 
-  name: string, 
-  price: string, 
-  period?: string, 
-  description?: string,
-  subtext?: string, 
-  features: (string | React.ReactNode)[], 
-  cta: string, 
-  ctaVariant: 'teal' | 'dark',
-  highlighted?: boolean, 
-  onAction?: () => void 
-}) {
+function PricingCard({ name, price, period, description, subtext, features, cta, ctaVariant, highlighted, onAction }: { name: string, price: string, period?: string, description?: string, subtext?: string, features: (string | React.ReactNode)[], cta: string, ctaVariant: 'teal' | 'dark', highlighted?: boolean, onAction?: () => void }) {
   return (
-    <div className={`p-8 relative rounded-2xl bg-white flex flex-col h-full ${
-      highlighted 
-        ? 'border-2 border-[#2A9D90] shadow-xl scale-105 z-10' 
-        : 'border border-slate-200'
-    }`}>
+    <div className={`p-8 relative rounded-2xl bg-white flex flex-col h-full ${highlighted ? 'border-2 border-[#2A9D90] shadow-xl scale-105 z-10' : 'border border-slate-200'}`}>
       {highlighted && (
-        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2A9D90] text-white hover:bg-[#2A9D90]">
-          Most Popular
-        </Badge>
+        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2A9D90] text-white hover:bg-[#2A9D90]">Most Popular</Badge>
       )}
-
       <div className="mb-6">
         <h3 className="text-2xl font-bold text-slate-900 mb-2">{name}</h3>
         {description && <p className="text-slate-600 text-sm">{description}</p>}
       </div>
-
       <div className="mb-6">
         <div className="flex items-baseline">
             <span className="text-4xl font-bold text-slate-900">{price}</span>
             <span className="text-slate-600 ml-2">{period}</span>
         </div>
-        {subtext && (
-           <span className="text-xs text-slate-500 mt-1 block">{subtext}</span>
-        )}
+        {subtext && (<span className="text-xs text-slate-500 mt-1 block">{subtext}</span>)}
       </div>
-
-      <Button 
-        onClick={onAction}
-        className={`w-full mb-8 h-12 text-lg ${
-          ctaVariant === 'teal'
-            ? 'bg-[#2A9D90] hover:bg-[#2A9D90]/90 text-white' 
-            : 'bg-slate-900 hover:bg-slate-800 text-white'
-        }`}
-      >
+      <Button onClick={onAction} className={`w-full mb-8 h-12 text-lg ${ctaVariant === 'teal' ? 'bg-[#2A9D90] hover:bg-[#2A9D90]/90 text-white' : 'bg-slate-900 hover:bg-slate-800 text-white'}`}>
         {cta}
       </Button>
-
       <div className="space-y-4 flex-1">
         {features.map((feature, i) => (
           <div key={i} className="flex items-start gap-3">
              {typeof feature === 'string' ? (
-              <>
-                <div className="mt-0.5 flex-shrink-0">
-                  <div className="w-5 h-5 rounded-full bg-[#2A9D90]/10 flex items-center justify-center">
-                    <Check className="h-3 w-3 text-[#2A9D90]" />
-                  </div>
-                </div>
-                <span className="text-slate-600 text-sm">{feature}</span>
-              </>
-            ) : (
-              <div className="w-full">{feature}</div>
-            )}
+              <><div className="mt-0.5 flex-shrink-0"><div className="w-5 h-5 rounded-full bg-[#2A9D90]/10 flex items-center justify-center"><Check className="h-3 w-3 text-[#2A9D90]" /></div></div><span className="text-slate-600 text-sm">{feature}</span></>
+            ) : (<div className="w-full">{feature}</div>)}
           </div>
         ))}
       </div>
