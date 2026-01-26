@@ -105,6 +105,7 @@ export const tableSettingsSchema = z.object({
   // Visuals
   headerBackgroundColor: z.string().default("#f3f4f6"),
   rowBackgroundColor: z.string().default("#ffffff"),
+  alternateRowColors: z.boolean().default(false),
   alternateRowColor: z.string().optional(),
   borderColor: z.string().default("#e5e7eb"),
   borderWidth: z.number().default(1),
