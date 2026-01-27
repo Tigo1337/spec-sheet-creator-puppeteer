@@ -5,6 +5,7 @@ import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { logger } from "./utils/logger";
 
 export interface IStorage {
   getTemplates(): Promise<Template[]>;
@@ -472,7 +473,7 @@ export class MemStorage implements IStorage {
   }
 
   async logAiRequest(log: InsertAiLog) {
-    console.log("[AI Log Saved]:", log.requestType);
+    logger.info({ requestType: log.requestType }, "AI Request Logged");
   }
 }
 

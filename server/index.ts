@@ -6,11 +6,11 @@ import { createServer } from "http";
 import { WebhookHandlers } from "./webhookHandlers";
 import { exec } from "child_process";
 import { promisify } from "util";
-// REMOVED: import puppeteer from "puppeteer"; 
 import { storage } from "./storage";
 import * as Sentry from "@sentry/node";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
-import { rateLimit } from "express-rate-limit"; 
+import { rateLimit } from "express-rate-limit";
+import { logger, sanitizeData } from "./utils/logger"; 
 
 const execAsync = promisify(exec);
 
@@ -75,11 +75,11 @@ const clerkSecretKey = isDevelopment
 
 if (!clerkPublishableKey || !clerkSecretKey) {
   const envType = isDevelopment ? 'development' : 'production';
-  console.error(`❌ CRITICAL: Missing Clerk keys for ${envType} environment.`);
+  logger.error(`CRITICAL: Missing Clerk keys for ${envType} environment.`);
   process.exit(1);
 }
 
-console.log(`Clerk configured for ${isDevelopment ? 'development' : 'production'} environment`);
+logger.info(`Clerk configured for ${isDevelopment ? 'development' : 'production'} environment`);
 
 app.use(clerkMiddleware({
   publishableKey: clerkPublishableKey,
@@ -94,32 +94,28 @@ declare module "http" {
 
 async function initStripe() {
   if (!process.env.STRIPE_SECRET_KEY) {
-    console.log('STRIPE_SECRET_KEY not set, skipping Stripe initialization');
+    logger.info('STRIPE_SECRET_KEY not set, skipping Stripe initialization');
     return;
   }
-  console.log('Stripe configured with manual API keys');
+  logger.info('Stripe configured with manual API keys');
 }
 
 // === SMOKE TESTS ===
 async function checkGhostscript() {
   try {
     const { stdout } = await execAsync("gs --version");
-    console.log(`✅ Ghostscript detected: v${stdout.trim()} (CMYK Export Ready)`);
+    logger.info(`Ghostscript detected: v${stdout.trim()} (CMYK Export Ready)`);
   } catch (error) {
-    // This is less critical now that PDF generation is offloaded, but good to know
-    console.warn("⚠️  Ghostscript NOT found. (If you rely on local image processing, check this).");
+    logger.warn("Ghostscript NOT found. (If you rely on local image processing, check this).");
   }
 }
-
-// REMOVED: function checkPuppeteer() { ... }
 
 async function checkDatabase() {
   try {
     await storage.getUser("health_check_probe");
-    console.log(`✅ Database connected`);
+    logger.info(`Database connected`);
   } catch (error) {
-    console.error("❌ CRITICAL: Database connection failed");
-    console.error(error);
+    logger.error({ err: error }, "CRITICAL: Database connection failed");
     Sentry.captureException(error);
   }
 }
@@ -141,7 +137,7 @@ app.post(
       await WebhookHandlers.processWebhook(req.body as Buffer, sig);
       res.status(200).json({ received: true });
     } catch (error: any) {
-      console.error('Webhook error:', error.message);
+      logger.error({ err: error }, 'Webhook error');
       Sentry.captureException(error);
       res.status(400).json({ error: 'Webhook processing error' });
     }
@@ -175,16 +171,6 @@ app.use((req, res, next) => {
 
 app.use(express.urlencoded({ extended: false, limit: "50mb" }));
 
-export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-  console.log(`${formattedTime} [${source}] ${message}`);
-}
-
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -199,11 +185,16 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      const logData: Record<string, any> = {
+        method: req.method,
+        path,
+        status: res.statusCode,
+        duration: `${duration}ms`
+      };
       if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        logData.response = sanitizeData(capturedJsonResponse);
       }
-      log(logLine);
+      logger.info(logData, "API Request");
     }
   });
 
@@ -211,13 +202,12 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  console.log("--- Starting System Checks ---");
+  logger.info("--- Starting System Checks ---");
   await Promise.all([
     checkGhostscript(),
-    // REMOVED: checkPuppeteer(), 
     checkDatabase(),
   ]);
-  console.log("--- System Checks Complete ---");
+  logger.info("--- System Checks Complete ---");
 
   await registerRoutes(httpServer, app);
 
@@ -244,7 +234,7 @@ app.use((req, res, next) => {
       reusePort: true,
     },
     () => {
-      log(`serving on port ${port}`);
+      logger.info(`Server listening on port ${port}`);
     },
   );
 })();

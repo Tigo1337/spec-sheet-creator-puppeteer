@@ -1,0 +1,64 @@
+Task: Upgrade Logging System to Pino and Remove Base64 Console Noise
+
+Context: The current logging system in the Doculoom app uses standard console.log and a custom middleware that stringifies entire JSON responses. This is causing the Replit console to be flooded with large Base64 strings from PDF and preview exports. We need to transition to pino for structured logging and implement a sanitization utility to truncate long strings in logs.
+
+Strict Constraints:
+
+Do not remove or modify existing lines of code unless explicitly required by these updates.
+
+Provide complete, production-ready files for any modified code.
+
+Step 1: Install Dependencies Please install the following packages:
+
+pino
+
+pino-pretty
+
+Step 2: Create Logging Utility Create a new file at server/utils/logger.ts with the following content:
+
+TypeScript
+import pino from "pino";
+
+// Helper to truncate long strings (like Base64) in logs
+export const sanitizeData = (data: any): any => {
+  if (typeof data !== 'object' || data === null) return data;
+  
+  const sanitized = { ...data };
+  for (const key in sanitized) {
+    if (typeof sanitized[key] === 'string' && sanitized[key].length > 500) {
+      sanitized[key] = `${sanitized[key].substring(0, 50)}... [Truncated ${sanitized[key].length} chars]`;
+    } else if (typeof sanitized[key] === 'object') {
+      sanitized[key] = sanitizeData(sanitized[key]);
+    }
+  }
+  return sanitized;
+};
+
+export const logger = pino({
+  level: process.env.LOG_LEVEL || "info",
+  transport: {
+    target: "pino-pretty",
+    options: {
+      colorize: true,
+      translateTime: "HH:MM:ss TT",
+      ignore: "pid,hostname",
+    },
+  },
+});
+Step 3: Update server/index.ts
+
+Import logger and sanitizeData from ./utils/logger.
+
+Replace all instances of console.log, console.warn, and console.error with logger.info, logger.warn, and logger.error.
+
+Remove the existing log function.
+
+Update the response logging middleware to use sanitizeData(capturedJsonResponse) before logging to ensure Base64 strings are truncated in the console.
+
+Step 4: Update server/storage.ts
+
+Import logger from ./utils/logger.
+
+In the logAiRequest method of both DatabaseStorage and MemStorage classes, replace console.log with logger.info(log, "AI Request Logged").
+
+Step 5: Final Review Ensure the server starts correctly and API logs now appear in a structured, colorized format without the long character strings.
