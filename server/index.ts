@@ -150,10 +150,11 @@ app.post(
 
 // --- SECURITY FIX: DoS Protection via Payload Size ---
 const largePayloadRoutes = [
-  '/api/export/pdf', 
-  '/api/export/preview', 
+  '/api/export/pdf',
+  '/api/export/preview',
   '/api/objects/upload',
-  '/api/export/async' 
+  '/api/export/async',
+  '/api/ai/analyze-layout'
 ];
 
 app.use((req, res, next) => {

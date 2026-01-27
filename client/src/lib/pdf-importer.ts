@@ -243,8 +243,12 @@ export async function importPdf(
         body: JSON.stringify({ image: backgroundDataUrl }),
       });
 
-      if (aiResponse.ok) {
-        const layout = await aiResponse.json();
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        throw new Error(`AI Endpoint Error ${aiResponse.status}: ${errorText}`);
+      }
+
+      const layout = await aiResponse.json();
 
         // Process Images
         if (layout.images && Array.isArray(layout.images)) {
@@ -324,9 +328,8 @@ export async function importPdf(
             });
           }
         }
-      }
     } catch (e) {
-      console.warn("AI Layout Analysis failed, falling back to basic import:", e);
+      console.error("AI Layout Analysis failed, falling back to basic import:", e);
     }
 
     await pdfDoc.destroy();
