@@ -14,15 +14,17 @@ import {
   Grid3X3,
   Magnet,
   FileDown,
+  FileUp, // Added FileUp icon
   Sun,
   Moon,
   Crown, 
   Sparkles,
   ChevronDown,
   CheckCircle2,
-  Cloud
+  Cloud,
+  Loader2 // Added Loader2 for loading state
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useUser, UserButton } from "@clerk/clerk-react";
 import { QRManagerDialog } from "@/components/dialogs/QRManagerDialog";
 import { useSubscription } from "@/hooks/use-subscription";
@@ -31,9 +33,14 @@ import { KnowledgeManagerDialog } from "@/components/dialogs/KnowledgeManagerDia
 import { AccountDialog } from "@/components/dialogs/AccountDialog";
 import { DesignManagerDialog } from "@/components/dialogs/DesignManagerDialog";
 import { format } from "date-fns";
+import { importPdf } from "@/lib/pdf-importer"; // Import the utility
+import { useToast } from "@/hooks/use-toast"; // Import toast for feedback
 
 export function Header() {
   const { user } = useUser();
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isImporting, setIsImporting] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
   const { isPro } = useSubscription();
@@ -44,8 +51,8 @@ export function Header() {
     setZoom,
     showGrid,
     toggleGrid,
-    gridSize, // 
-    setGridSize, // 
+    gridSize, 
+    setGridSize, 
     snapToGrid,
     toggleSnapToGrid,
     undo,
@@ -54,7 +61,8 @@ export function Header() {
     currentTemplate,
     setRightPanelTab,
     saveStatus, 
-    lastSavedAt 
+    lastSavedAt,
+    loadPdfDesign // Get the action from store
   } = useCanvasStore();
 
   useEffect(() => {
@@ -76,9 +84,72 @@ export function Header() {
     setRightPanelTab("export");
   };
 
+  // --- PDF IMPORT LOGIC ---
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== "application/pdf" && !file.name.endsWith(".pdf")) {
+      toast({
+        title: "Invalid file",
+        description: "Please select a valid PDF file.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsImporting(true);
+      toast({
+        title: "Importing PDF...",
+        description: "Reconstructing layout and extracting text.",
+      });
+
+      // 1. Process the PDF
+      const result = await importPdf(file);
+
+      // 2. Load into Store
+      loadPdfDesign(
+        result.elements,
+        result.canvasWidth,
+        result.canvasHeight,
+        result.backgroundDataUrl
+      );
+
+      toast({
+        title: "Success",
+        description: "PDF imported successfully!",
+      });
+    } catch (error) {
+      console.error("PDF Import Error:", error);
+      toast({
+        title: "Import Failed",
+        description: "Could not process the PDF file.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImporting(false);
+      // Reset input so same file can be selected again if needed
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <header className="h-14 border-b bg-sidebar flex items-center justify-between px-4 gap-4 flex-shrink-0">
       <UpgradeDialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog} />
+
+      {/* Hidden File Input for Import */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="hidden"
+        accept="application/pdf"
+        onChange={handleFileChange}
+      />
 
       {/* Left Section */}
       <div className="flex items-center gap-3 min-w-0">
@@ -147,7 +218,6 @@ export function Header() {
         </Button>
         <Separator orientation="vertical" className="h-5 mx-1" />
 
-        {/* BLOCK START: GRID UI WITH SQUARES SIZE SELECTION */}
         <div className="flex items-center gap-0.5 border rounded-md px-1 bg-background/50">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -184,7 +254,6 @@ export function Header() {
                 </Button>
             </div>
         </div>
-        {/* BLOCK END: GRID UI WITH SQUARES SIZE SELECTION */}
 
         <Tooltip>
           <TooltipTrigger asChild>
@@ -228,6 +297,23 @@ export function Header() {
         <Button size="icon" variant="ghost" onClick={toggleTheme}>
           {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
         </Button>
+
+        {/* NEW: Import PDF Button */}
+        <Button 
+          size="sm" 
+          variant="outline"
+          className="gap-1.5" 
+          onClick={handleImportClick}
+          disabled={isImporting}
+        >
+          {isImporting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <FileUp className="h-4 w-4" />
+          )}
+          {isImporting ? "Importing..." : "Import PDF"}
+        </Button>
+
         <Button size="sm" className="gap-1.5" onClick={handleExport}>
           <FileDown className="h-4 w-4" />
           Export
