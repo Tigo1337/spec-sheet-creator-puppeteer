@@ -1,6 +1,6 @@
 /**
  * AI-related API routes
- * Handles data enrichment, standardization, field mapping, and product knowledge management
+ * Handles data enrichment, standardization, field mapping, product knowledge, and LAYOUT ANALYSIS.
  */
 
 import { Router } from "express";
@@ -14,9 +14,76 @@ const router = Router();
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-const aiModel = genAI.getGenerativeModel({
-  model: "gemini-2.5-flash-lite",
+
+// Use the specific model requested for Vision tasks
+const visionModel = genAI.getGenerativeModel({
+  model: "gemini-2.0-flash",
   generationConfig: { responseMimeType: "application/json" }
+});
+
+const textModel = genAI.getGenerativeModel({
+  model: "gemini-2.0-flash",
+  generationConfig: { responseMimeType: "application/json" }
+});
+
+/**
+ * NEW: POST /api/ai/analyze-layout
+ * Analyzes a PDF page image to detect separate images and tables.
+ */
+router.post("/analyze-layout", async (req, res) => {
+  const auth = getAuth(req);
+  if (!auth.userId) return res.status(401).json({ error: "Auth required" });
+
+  const { image } = req.body; // Expecting Base64 Data URL
+
+  if (!image) return res.status(400).json({ error: "No image provided" });
+
+  try {
+    // 1. Prepare the image part for Gemini
+    const base64Data = image.split(",")[1]; // Remove "data:image/png;base64," prefix
+
+    const prompt = `
+      Analyze this document page layout. I need to extract distinct visual elements to reconstruct it digitally.
+
+      1. Identify all **Visual Images** (logos, product photos, icons, diagrams). Ignore background textures or watermarks.
+      2. Identify all **Data Tables** (grids with rows/columns).
+
+      Return a JSON object with this structure:
+      {
+        "images": [
+          { "box_2d": [ymin, xmin, ymax, xmax], "label": "string" }
+        ],
+        "tables": [
+          { "box_2d": [ymin, xmin, ymax, xmax], "rows": number, "cols": number }
+        ]
+      }
+
+      Important:
+      - "box_2d" coordinates must be normalized to 0-1000 scale (PDFQuad).
+      - Do not hallucinate elements. If the page is text-only, return empty arrays.
+    `;
+
+    // 2. Generate Content
+    const result = await visionModel.generateContent([
+      prompt,
+      {
+        inlineData: {
+          data: base64Data,
+          mimeType: "image/png",
+        },
+      },
+    ]);
+
+    const responseText = result.response.text();
+    const cleanJson = responseText.replace(/```json|```/g, "").trim();
+    const layoutData = JSON.parse(cleanJson);
+
+    res.json(layoutData);
+
+  } catch (error) {
+    console.error("Layout Analysis Error:", error);
+    res.status(500).json({ error: "AI Layout Analysis failed", details: String(error) });
+  }
 });
 
 /**
@@ -61,7 +128,7 @@ router.post("/enrich-data", async (req, res) => {
     let attempts = 0;
     while (attempts < 3) {
       try {
-        result = await aiModel.generateContent(prompt);
+        result = await textModel.generateContent(prompt);
         break;
       } catch (e: unknown) {
         const error = e as { status?: number };
@@ -148,7 +215,7 @@ router.post("/standardize", async (req, res) => {
     let result, attempts = 0;
     while (attempts < 3) {
       try {
-        result = await aiModel.generateContent(prompt);
+        result = await textModel.generateContent(prompt);
         break;
       } catch (e: unknown) {
         const error = e as { status?: number };
@@ -176,7 +243,7 @@ router.post("/standardize", async (req, res) => {
       completionTokens: usage?.candidatesTokenCount || 0
     }).catch(err => console.error("Failed to log AI request:", err));
 
-    // Save to knowledge base for scale/business users
+    // Save to knowledge base logic...
     if (keys && keys.length > 0 && keyName && fieldName) {
       const user = await storage.getUser(auth.userId);
       if (user?.plan && (user.plan.includes("scale") || user.plan.includes("business"))) {
@@ -299,153 +366,10 @@ router.post("/map-fields", async (req, res) => {
 
   try {
     const prompt = `Match columns ${JSON.stringify(req.body.sourceHeaders)} to ${JSON.stringify(req.body.targetVariables)}. Return JSON array [{source, target, confidence}].`;
-    const result = await aiModel.generateContent(prompt);
+    const result = await textModel.generateContent(prompt);
     res.json(JSON.parse(result.response.text().replace(/```json|```/g, "").trim()));
   } catch {
     res.status(500).json({ error: "AI Mapping failed" });
-  }
-});
-
-/**
- * POST /api/ai/analyze-layout
- * Analyze a PDF page image using Computer Vision to detect images and tables
- * Input: { image: string } - Base64 Data URL of the PDF page
- * Output: { images: [...], tables: [...] }
- */
-router.post("/analyze-layout", async (req, res) => {
-  const auth = getAuth(req);
-  if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
-
-  const { image } = req.body;
-
-  if (!image || typeof image !== "string") {
-    return res.status(400).json({ error: "Invalid input: 'image' must be a Base64 Data URL string" });
-  }
-
-  // Extract MIME type and base64 data from Data URL
-  const dataUrlMatch = image.match(/^data:(image\/\w+);base64,(.+)$/);
-  if (!dataUrlMatch) {
-    return res.status(400).json({ error: "Invalid image format: must be a valid Base64 Data URL" });
-  }
-
-  const mimeType = dataUrlMatch[1];
-  const base64Data = dataUrlMatch[2];
-
-  // Use vision-capable model for layout analysis
-  const visionModel = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash-lite",
-    generationConfig: { responseMimeType: "application/json" }
-  });
-
-  const prompt = `You are a document layout analysis AI. Analyze this PDF page image and detect:
-
-1. **Distinct Visual Elements (Images)**: Logos, product photos, icons, diagrams, charts, or any non-text visual content.
-2. **Data Tables**: Structured tabular data with rows and columns.
-
-For each detected element, provide:
-- **Images**: A bounding box (box_2d) as [ymin, xmin, ymax, xmax] in a normalized 0-1000 scale, and a descriptive label.
-- **Tables**: A bounding box (box_2d) as [ymin, xmin, ymax, xmax] in 0-1000 scale, estimated row count (rows), and estimated column count (cols).
-
-IMPORTANT:
-- Coordinates use a 0-1000 normalized scale where (0,0) is top-left and (1000,1000) is bottom-right.
-- box_2d format is [ymin, xmin, ymax, xmax] - note Y comes before X.
-- Only detect clearly visible images and tables, not text blocks.
-- For tables, count visible header row + data rows for rowCount.
-- Be conservative: only include elements you are confident about.
-
-Return a JSON object with this exact structure:
-{
-  "images": [
-    { "box_2d": [ymin, xmin, ymax, xmax], "label": "description" }
-  ],
-  "tables": [
-    { "box_2d": [ymin, xmin, ymax, xmax], "rows": number, "cols": number }
-  ]
-}
-
-If no images or tables are detected, return empty arrays.`;
-
-  try {
-    let result;
-    let attempts = 0;
-
-    while (attempts < 3) {
-      try {
-        result = await visionModel.generateContent([
-          { text: prompt },
-          {
-            inlineData: {
-              mimeType: mimeType,
-              data: base64Data
-            }
-          }
-        ]);
-        break;
-      } catch (e: unknown) {
-        const error = e as { status?: number; message?: string };
-        // Retry on rate limits or temporary errors
-        if (error.status === 429 || error.status === 503) {
-          attempts++;
-          await new Promise(r => setTimeout(r, 1000 * attempts));
-        } else {
-          throw e;
-        }
-      }
-    }
-
-    if (!result) {
-      throw new Error("AI layout analysis failed after retries");
-    }
-
-    const responseText = result.response.text().replace(/```json|```/g, "").trim();
-    const analysisResult = JSON.parse(responseText);
-    const usage = result.response.usageMetadata;
-
-    // Validate and sanitize the response structure
-    const sanitizedResult = {
-      images: Array.isArray(analysisResult.images)
-        ? analysisResult.images.filter((img: unknown) => {
-            if (typeof img !== 'object' || img === null) return false;
-            const i = img as { box_2d?: unknown; label?: unknown };
-            return Array.isArray(i.box_2d) && i.box_2d.length === 4 && typeof i.label === 'string';
-          }).map((img: { box_2d: number[]; label: string }) => ({
-            box_2d: img.box_2d.map((v: number) => Math.max(0, Math.min(1000, Math.round(v)))),
-            label: img.label
-          }))
-        : [],
-      tables: Array.isArray(analysisResult.tables)
-        ? analysisResult.tables.filter((tbl: unknown) => {
-            if (typeof tbl !== 'object' || tbl === null) return false;
-            const t = tbl as { box_2d?: unknown; rows?: unknown; cols?: unknown };
-            return Array.isArray(t.box_2d) && t.box_2d.length === 4 &&
-                   typeof t.rows === 'number' && typeof t.cols === 'number';
-          }).map((tbl: { box_2d: number[]; rows: number; cols: number }) => ({
-            box_2d: tbl.box_2d.map((v: number) => Math.max(0, Math.min(1000, Math.round(v)))),
-            rows: Math.max(1, Math.round(tbl.rows)),
-            cols: Math.max(1, Math.round(tbl.cols))
-          }))
-        : []
-    };
-
-    // Log AI request for analytics
-    storage.logAiRequest({
-      userId: auth.userId,
-      requestType: "analyze-layout",
-      promptContent: prompt,
-      generatedResponse: JSON.stringify(sanitizedResult),
-      tokenCost: 50, // Layout analysis cost
-      promptTokens: usage?.promptTokenCount || 0,
-      completionTokens: usage?.candidatesTokenCount || 0
-    }).catch(err => console.error("Failed to log AI request:", err));
-
-    res.json(sanitizedResult);
-  } catch (error) {
-    console.error("Layout Analysis Error:", error);
-    res.status(500).json({
-      error: "Failed to analyze layout",
-      images: [],
-      tables: []
-    });
   }
 });
 

@@ -1,30 +1,29 @@
 /**
- * PDF Importer Utility - Hybrid AI Strategy
+ * AI-Assisted PDF Importer
  *
- * Uses pdfjs-dist + AI Vision to parse PDFs and extract:
- * 1. A high-quality background image (DataURL) for visual reference (zIndex 0, hidden by default)
- * 2. AI-detected cropped images and tables (zIndex 1)
- * 3. Editable text elements mapped to CanvasElement schema (zIndex 2)
+ * Workflow:
+ * 1. Render PDF page to a high-quality "Master Image".
+ * 2. Send "Master Image" to Gemini AI to identify discrete elements (Logos, Photos, Tables).
+ * 3. Crop separate "Image Elements" from the Master Image based on AI coordinates.
+ * 4. Create empty "Table Elements" where the AI detected tables.
+ * 5. Extract "Text Elements" using PDF.js standard parsing.
  */
 
 import * as pdfjsLib from "pdfjs-dist";
 import type { TextItem, TextMarkedContent } from "pdfjs-dist/types/src/display/api";
 import { nanoid } from "nanoid";
-import type { CanvasElement, TextStyle, TableSettings, TableColumn } from "@shared/schema";
+import type { CanvasElement, TextStyle } from "@shared/schema";
 
-// --- WORKER CONFIGURATION ---
+// --- CONFIGURATION ---
 const PDFJS_VERSION = pdfjsLib.version || "5.4.449";
+// Use unpkg for reliable worker loading
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
 
-// DPI conversion constants
 const PDF_DPI = 72;
 const CANVAS_DPI = 96;
-const DPI_SCALE = CANVAS_DPI / PDF_DPI; // 1.333...
+const DPI_SCALE = CANVAS_DPI / PDF_DPI; // ~1.333
+const RENDER_SCALE = 2; // Render at 2x for high quality crops
 
-// Rendering scale for high-quality background images
-const RENDER_SCALE = 2;
-
-// --- Types ---
 export interface PdfImportResult {
   elements: CanvasElement[];
   canvasWidth: number;
@@ -37,62 +36,78 @@ export interface PdfImportResult {
 export interface PdfImportOptions {
   pageNumber?: number;
   imageQuality?: number;
-  imageFormat?: "image/png" | "image/jpeg";
-  enableAiAnalysis?: boolean;
 }
 
-interface AILayoutResponse {
-  images: Array<{
-    box_2d: [number, number, number, number]; // [ymin, xmin, ymax, xmax] in 0-1000 scale
-    label: string;
-  }>;
-  tables: Array<{
-    box_2d: [number, number, number, number]; // [ymin, xmin, ymax, xmax] in 0-1000 scale
-    rows: number;
-    cols: number;
-  }>;
-}
-
-// --- Helper Functions ---
+// --- HELPER FUNCTIONS ---
 
 function isTextItem(item: TextItem | TextMarkedContent): item is TextItem {
   return "str" in item && typeof item.str === "string";
 }
 
+/**
+ * Crop a specific region from the base64 source image.
+ * @param sourceImageBase64 The full page image
+ * @param box [ymin, xmin, ymax, xmax] in 0-1000 scale
+ * @param canvasWidth Width of the target canvas
+ * @param canvasHeight Height of the target canvas
+ */
+async function cropImage(
+  sourceImageBase64: string,
+  box: [number, number, number, number],
+  canvasWidth: number,
+  canvasHeight: number
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const [ymin, xmin, ymax, xmax] = box;
+
+      // Convert normalized 0-1000 coordinates to actual pixel coordinates
+      // Note: We use the *image's* natural dimensions for cropping source
+      const imgW = img.naturalWidth;
+      const imgH = img.naturalHeight;
+
+      const sx = (xmin / 1000) * imgW;
+      const sy = (ymin / 1000) * imgH;
+      const sw = ((xmax - xmin) / 1000) * imgW;
+      const sh = ((ymax - ymin) / 1000) * imgH;
+
+      // Create a canvas for the cropped piece
+      const canvas = document.createElement("canvas");
+      canvas.width = sw;
+      canvas.height = sh;
+      const ctx = canvas.getContext("2d");
+
+      if (!ctx) {
+        reject(new Error("Failed to get 2D context"));
+        return;
+      }
+
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+      resolve(canvas.toDataURL("image/png"));
+    };
+    img.onerror = reject;
+    img.src = sourceImageBase64;
+  });
+}
+
 function extractFontWeight(fontName: string): number {
   const name = fontName.toLowerCase();
   if (name.includes("black") || name.includes("heavy")) return 900;
-  if (name.includes("extrabold") || name.includes("ultrabold")) return 800;
   if (name.includes("bold")) return 700;
   if (name.includes("semibold") || name.includes("demibold")) return 600;
   if (name.includes("medium")) return 500;
   if (name.includes("light")) return 300;
-  if (name.includes("extralight") || name.includes("ultralight")) return 200;
-  if (name.includes("thin")) return 100;
   return 400;
 }
 
 function mapToWebFont(fontName: string): string {
   const name = fontName.toLowerCase();
-  if (name.includes("arial") || name.includes("helvetica")) return "Inter";
-  if (name.includes("times")) return "Georgia";
-  if (name.includes("courier")) return "Inconsolata";
-  if (name.includes("georgia")) return "Georgia";
-  if (name.includes("verdana")) return "Inter";
-  if (name.includes("trebuchet")) return "Inter";
-  if (name.includes("palatino")) return "Libre Baskerville";
-  if (name.includes("bookman")) return "Libre Baskerville";
-  if (name.includes("garamond")) return "Crimson Text";
-  if (name.includes("century")) return "Libre Baskerville";
-  if (name.includes("futura")) return "Montserrat";
-  if (name.includes("avant")) return "Raleway";
-  if (name.includes("calibri")) return "Inter";
-  if (name.includes("cambria")) return "Georgia";
+  if (name.includes("arial")) return "Arial";
+  if (name.includes("times")) return "Times New Roman";
+  if (name.includes("courier")) return "Courier New";
   if (name.includes("roboto")) return "Roboto";
-  if (name.includes("open sans") || name.includes("opensans")) return "Open Sans";
-  if (name.includes("lato")) return "Lato";
-  if (name.includes("montserrat")) return "Montserrat";
-  if (name.includes("poppins")) return "Poppins";
+  if (name.includes("open sans")) return "Open Sans";
   return "Inter";
 }
 
@@ -109,191 +124,41 @@ function convertPdfToCanvasCoords(
 
 function estimateTextDimensions(
   content: string,
-  fontSize: number,
-  _fontWeight: number
+  fontSize: number
 ): { width: number; height: number } {
   const avgCharWidth = fontSize * 0.55;
-  const width = Math.max(content.length * avgCharWidth, 50);
+  const width = Math.max(content.length * avgCharWidth, 20);
   const height = Math.max(fontSize * 1.4, 20);
   return { width, height };
 }
 
-/**
- * Crop a region from a base64 image using normalized coordinates (0-1000 scale)
- * @param base64Image - Full page image as Base64 Data URL
- * @param box - Bounding box [ymin, xmin, ymax, xmax] in 0-1000 scale
- * @param canvasWidth - Full canvas width in pixels
- * @param canvasHeight - Full canvas height in pixels
- * @returns Cropped image as Base64 Data URL
- */
-async function cropImage(
-  base64Image: string,
-  box: [number, number, number, number],
-  canvasWidth: number,
-  canvasHeight: number
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      // Convert normalized coordinates (0-1000) to pixels
-      const [ymin, xmin, ymax, xmax] = box;
-      const x = (xmin / 1000) * canvasWidth;
-      const y = (ymin / 1000) * canvasHeight;
-      const width = ((xmax - xmin) / 1000) * canvasWidth;
-      const height = ((ymax - ymin) / 1000) * canvasHeight;
-
-      // Create offscreen canvas for cropping
-      const cropCanvas = document.createElement("canvas");
-      cropCanvas.width = Math.max(1, Math.round(width));
-      cropCanvas.height = Math.max(1, Math.round(height));
-      const ctx = cropCanvas.getContext("2d");
-
-      if (!ctx) {
-        reject(new Error("Failed to get 2D context for crop canvas"));
-        return;
-      }
-
-      // Draw the cropped region
-      ctx.drawImage(
-        img,
-        Math.round(x),
-        Math.round(y),
-        Math.round(width),
-        Math.round(height),
-        0,
-        0,
-        cropCanvas.width,
-        cropCanvas.height
-      );
-
-      resolve(cropCanvas.toDataURL("image/png"));
-    };
-    img.onerror = () => reject(new Error("Failed to load image for cropping"));
-    img.src = base64Image;
-  });
-}
-
-/**
- * Call the AI layout analysis endpoint
- */
-async function analyzeLayoutWithAI(imageDataUrl: string): Promise<AILayoutResponse> {
-  try {
-    const response = await fetch("/api/ai/analyze-layout", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify({ image: imageDataUrl }),
-    });
-
-    if (!response.ok) {
-      console.warn("AI layout analysis failed:", response.status);
-      return { images: [], tables: [] };
-    }
-
-    const result = await response.json();
-    return {
-      images: result.images || [],
-      tables: result.tables || [],
-    };
-  } catch (error) {
-    console.warn("AI layout analysis error:", error);
-    return { images: [], tables: [] };
-  }
-}
-
-/**
- * Create default table settings for AI-detected tables
- */
-function createDefaultTableSettings(rows: number, cols: number): TableSettings {
-  // Generate placeholder columns
-  const columns: TableColumn[] = Array.from({ length: cols }, (_, i) => ({
-    id: nanoid(),
-    header: `Column ${i + 1}`,
-    dataField: undefined,
-    width: 100,
-    headerAlign: "left" as const,
-    rowAlign: "left" as const,
-  }));
-
-  return {
-    columns,
-    groupByField: undefined,
-    autoFitColumns: false,
-    autoHeightAdaptation: false,
-    minColumnWidth: 50,
-    equalRowHeights: true,
-    minRowHeight: 24,
-    headerStyle: {
-      fontFamily: "Inter",
-      fontSize: 14,
-      fontWeight: 700,
-      color: "#000000",
-      textAlign: "left",
-      verticalAlign: "middle",
-      lineHeight: 1.2,
-      letterSpacing: 0,
-    },
-    rowStyle: {
-      fontFamily: "Inter",
-      fontSize: 12,
-      fontWeight: 400,
-      color: "#000000",
-      textAlign: "left",
-      verticalAlign: "middle",
-      lineHeight: 1.2,
-      letterSpacing: 0,
-    },
-    headerBackgroundColor: "#f3f4f6",
-    rowBackgroundColor: "#ffffff",
-    alternateRowColors: false,
-    alternateRowColor: "#f9fafb",
-    borderColor: "#e5e7eb",
-    borderWidth: 1,
-    cellPadding: 8,
-  };
-}
-
-/**
- * Render PDF page to high-quality image
- */
 async function renderPageToImage(
   page: pdfjsLib.PDFPageProxy,
   options: PdfImportOptions
 ): Promise<string> {
+  // Render at high resolution
   const viewport = page.getViewport({ scale: RENDER_SCALE * DPI_SCALE });
   const canvas = document.createElement("canvas");
   canvas.width = viewport.width;
   canvas.height = viewport.height;
   const context = canvas.getContext("2d");
-  if (!context) throw new Error("Failed to get 2D canvas context");
+  if (!context) throw new Error("Canvas context failed");
 
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, canvas.width, canvas.height);
 
-  await page.render({
-    canvas: canvas,
-    canvasContext: context,
-    viewport,
-  }).promise;
+  await page.render({ canvasContext: context, viewport }).promise;
 
-  const format = options.imageFormat || "image/png";
-  const quality = options.imageQuality || 0.92;
-  return canvas.toDataURL(format, quality);
+  return canvas.toDataURL("image/png", options.imageQuality || 0.92);
 }
 
-/**
- * Extract text elements from PDF page
- */
 async function extractTextElements(
   page: pdfjsLib.PDFPageProxy,
-  pageHeightPt: number,
-  baseZIndex: number
+  pageHeightPt: number
 ): Promise<CanvasElement[]> {
   const textContent = await page.getTextContent();
   const elements: CanvasElement[] = [];
-  let zIndex = baseZIndex;
+  let zIndex = 50; // Text goes on top of images (which will be ~10)
 
   for (const item of textContent.items) {
     if (!isTextItem(item)) continue;
@@ -301,129 +166,17 @@ async function extractTextElements(
     if (!text) continue;
 
     const transform = item.transform;
-    const pdfX = transform[4];
-    const pdfY = transform[5];
-    const fontSizeFromTransform = Math.abs(transform[3]);
-    const fontSize = Math.round(fontSizeFromTransform * DPI_SCALE);
+    const fontSize = Math.round(Math.abs(transform[3]) * DPI_SCALE);
+    const { x, y } = convertPdfToCanvasCoords(transform[4], transform[5], pageHeightPt, fontSize);
 
-    const { x, y } = convertPdfToCanvasCoords(pdfX, pdfY, pageHeightPt, fontSize);
     if (x < 0 || y < 0) continue;
 
-    const fontName = item.fontName || "";
-    const fontWeight = extractFontWeight(fontName);
-    const fontFamily = mapToWebFont(fontName);
-    const { width, height } = estimateTextDimensions(text, fontSize, fontWeight);
+    const { width, height } = estimateTextDimensions(text, fontSize);
 
-    const textStyle: TextStyle = {
-      fontFamily,
-      fontSize,
-      fontWeight,
-      color: "#000000",
-      textAlign: "left",
-      verticalAlign: "top",
-      lineHeight: 1.2,
-      letterSpacing: 0,
-    };
-
-    const element: CanvasElement = {
+    elements.push({
       id: nanoid(),
       type: "text",
-      position: { x: Math.round(x), y: Math.round(y) },
-      dimension: { width: Math.round(width), height: Math.round(height) },
-      rotation: 0,
-      locked: false,
-      visible: true,
-      zIndex: zIndex++,
       content: text,
-      pageIndex: 0,
-      textStyle,
-      aspectRatioLocked: false,
-      isImageField: false,
-    };
-    elements.push(element);
-  }
-  return elements;
-}
-
-/**
- * Process AI-detected images and create CanvasElements
- */
-async function processAIImages(
-  aiResponse: AILayoutResponse,
-  backgroundDataUrl: string,
-  canvasWidth: number,
-  canvasHeight: number,
-  baseZIndex: number
-): Promise<CanvasElement[]> {
-  const elements: CanvasElement[] = [];
-  let zIndex = baseZIndex;
-
-  for (const img of aiResponse.images) {
-    try {
-      const croppedImageUrl = await cropImage(
-        backgroundDataUrl,
-        img.box_2d,
-        canvasWidth,
-        canvasHeight
-      );
-
-      // Convert normalized coordinates to canvas pixels
-      const [ymin, xmin, ymax, xmax] = img.box_2d;
-      const x = (xmin / 1000) * canvasWidth;
-      const y = (ymin / 1000) * canvasHeight;
-      const width = ((xmax - xmin) / 1000) * canvasWidth;
-      const height = ((ymax - ymin) / 1000) * canvasHeight;
-
-      const element: CanvasElement = {
-        id: nanoid(),
-        type: "image",
-        position: { x: Math.round(x), y: Math.round(y) },
-        dimension: { width: Math.round(width), height: Math.round(height) },
-        rotation: 0,
-        locked: false,
-        visible: true,
-        zIndex: zIndex++,
-        pageIndex: 0,
-        imageSrc: croppedImageUrl,
-        content: img.label,
-        aspectRatioLocked: true,
-        aspectRatio: width / height,
-        isImageField: false,
-      };
-      elements.push(element);
-    } catch (error) {
-      console.warn("Failed to crop image:", error);
-    }
-  }
-
-  return elements;
-}
-
-/**
- * Process AI-detected tables and create CanvasElements
- */
-function processAITables(
-  aiResponse: AILayoutResponse,
-  canvasWidth: number,
-  canvasHeight: number,
-  baseZIndex: number
-): CanvasElement[] {
-  const elements: CanvasElement[] = [];
-  let zIndex = baseZIndex;
-
-  for (const table of aiResponse.tables) {
-    // Convert normalized coordinates to canvas pixels
-    const [ymin, xmin, ymax, xmax] = table.box_2d;
-    const x = (xmin / 1000) * canvasWidth;
-    const y = (ymin / 1000) * canvasHeight;
-    const width = ((xmax - xmin) / 1000) * canvasWidth;
-    const height = ((ymax - ymin) / 1000) * canvasHeight;
-
-    const tableSettings = createDefaultTableSettings(table.rows, table.cols);
-
-    const element: CanvasElement = {
-      id: nanoid(),
-      type: "table",
       position: { x: Math.round(x), y: Math.round(y) },
       dimension: { width: Math.round(width), height: Math.round(height) },
       rotation: 0,
@@ -431,29 +184,32 @@ function processAITables(
       visible: true,
       zIndex: zIndex++,
       pageIndex: 0,
-      tableSettings,
       aspectRatioLocked: false,
-      isImageField: false,
-    };
-    elements.push(element);
+      textStyle: {
+        fontFamily: mapToWebFont(item.fontName),
+        fontSize,
+        fontWeight: extractFontWeight(item.fontName),
+        color: "#000000",
+        textAlign: "left",
+        verticalAlign: "top",
+        lineHeight: 1.2,
+        letterSpacing: 0,
+      },
+    });
   }
-
   return elements;
 }
 
-/**
- * Main PDF import function with Hybrid AI strategy
- */
+// --- MAIN IMPORT FUNCTION ---
+
 export async function importPdf(
   file: File,
   options: PdfImportOptions = {}
 ): Promise<PdfImportResult> {
-  const { pageNumber = 1, enableAiAnalysis = true } = options;
+  const { pageNumber = 1 } = options;
 
   try {
     const arrayBuffer = await file.arrayBuffer();
-
-    // Load PDF document
     const loadingTask = pdfjsLib.getDocument({
       data: arrayBuffer,
       cMapUrl: `https://unpkg.com/pdfjs-dist@${PDFJS_VERSION}/cmaps/`,
@@ -462,11 +218,6 @@ export async function importPdf(
 
     const pdfDoc = await loadingTask.promise;
     const totalPages = pdfDoc.numPages;
-
-    if (pageNumber < 1 || pageNumber > totalPages) {
-      throw new Error(`Invalid page number: ${pageNumber}. PDF has ${totalPages} pages.`);
-    }
-
     const page = await pdfDoc.getPage(pageNumber);
     const viewport = page.getViewport({ scale: 1 });
 
@@ -475,92 +226,127 @@ export async function importPdf(
     const canvasWidth = Math.round(pageWidthPt * DPI_SCALE);
     const canvasHeight = Math.round(pageHeightPt * DPI_SCALE);
 
-    // Step 1: Render full page to high-quality image
+    // 1. Render Full Page Background (High Quality)
     const backgroundDataUrl = await renderPageToImage(page, options);
 
-    // Step 2: Extract text elements (will be layered on top at zIndex 2+)
-    const textElements = await extractTextElements(page, pageHeightPt, 200);
+    // 2. Extract Text (Traditional)
+    const textElements = await extractTextElements(page, pageHeightPt);
 
-    // Step 3: AI Layout Analysis (if enabled)
-    let aiImageElements: CanvasElement[] = [];
-    let aiTableElements: CanvasElement[] = [];
+    // 3. AI Analysis & Cropping
+    let visionElements: CanvasElement[] = [];
 
-    if (enableAiAnalysis) {
-      console.log("Starting AI layout analysis...");
-      const aiResponse = await analyzeLayoutWithAI(backgroundDataUrl);
-      console.log("AI analysis complete:", {
-        imagesFound: aiResponse.images.length,
-        tablesFound: aiResponse.tables.length,
+    try {
+      // Call Backend API to identify images and tables
+      const aiResponse = await fetch("/api/ai/analyze-layout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: backgroundDataUrl }),
       });
 
-      // Process AI-detected elements (zIndex 100-199 for images/tables)
-      aiImageElements = await processAIImages(
-        aiResponse,
-        backgroundDataUrl,
-        canvasWidth,
-        canvasHeight,
-        100
-      );
+      if (aiResponse.ok) {
+        const layout = await aiResponse.json();
 
-      aiTableElements = processAITables(
-        aiResponse,
-        canvasWidth,
-        canvasHeight,
-        100 + aiImageElements.length
-      );
+        // Process Images
+        if (layout.images && Array.isArray(layout.images)) {
+          for (const imgData of layout.images) {
+            const [ymin, xmin, ymax, xmax] = imgData.box_2d;
+
+            // Generate crop
+            const croppedUrl = await cropImage(backgroundDataUrl, imgData.box_2d, canvasWidth, canvasHeight);
+
+            // Calculate canvas position
+            const x = (xmin / 1000) * canvasWidth;
+            const y = (ymin / 1000) * canvasHeight;
+            const w = ((xmax - xmin) / 1000) * canvasWidth;
+            const h = ((ymax - ymin) / 1000) * canvasHeight;
+
+            visionElements.push({
+              id: nanoid(),
+              type: "image",
+              imageSrc: croppedUrl,
+              position: { x: Math.round(x), y: Math.round(y) },
+              dimension: { width: Math.round(w), height: Math.round(h) },
+              rotation: 0,
+              locked: false,
+              visible: true,
+              zIndex: 10, // Above background, below text
+              pageIndex: 0,
+              aspectRatioLocked: true,
+              aspectRatio: w / h,
+            });
+          }
+        }
+
+        // Process Tables
+        if (layout.tables && Array.isArray(layout.tables)) {
+          for (const tableData of layout.tables) {
+            const [ymin, xmin, ymax, xmax] = tableData.box_2d;
+
+            const x = (xmin / 1000) * canvasWidth;
+            const y = (ymin / 1000) * canvasHeight;
+            const w = ((xmax - xmin) / 1000) * canvasWidth;
+            const h = ((ymax - ymin) / 1000) * canvasHeight;
+
+            // Basic table structure (empty for now, but formatted)
+            visionElements.push({
+              id: nanoid(),
+              type: "table",
+              position: { x: Math.round(x), y: Math.round(y) },
+              dimension: { width: Math.round(w), height: Math.round(h) },
+              rotation: 0,
+              locked: false,
+              visible: true,
+              zIndex: 10,
+              pageIndex: 0,
+              aspectRatioLocked: false,
+              tableSettings: {
+                columns: Array.from({ length: tableData.cols || 3 }).map((_, i) => ({
+                  id: `col-${i}`,
+                  header: `Col ${i + 1}`,
+                  width: Math.round(w / (tableData.cols || 3)),
+                  headerAlign: "left",
+                  rowAlign: "left"
+                })),
+                headerStyle: { fontFamily: "Inter", fontSize: 12, fontWeight: 700, color: "#000", textAlign: "left", verticalAlign: "middle", lineHeight: 1.2, letterSpacing: 0 },
+                rowStyle: { fontFamily: "Inter", fontSize: 12, fontWeight: 400, color: "#000", textAlign: "left", verticalAlign: "middle", lineHeight: 1.2, letterSpacing: 0 },
+                headerBackgroundColor: "#f3f4f6",
+                rowBackgroundColor: "#ffffff",
+                borderColor: "#e5e7eb",
+                borderWidth: 1,
+                cellPadding: 8,
+                autoFitColumns: false,
+                autoHeightAdaptation: false,
+                minColumnWidth: 50,
+                equalRowHeights: true,
+                minRowHeight: 24,
+                alternateRowColors: false
+              }
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("AI Layout Analysis failed, falling back to basic import:", e);
     }
-
-    // Step 4: Create background element (zIndex 0, hidden by default)
-    const backgroundElement: CanvasElement = {
-      id: nanoid(),
-      type: "image",
-      position: { x: 0, y: 0 },
-      dimension: { width: canvasWidth, height: canvasHeight },
-      rotation: 0,
-      locked: true,
-      visible: false, // Hidden by default so it doesn't obscure editable layers
-      zIndex: 0,
-      pageIndex: 0,
-      imageSrc: backgroundDataUrl,
-      content: "PDF Background",
-      aspectRatioLocked: true,
-      aspectRatio: canvasWidth / canvasHeight,
-      isImageField: false,
-    };
-
-    // Combine all elements with proper layering:
-    // - zIndex 0: Full page background (hidden)
-    // - zIndex 100+: AI-detected images and tables
-    // - zIndex 200+: Extracted text
-    const allElements: CanvasElement[] = [
-      backgroundElement,
-      ...aiImageElements,
-      ...aiTableElements,
-      ...textElements,
-    ];
 
     await pdfDoc.destroy();
 
+    // 4. Combine Everything
+    // If AI found images, we hide the main background so user can manipulate the pieces
+    // If AI failed, we show the main background as a fallback
+    const hideBackground = visionElements.some(el => el.type === "image");
+
     return {
-      elements: allElements,
+      elements: [...visionElements, ...textElements],
       canvasWidth,
       canvasHeight,
-      backgroundDataUrl,
+      backgroundDataUrl, // Store keeps this as "Layer 0" (likely locked)
       totalPages,
       importedPage: pageNumber,
     };
+
   } catch (error) {
     console.error("PDF Import Failed:", error);
     throw error;
   }
-}
-
-/**
- * Import PDF without AI analysis (faster, text-only extraction)
- */
-export async function importPdfBasic(
-  file: File,
-  options: PdfImportOptions = {}
-): Promise<PdfImportResult> {
-  return importPdf(file, { ...options, enableAiAnalysis: false });
 }
