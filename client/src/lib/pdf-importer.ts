@@ -2,12 +2,15 @@
  * AI-Assisted PDF Layout Template Generator
  *
  * Workflow:
- * 1. Render PDF page to a high-quality "Master Image".
+ * 1. Render PDF page to a high-quality "Master Image" (for AI analysis only).
  * 2. Send "Master Image" to Gemini AI to identify discrete elements (Logos, Photos, Tables).
  * 3. Create placeholder "Image Elements" where the AI detected images (no actual image data).
  * 4. Create empty "Table Elements" with generic column headers where the AI detected tables.
- * 5. Extract "Text Elements" using PDF.js, merge fragmented text, and replace with placeholders.
- * 6. Filter out text elements that overlap with detected tables.
+ * 5. Extract "Text Elements" using PDF.js, merge fragmented text into lines, use placeholders.
+ * 6. Filter out text elements whose center point falls inside detected tables.
+ *
+ * NOTE: The backgroundDataUrl is NEVER added as a canvas element. It is only used
+ * for AI analysis and then discarded. No background layer is created.
  */
 
 import * as pdfjsLib from "pdfjs-dist";
@@ -23,17 +26,20 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${PDFJS_V
 const PDF_DPI = 72;
 const CANVAS_DPI = 96;
 const DPI_SCALE = CANVAS_DPI / PDF_DPI; // ~1.333
-const RENDER_SCALE = 2; // Render at 2x for high quality crops
+const RENDER_SCALE = 2; // Render at 2x for high quality AI analysis
 
 // Text merging configuration
 const TEXT_MERGE_Y_TOLERANCE = 5; // Max vertical distance (px) to consider same line
 const TEXT_MERGE_X_GAP = 20; // Max horizontal gap (px) to merge text items
 
+// Placeholder text for layout templates
+const PLACEHOLDER_TEXT = "Lorem ipsum dolor sit amet...";
+
 export interface PdfImportResult {
   elements: CanvasElement[];
   canvasWidth: number;
   canvasHeight: number;
-  backgroundDataUrl: string;
+  backgroundDataUrl: string; // Provided for reference only, NOT added to canvas
   totalPages: number;
   importedPage: number;
 }
@@ -45,6 +51,7 @@ export interface PdfImportOptions {
 
 // Internal interface for raw text items before merging
 interface RawTextItem {
+  content: string; // The actual text content
   x: number;
   y: number;
   width: number;
@@ -91,16 +98,17 @@ function convertPdfToCanvasCoords(
   return { x: canvasX, y: canvasY - fontSize };
 }
 
-function estimateTextWidth(charCount: number, fontSize: number): number {
+function estimateTextWidth(text: string, fontSize: number): number {
+  // Average character width is roughly 0.55 of font size for most fonts
   const avgCharWidth = fontSize * 0.55;
-  return Math.max(charCount * avgCharWidth, 20);
+  return Math.max(text.length * avgCharWidth, 20);
 }
 
 async function renderPageToImage(
   page: pdfjsLib.PDFPageProxy,
   options: PdfImportOptions
 ): Promise<string> {
-  // Render at high resolution
+  // Render at high resolution for AI analysis
   const viewport = page.getViewport({ scale: RENDER_SCALE * DPI_SCALE });
   const canvas = document.createElement("canvas");
   canvas.width = viewport.width;
@@ -118,23 +126,36 @@ async function renderPageToImage(
 
 /**
  * Merge fragmented text items that are on the same line and close together.
- * Returns merged text items with adjusted positions and widths.
+ *
+ * Algorithm:
+ * 1. Sort all items by Y position (top to bottom), then X position (left to right)
+ * 2. Iterate through sorted items and merge if:
+ *    - Same vertical line (Y difference < TEXT_MERGE_Y_TOLERANCE)
+ *    - Close horizontally (gap between items < TEXT_MERGE_X_GAP)
+ *    - Same font properties (size, family, weight)
+ * 3. Combined content includes space between merged items
+ * 4. Width spans from start of first item to end of last item
  */
 function mergeFragmentedText(items: RawTextItem[]): RawTextItem[] {
   if (items.length === 0) return [];
 
-  // Sort by Y position first, then by X position
+  // Step 1: Sort by Y position first (top to bottom), then by X position (left to right)
   const sorted = [...items].sort((a, b) => {
     const yDiff = a.y - b.y;
-    if (Math.abs(yDiff) > TEXT_MERGE_Y_TOLERANCE) return yDiff;
-    return a.x - b.x;
+    // If Y positions are within tolerance, sort by X
+    if (Math.abs(yDiff) <= TEXT_MERGE_Y_TOLERANCE) {
+      return a.x - b.x;
+    }
+    return yDiff;
   });
 
   const merged: RawTextItem[] = [];
   let current: RawTextItem | null = null;
 
+  // Step 2 & 3: Iterate and merge adjacent items on same line
   for (const item of sorted) {
     if (!current) {
+      // First item becomes current
       current = { ...item };
       continue;
     }
@@ -145,22 +166,27 @@ function mergeFragmentedText(items: RawTextItem[]): RawTextItem[] {
     // Check if this item is close enough horizontally to merge
     const currentRight = current.x + current.width;
     const horizontalGap = item.x - currentRight;
-    const closeEnough = horizontalGap >= 0 && horizontalGap <= TEXT_MERGE_X_GAP;
+    const closeEnough = horizontalGap >= -5 && horizontalGap <= TEXT_MERGE_X_GAP;
 
     // Check if font properties match (same style text)
-    const sameFont = item.fontSize === current.fontSize &&
-                     item.fontFamily === current.fontFamily &&
-                     item.fontWeight === current.fontWeight;
+    const sameFont =
+      item.fontSize === current.fontSize &&
+      item.fontFamily === current.fontFamily &&
+      item.fontWeight === current.fontWeight;
 
     if (sameY && closeEnough && sameFont) {
-      // Merge: extend the current item's width to cover both
+      // MERGE: Combine content with space, extend width
+      current.content = current.content + " " + item.content;
+
+      // Width spans from start of current to end of item
       const newRight = item.x + item.width;
       current.width = newRight - current.x;
+
       // Keep the smaller y and larger height if they differ slightly
       current.y = Math.min(current.y, item.y);
       current.height = Math.max(current.height, item.height);
     } else {
-      // Start a new merged item
+      // Start a new merged group
       merged.push(current);
       current = { ...item };
     }
@@ -175,43 +201,44 @@ function mergeFragmentedText(items: RawTextItem[]): RawTextItem[] {
 }
 
 /**
- * Check if a point/rect overlaps with any table bounding box.
+ * Check if a text element's CENTER POINT falls within any table bounding box.
+ * This is used to remove text that would appear on top of tables.
  */
-function isOverlappingTable(
+function isTextCenterInsideTable(
   textX: number,
   textY: number,
   textWidth: number,
   textHeight: number,
   tables: Array<{ x: number; y: number; width: number; height: number }>
 ): boolean {
+  // Calculate center point of text element
+  const centerX = textX + textWidth / 2;
+  const centerY = textY + textHeight / 2;
+
   for (const table of tables) {
-    // Check if text bounding box overlaps with table bounding box
-    const textRight = textX + textWidth;
-    const textBottom = textY + textHeight;
     const tableRight = table.x + table.width;
     const tableBottom = table.y + table.height;
 
-    // Overlap check: NOT (completely left, right, above, or below)
-    const overlaps = !(
-      textRight < table.x ||  // text is completely left of table
-      textX > tableRight ||   // text is completely right of table
-      textBottom < table.y || // text is completely above table
-      textY > tableBottom     // text is completely below table
-    );
+    // Check if center point is inside table bounding box
+    const insideX = centerX >= table.x && centerX <= tableRight;
+    const insideY = centerY >= table.y && centerY <= tableBottom;
 
-    if (overlaps) return true;
+    if (insideX && insideY) {
+      return true;
+    }
   }
+
   return false;
 }
 
 async function extractTextElements(
   page: pdfjsLib.PDFPageProxy,
   pageHeightPt: number
-): Promise<{ elements: CanvasElement[]; rawItems: RawTextItem[] }> {
+): Promise<{ elements: CanvasElement[]; mergedItems: RawTextItem[] }> {
   const textContent = await page.getTextContent();
   const rawItems: RawTextItem[] = [];
 
-  // First pass: collect all raw text items
+  // First pass: collect all raw text items with their content
   for (const item of textContent.items) {
     if (!isTextItem(item)) continue;
     const text = item.str.trim();
@@ -223,10 +250,11 @@ async function extractTextElements(
 
     if (x < 0 || y < 0) continue;
 
-    const width = estimateTextWidth(text.length, fontSize);
+    const width = estimateTextWidth(text, fontSize);
     const height = Math.max(fontSize * 1.4, 20);
 
     rawItems.push({
+      content: text, // Preserve actual text content for merging
       x: Math.round(x),
       y: Math.round(y),
       width: Math.round(width),
@@ -237,20 +265,26 @@ async function extractTextElements(
     });
   }
 
-  // Merge fragmented text items
+  // Second pass: merge fragmented text items into lines/paragraphs
   const mergedItems = mergeFragmentedText(rawItems);
 
-  // Convert to CanvasElements with placeholder text
+  console.log(`PDF Importer: Merged ${rawItems.length} raw text items into ${mergedItems.length} text blocks`);
+
+  // Convert to CanvasElements with PLACEHOLDER text (for layout template mode)
   const elements: CanvasElement[] = [];
   let zIndex = 50; // Text goes on top of images/tables (which are at ~10)
 
   for (const item of mergedItems) {
+    // Recalculate width based on merged content length
+    const calculatedWidth = estimateTextWidth(item.content, item.fontSize);
+    const finalWidth = Math.max(item.width, calculatedWidth);
+
     elements.push({
       id: nanoid(),
       type: "text",
-      content: "[Text Field]", // Placeholder text instead of actual content
+      content: PLACEHOLDER_TEXT, // Use placeholder instead of actual content
       position: { x: item.x, y: item.y },
-      dimension: { width: item.width, height: item.height },
+      dimension: { width: finalWidth, height: item.height },
       rotation: 0,
       locked: false,
       visible: true,
@@ -270,12 +304,13 @@ async function extractTextElements(
     });
   }
 
-  return { elements, rawItems: mergedItems };
+  return { elements, mergedItems };
 }
 
 /**
  * Process AI-detected images and create placeholder image elements.
- * Uses undefined imageSrc so the UI shows an empty image block.
+ * Uses undefined imageSrc so the UI shows an empty image placeholder block.
+ * NO actual image cropping is performed - this is a layout template.
  */
 function processAIImages(
   images: Array<{ box_2d: [number, number, number, number]; label?: string }>,
@@ -288,7 +323,7 @@ function processAIImages(
   for (const imgData of images) {
     const [ymin, xmin, ymax, xmax] = imgData.box_2d;
 
-    // Calculate canvas position
+    // Calculate canvas position from normalized coordinates
     const x = (xmin / 1000) * canvasWidth;
     const y = (ymin / 1000) * canvasHeight;
     const w = ((xmax - xmin) / 1000) * canvasWidth;
@@ -297,7 +332,7 @@ function processAIImages(
     elements.push({
       id: nanoid(),
       type: "image",
-      imageSrc: undefined, // Placeholder - no actual image, shows empty image block
+      imageSrc: undefined, // Placeholder - shows empty image block in UI
       position: { x: Math.round(x), y: Math.round(y) },
       dimension: { width: Math.round(w), height: Math.round(h) },
       rotation: 0,
@@ -315,6 +350,7 @@ function processAIImages(
 
 /**
  * Process AI-detected tables and create table elements with generic headers.
+ * Also returns bounding boxes for filtering out overlapping text.
  */
 function processAITables(
   tables: Array<{ box_2d: [number, number, number, number]; cols?: number; rows?: number }>,
@@ -426,11 +462,12 @@ export async function importPdf(
     const canvasWidth = Math.round(pageWidthPt * DPI_SCALE);
     const canvasHeight = Math.round(pageHeightPt * DPI_SCALE);
 
-    // 1. Render Full Page Image for AI Analysis (NOT added to canvas)
+    // 1. Render Full Page Image for AI Analysis ONLY
+    //    This image is sent to AI and then DISCARDED - NOT added as a background layer
     const backgroundDataUrl = await renderPageToImage(page, options);
 
     // 2. AI Analysis (STRICT - No Fallback)
-    console.log("PDF Importer: Sending image to AI (" + backgroundDataUrl.length + " chars)");
+    console.log("PDF Importer: Sending image to AI for layout analysis...");
     const aiResponse = await fetch("/api/ai/analyze-layout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -439,11 +476,11 @@ export async function importPdf(
 
     if (!aiResponse.ok) {
       const errorBody = await aiResponse.text();
-      throw new Error("AI Analysis Failed (" + aiResponse.status + "): " + errorBody);
+      throw new Error(`AI Analysis Failed (${aiResponse.status}): ${errorBody}`);
     }
 
     const layout = await aiResponse.json();
-    console.log("PDF Importer: AI Analysis successful. Detected " + layout.images.length + " images and " + layout.tables.length + " tables.");
+    console.log(`PDF Importer: AI detected ${layout.images?.length || 0} images, ${layout.tables?.length || 0} tables`);
 
     // 3. Process AI-detected Tables (with bounding boxes for text filtering)
     const { elements: tableElements, boundingBoxes: tableBoundingBoxes } = processAITables(
@@ -459,38 +496,45 @@ export async function importPdf(
       canvasHeight
     );
 
-    // 5. Extract and Merge Text Elements
+    // 5. Extract and Merge Text Elements (with text merging algorithm)
     const { elements: textElements } = await extractTextElements(page, pageHeightPt);
 
-    // 6. Filter out text elements that overlap with table bounding boxes
+    // 6. Filter out text elements whose CENTER POINT falls inside table bounding boxes
+    //    This prevents loose text from floating on top of table elements
     const filteredTextElements = textElements.filter((textEl) => {
-      const overlaps = isOverlappingTable(
+      const centerInsideTable = isTextCenterInsideTable(
         textEl.position.x,
         textEl.position.y,
         textEl.dimension.width,
         textEl.dimension.height,
         tableBoundingBoxes
       );
-      return !overlaps;
+      return !centerInsideTable;
     });
 
-    console.log(`PDF Importer: Filtered ${textElements.length - filteredTextElements.length} text elements overlapping tables.`);
+    const removedCount = textElements.length - filteredTextElements.length;
+    if (removedCount > 0) {
+      console.log(`PDF Importer: Filtered ${removedCount} text elements inside tables`);
+    }
 
     await pdfDoc.destroy();
 
-    // 7. Combine all elements (NO background element)
-    // zIndex ordering: Tables & Images at 10+, Text at 50+
+    // 7. Combine all elements - NO BACKGROUND ELEMENT
+    //    The backgroundDataUrl is NOT added to the canvas elements.
+    //    zIndex ordering: Tables & Images at 10+, Text at 50+
     const allElements: CanvasElement[] = [
       ...tableElements,
       ...imageElements,
       ...filteredTextElements,
     ];
 
+    console.log(`PDF Importer: Created layout template with ${allElements.length} elements (${tableElements.length} tables, ${imageElements.length} images, ${filteredTextElements.length} text blocks)`);
+
     return {
       elements: allElements,
       canvasWidth,
       canvasHeight,
-      backgroundDataUrl, // Still provided for reference, but NOT in elements
+      backgroundDataUrl, // Provided for reference/debugging only - NOT in elements
       totalPages,
       importedPage: pageNumber,
     };
