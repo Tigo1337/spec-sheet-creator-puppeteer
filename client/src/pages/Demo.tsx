@@ -51,10 +51,10 @@ export default function Demo() {
 
       <PublicHeader />
 
-      <main className="space-y-32 mb-24">
+      <main className="space-y-20 mb-16">
 
         {/* Hero Section */}
-        <section className="relative overflow-hidden pt-[60px] pb-0">
+        <section className="relative overflow-hidden pt-12 pb-0">
           {/* Tech Grid Background with Radial Fade */}
           <div className="absolute inset-0" style={{
             background: `radial-gradient(ellipse at center, transparent 0%, #f8fafc 70%),
@@ -68,7 +68,7 @@ export default function Demo() {
               {/* Left Column: Value Prop */}
               <div className="space-y-8">
                 <div>
-                  <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-4 block">Book a Demo</span>
+                  <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">Book a Demo</span>
                   <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900 mb-6">
                     See Doculoom <span className="font-serif italic text-[#2A9D90]">in Action</span>
                   </h1>
@@ -79,7 +79,7 @@ export default function Demo() {
 
                 {/* What to Expect */}
                 <div className="space-y-4 pt-4">
-                  <span className="font-mono text-xs uppercase tracking-wider text-slate-400 block">What We'll Cover</span>
+                  <span className="font-sans text-xs uppercase tracking-wider text-slate-400 block">What We'll Cover</span>
 
                   <DemoFeatureRow
                     icon={<Palette size={18} />}
@@ -121,13 +121,13 @@ export default function Demo() {
                       <p className="text-sm font-medium text-slate-900 mb-2">
                         "The demo convinced us. We cut our production time by 90% in the first week."
                       </p>
-                      <p className="text-xs text-slate-500 font-mono">
+                      <p className="text-xs text-slate-500 font-sans">
                         John D. — Marketing Director @ RetailCo
                       </p>
                     </div>
                   </div>
                   {/* Corner Mark */}
-                  <div className="absolute bottom-3 right-3 text-slate-300 font-mono text-sm">&#x231F;</div>
+                  <div className="absolute bottom-3 right-3 text-slate-300 font-sans text-sm">&#x231F;</div>
                 </div>
 
                 {/* Alternative CTA */}
@@ -150,7 +150,7 @@ export default function Demo() {
               <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden min-h-[600px] flex flex-col relative">
                 {/* Header Tab */}
                 <div className="absolute -top-3 left-6 bg-[#2A9D90] border border-[#2A9D90] border-b-0 rounded-t px-4 py-1.5">
-                  <span className="font-mono text-[10px] font-bold uppercase text-white tracking-wider flex items-center gap-2">
+                  <span className="font-sans text-[10px] font-bold uppercase text-white tracking-wider flex items-center gap-2">
                     <Calendar size={12} />
                     Schedule
                   </span>
@@ -158,7 +158,7 @@ export default function Demo() {
 
                 <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between pt-6">
                   <span className="text-sm text-slate-600 font-medium">Select a time below</span>
-                  <span className="font-mono text-xs text-slate-400">30 MIN</span>
+                  <span className="font-sans text-xs text-slate-400">30 MIN</span>
                 </div>
 
                 {/* Cal.com Embed */}
@@ -183,7 +183,7 @@ export default function Demo() {
         <section className="py-0">
           <div className="max-w-5xl mx-auto px-4">
             <div className="text-center mb-12">
-              <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-4 block">Process</span>
+              <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">Process</span>
               <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-4">What Happens Next?</h2>
             </div>
 
@@ -211,7 +211,7 @@ export default function Demo() {
         <section className="py-0 bg-white">
           <div className="max-w-5xl mx-auto px-4 py-20">
             <div className="text-center mb-12">
-              <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-4 block">Testimonials</span>
+              <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">Testimonials</span>
               <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-4">What Teams Say</h2>
             </div>
 
@@ -285,7 +285,7 @@ function DemoDetailCard({ icon, label, value }: { icon: React.ReactNode; label: 
   return (
     <div className="p-4 rounded-lg border border-slate-200 bg-white text-center">
       <div className="flex justify-center mb-2 text-[#2A9D90]">{icon}</div>
-      <div className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-1">{label}</div>
+      <div className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-1">{label}</div>
       <div className="font-bold text-slate-900">{value}</div>
     </div>
   );
@@ -295,11 +295,11 @@ function DemoDetailCard({ icon, label, value }: { icon: React.ReactNode; label: 
 function ProcessCard({ step, title, description }: { step: string; title: string; description: string }) {
   return (
     <div className="p-6 rounded-xl border border-slate-200 bg-white relative">
-      <div className="font-mono text-4xl font-bold text-[#2A9D90]/20 mb-4">{step}</div>
+      <div className="font-sans text-4xl font-bold text-[#2A9D90]/20 mb-4">{step}</div>
       <h3 className="font-bold tracking-tight text-slate-900 mb-2">{title}</h3>
       <p className="text-slate-600 text-sm leading-relaxed">{description}</p>
       {/* Corner Mark */}
-      <div className="absolute bottom-3 right-3 text-slate-300 font-mono text-sm">&#x231F;</div>
+      <div className="absolute bottom-3 right-3 text-slate-300 font-sans text-sm">&#x231F;</div>
     </div>
   );
 }
@@ -326,10 +326,10 @@ function TestimonialCard({
       <p className="text-slate-700 mb-4 leading-relaxed">"{quote}"</p>
       <div>
         <div className="font-bold text-slate-900">{author}</div>
-        <div className="text-sm text-slate-500 font-mono">{role} @ {company}</div>
+        <div className="text-sm text-slate-500 font-sans">{role} @ {company}</div>
       </div>
       {/* Corner Mark */}
-      <div className="absolute bottom-3 right-3 text-slate-300 font-mono text-sm">&#x231F;</div>
+      <div className="absolute bottom-3 right-3 text-slate-300 font-sans text-sm">&#x231F;</div>
     </div>
   );
 }

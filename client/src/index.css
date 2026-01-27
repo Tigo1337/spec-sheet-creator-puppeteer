@@ -45,7 +45,7 @@
   --chart-5: 217 91% 60%; /* Blue accent */
   --font-sans: Inter, sans-serif;
   --font-serif: Georgia, serif;
-  --font-mono: JetBrains Mono, monospace;
+  --font-mono: Inter, sans-serif;
   --radius: .5rem;
   --shadow-2xs: 0px 2px 0px 0px hsl(217 91% 60% / 0.00);
   --shadow-xs: 0px 2px 0px 0px hsl(217 91% 60% / 0.00);
@@ -301,13 +301,13 @@
 
   /* Technical Badge Footer for Cards */
   .tech-footer {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: 0.65rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     border-top: 1px solid #e2e8f0;
-    padding-top: 0.5rem;
-    margin-top: auto;
+    padding-top: 0.75rem;
+    margin-top: 1.5rem;
     color: #64748b;
     display: flex;
     justify-content: space-between;

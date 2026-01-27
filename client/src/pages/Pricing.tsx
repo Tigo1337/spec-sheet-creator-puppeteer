@@ -122,10 +122,10 @@ export default function Pricing() {
 
       <PublicHeader />
 
-      <main className="space-y-32 mb-24">
+      <main className="space-y-20 mb-16">
 
         {/* Hero Section */}
-        <section className="relative overflow-hidden pt-[60px] pb-0">
+        <section className="relative overflow-hidden pt-12 pb-0">
           {/* Tech Grid Background with Radial Fade */}
           <div className="absolute inset-0" style={{
             background: `radial-gradient(ellipse at center, transparent 0%, #f8fafc 70%),
@@ -134,8 +134,8 @@ export default function Pricing() {
           }}></div>
 
           <div className="max-w-7xl mx-auto px-4 relative z-10">
-            <div className="text-center space-y-8 max-w-4xl mx-auto">
-              <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-4 block">Pricing</span>
+            <div className="text-center space-y-6 max-w-4xl mx-auto">
+              <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">Pricing</span>
 
               <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-slate-900">
                 Simple, <span className="font-serif italic text-[#2A9D90]">Predictable</span> Pricing
@@ -236,11 +236,11 @@ export default function Pricing() {
                 features={[
                   'Everything in Pro',
                   <div key="credits-selector" className="w-full">
-                    <label className="font-mono text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 block">
+                    <label className="font-sans text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 block">
                       AI Credit Limit
                     </label>
                     <Select value={scaleCredits} onValueChange={setScaleCredits}>
-                      <SelectTrigger className="w-full h-9 bg-slate-50 border-slate-200 font-mono text-sm">
+                      <SelectTrigger className="w-full h-9 bg-slate-50 border-slate-200 font-sans text-sm">
                         <SelectValue placeholder="Select limit" />
                       </SelectTrigger>
                       <SelectContent>
@@ -274,7 +274,7 @@ export default function Pricing() {
         <section className="py-0">
           <div className="max-w-5xl mx-auto px-4">
             <div className="text-center mb-12">
-              <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-4 block">Feature Comparison</span>
+              <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">Feature Comparison</span>
               <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-4">Compare Plans</h2>
               <p className="text-slate-600">Find the perfect features for your workflow.</p>
             </div>
@@ -285,7 +285,7 @@ export default function Pricing() {
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50">
                       <th className="py-4 px-6 text-sm font-semibold text-slate-900 w-1/3">
-                        <span className="font-mono text-xs uppercase tracking-wider text-slate-400">Features</span>
+                        <span className="font-sans text-xs uppercase tracking-wider text-slate-400">Features</span>
                       </th>
                       <th className="py-4 px-6 text-sm font-semibold text-slate-900 text-center w-1/6">Starter</th>
                       <th className="py-4 px-6 text-sm font-semibold text-[#2A9D90] text-center w-1/6 bg-[#2A9D90]/5">Pro</th>
@@ -295,7 +295,7 @@ export default function Pricing() {
                   <tbody className="text-sm text-slate-600">
                     {/* Usage & Limits */}
                     <tr className="bg-slate-50/50">
-                      <td colSpan={4} className="py-3 px-6 font-mono text-[10px] text-slate-400 uppercase tracking-wider">Usage & Limits</td>
+                      <td colSpan={4} className="py-3 px-6 font-sans text-[10px] text-slate-400 uppercase tracking-wider">Usage & Limits</td>
                     </tr>
                     <TableRow feature="PDF Exports / mo" starter="50 Pages" pro="Unlimited" scale="Unlimited" />
                     <TableRow feature="AI Credits" starter="50" pro="1,000 / mo" scale="10k - 100k+ / mo" tooltip="Credits are used for AI text generation and standardization." />
@@ -303,7 +303,7 @@ export default function Pricing() {
 
                     {/* Design & Export */}
                     <tr className="bg-slate-50/50">
-                      <td colSpan={4} className="py-3 px-6 font-mono text-[10px] text-slate-400 uppercase tracking-wider">Design & Export</td>
+                      <td colSpan={4} className="py-3 px-6 font-sans text-[10px] text-slate-400 uppercase tracking-wider">Design & Export</td>
                     </tr>
                     <TableRow feature="Watermark-free" starter={false} pro={true} scale={true} />
                     <TableRow feature="Professional Exports" starter={false} pro={true} scale={true} tooltip="High-quality PDF output for print and digital use." />
@@ -312,7 +312,7 @@ export default function Pricing() {
 
                     {/* AI & Automation */}
                     <tr className="bg-slate-50/50">
-                      <td colSpan={4} className="py-3 px-6 font-mono text-[10px] text-slate-400 uppercase tracking-wider">AI & Automation</td>
+                      <td colSpan={4} className="py-3 px-6 font-sans text-[10px] text-slate-400 uppercase tracking-wider">AI & Automation</td>
                     </tr>
                     <TableRow feature="AI Text Enrichment" starter={true} pro={true} scale={true} />
                     <TableRow feature="Data Standardization" starter={true} pro={true} scale={true} />
@@ -320,7 +320,7 @@ export default function Pricing() {
 
                     {/* Support & Performance */}
                     <tr className="bg-slate-50/50">
-                      <td colSpan={4} className="py-3 px-6 font-mono text-[10px] text-slate-400 uppercase tracking-wider">Support & Performance</td>
+                      <td colSpan={4} className="py-3 px-6 font-sans text-[10px] text-slate-400 uppercase tracking-wider">Support & Performance</td>
                     </tr>
                     <TableRow feature="Rendering Queue" starter="Standard" pro="Priority" scale="Dedicated" />
                     <TableRow feature="Support" starter="Community" pro="Priority" scale="SLA" />
@@ -335,7 +335,7 @@ export default function Pricing() {
         <section className="py-0">
           <div className="max-w-4xl mx-auto px-4">
             <div className="text-center mb-12">
-              <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-4 block">FAQ</span>
+              <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">FAQ</span>
               <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-4">Common Questions</h2>
             </div>
 
@@ -385,7 +385,7 @@ export default function Pricing() {
                 Book a Demo
               </Button>
             </div>
-            <p className="text-sm text-slate-400 mt-8 font-mono">All plans include a 14-day free trial. Cancel anytime.</p>
+            <p className="text-sm text-slate-400 mt-8 font-sans">All plans include a 14-day free trial. Cancel anytime.</p>
           </div>
         </section>
 
@@ -427,24 +427,24 @@ function SpecPricingCard({
         : 'border-t-4 border-t-slate-900 border-x border-b border-slate-200'
     }`}>
       {highlighted && (
-        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2A9D90] text-white hover:bg-[#2A9D90] font-mono text-[10px] uppercase tracking-wider">
+        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2A9D90] text-white hover:bg-[#2A9D90] font-sans text-[10px] uppercase tracking-wider">
           Most Popular
         </Badge>
       )}
 
       <div className="mb-6">
-        <span className="font-mono text-xs uppercase tracking-wider text-slate-400 block mb-1">Plan</span>
+        <span className="font-sans text-xs uppercase tracking-wider text-slate-400 block mb-1">Plan</span>
         <h3 className="text-2xl font-bold tracking-tight text-slate-900 mb-2">{name}</h3>
         {description && <p className="text-slate-600 text-sm leading-relaxed">{description}</p>}
       </div>
 
       <div className="mb-6">
-        <span className="font-mono text-xs uppercase tracking-wider text-slate-400 block mb-1">Price</span>
+        <span className="font-sans text-xs uppercase tracking-wider text-slate-400 block mb-1">Price</span>
         <div className="flex items-baseline">
-          <span className="text-4xl font-mono font-bold text-slate-900">{price}</span>
+          <span className="text-4xl font-sans font-bold text-slate-900">{price}</span>
           <span className="text-slate-600 ml-2">{period}</span>
         </div>
-        {subtext && <span className="font-mono text-xs text-slate-500 mt-1 block">{subtext}</span>}
+        {subtext && <span className="font-sans text-xs text-slate-500 mt-1 block">{subtext}</span>}
       </div>
 
       <Button
@@ -459,7 +459,7 @@ function SpecPricingCard({
       </Button>
 
       <div className="space-y-4 flex-1">
-        <span className="font-mono text-xs uppercase tracking-wider text-slate-400 block">Includes</span>
+        <span className="font-sans text-xs uppercase tracking-wider text-slate-400 block">Includes</span>
         {features.map((feature, i) => (
           <div key={i} className="flex items-start gap-3">
             {typeof feature === 'string' ? (
@@ -541,7 +541,7 @@ function FAQCard({ question, answer }: { question: string; answer: string }) {
       <h3 className="font-bold tracking-tight text-slate-900 mb-2">{question}</h3>
       <p className="text-slate-600 text-sm leading-relaxed">{answer}</p>
       {/* Corner Mark */}
-      <div className="absolute bottom-3 right-3 text-slate-300 font-mono text-sm">&#x231F;</div>
+      <div className="absolute bottom-3 right-3 text-slate-300 font-sans text-sm">&#x231F;</div>
     </div>
   );
 }

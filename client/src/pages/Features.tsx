@@ -44,10 +44,10 @@ export default function Features() {
 
       <PublicHeader />
 
-      <main className="space-y-32 mb-24">
+      <main className="space-y-20 mb-16">
 
         {/* Hero Section */}
-        <section className="relative overflow-hidden pt-[60px] pb-0">
+        <section className="relative overflow-hidden pt-12 pb-0">
           {/* Tech Grid Background with Radial Fade */}
           <div className="absolute inset-0" style={{
             background: `radial-gradient(ellipse at center, transparent 0%, #f8fafc 70%),
@@ -56,8 +56,8 @@ export default function Features() {
           }}></div>
 
           <div className="max-w-7xl mx-auto px-4 relative z-10">
-            <div className="text-center space-y-8 max-w-4xl mx-auto">
-              <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-4 block">Core Capabilities</span>
+            <div className="text-center space-y-6 max-w-4xl mx-auto">
+              <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">Core Capabilities</span>
 
               <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-slate-900">
                 Built for <span className="font-serif italic text-[#2A9D90]">High-Volume</span> Production
@@ -91,7 +91,7 @@ export default function Features() {
 
         {/* Feature Deep Dive Sections */}
         <section className="py-0">
-          <div className="max-w-7xl mx-auto px-4 space-y-32">
+          <div className="max-w-7xl mx-auto px-4 space-y-20">
 
             {/* Feature 1: The Design Canvas */}
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
@@ -126,13 +126,13 @@ export default function Features() {
                     <div className="absolute top-1/2 left-0 right-0 h-px bg-[#2A9D90] opacity-50"></div>
                   </div>
                   {/* Corner Mark */}
-                  <div className="absolute bottom-2 right-2 text-slate-600 font-mono text-xs">&#x231F;</div>
+                  <div className="absolute bottom-2 right-2 text-slate-600 font-sans text-xs">&#x231F;</div>
                 </div>
               </div>
 
               {/* Content */}
               <div>
-                <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-2 block">Design System</span>
+                <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-2 block">Design System</span>
                 <div className="inline-flex items-center rounded-full bg-[#2A9D90]/10 px-3 py-1 text-sm font-medium text-[#2A9D90] mb-6">
                   <Palette className="h-4 w-4 mr-2" />
                   The Canvas
@@ -162,7 +162,7 @@ export default function Features() {
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
               {/* Content */}
               <div className="order-2 lg:order-1">
-                <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-2 block">Intelligence</span>
+                <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-2 block">Intelligence</span>
                 <div className="inline-flex items-center rounded-full bg-[#2A9D90]/10 px-3 py-1 text-sm font-medium text-[#2A9D90] mb-6">
                   <Sparkles className="h-4 w-4 mr-2" />
                   AI Engine
@@ -216,7 +216,7 @@ export default function Features() {
                       <div className="h-2 w-full bg-[#2A9D90]/40 rounded mb-2"></div>
                       <div className="h-2 w-3/4 bg-[#2A9D90]/40 rounded"></div>
                     </div>
-                    <span className="font-mono text-xs text-[#2A9D90]">PROCESSING</span>
+                    <span className="font-sans text-xs text-[#2A9D90]">PROCESSING</span>
                   </div>
                   <div className="flex justify-center">
                     <div className="w-px h-6 bg-[#2A9D90]"></div>
@@ -229,11 +229,11 @@ export default function Features() {
                       <div className="h-2 w-full bg-green-500/30 rounded mb-2"></div>
                       <div className="h-2 w-5/6 bg-green-500/30 rounded"></div>
                     </div>
-                    <span className="font-mono text-xs text-green-400">ENRICHED</span>
+                    <span className="font-sans text-xs text-green-400">ENRICHED</span>
                   </div>
                 </div>
                 {/* Corner Mark */}
-                <div className="absolute bottom-4 right-4 text-slate-600 font-mono text-xs">&#x231F;</div>
+                <div className="absolute bottom-4 right-4 text-slate-600 font-sans text-xs">&#x231F;</div>
               </div>
             </div>
 
@@ -260,8 +260,8 @@ export default function Features() {
                   </div>
                   <div className="bg-slate-800 rounded-lg p-4 border border-slate-700 max-w-xs mx-auto">
                     <div className="flex items-center justify-between mb-3">
-                      <span className="font-mono text-xs text-slate-400">RENDER QUEUE</span>
-                      <span className="font-mono text-xs text-green-400">ACTIVE</span>
+                      <span className="font-sans text-xs text-slate-400">RENDER QUEUE</span>
+                      <span className="font-sans text-xs text-green-400">ACTIVE</span>
                     </div>
                     <div className="space-y-2">
                       <div className="h-2 bg-[#2A9D90] rounded-full w-full"></div>
@@ -269,17 +269,17 @@ export default function Features() {
                       <div className="h-2 bg-slate-700 rounded-full w-1/2"></div>
                     </div>
                     <div className="mt-3 text-center">
-                      <span className="font-mono text-[10px] text-slate-500">Processing 127 of 500 pages</span>
+                      <span className="font-sans text-[10px] text-slate-500">Processing 127 of 500 pages</span>
                     </div>
                   </div>
                 </div>
                 {/* Corner Mark */}
-                <div className="absolute bottom-4 right-4 text-slate-600 font-mono text-xs">&#x231F;</div>
+                <div className="absolute bottom-4 right-4 text-slate-600 font-sans text-xs">&#x231F;</div>
               </div>
 
               {/* Content */}
               <div>
-                <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-2 block">Output</span>
+                <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-2 block">Output</span>
                 <div className="inline-flex items-center rounded-full bg-[#2A9D90]/10 px-3 py-1 text-sm font-medium text-[#2A9D90] mb-6">
                   <Printer className="h-4 w-4 mr-2" />
                   Export Engine
@@ -312,7 +312,7 @@ export default function Features() {
         <section className="py-0">
           <div className="max-w-7xl mx-auto px-4">
             <div className="text-center max-w-3xl mx-auto mb-16">
-              <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-4 block">More Capabilities</span>
+              <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">More Capabilities</span>
               <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-4">Everything You Need</h2>
               <p className="text-lg text-slate-600 leading-relaxed">
                 A complete toolkit for professional document automation.
@@ -416,7 +416,7 @@ function FeatureCard({
       <h3 className="font-bold tracking-tight text-slate-900 mb-2">{title}</h3>
       <p className="text-slate-600 text-sm leading-relaxed">{description}</p>
       {/* Corner Mark */}
-      <div className="absolute bottom-3 right-3 text-slate-300 font-mono text-sm">&#x231F;</div>
+      <div className="absolute bottom-3 right-3 text-slate-300 font-sans text-sm">&#x231F;</div>
     </div>
   );
 }
