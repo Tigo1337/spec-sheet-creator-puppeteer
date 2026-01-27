@@ -154,7 +154,7 @@ const largePayloadRoutes = [
   '/api/export/preview',
   '/api/objects/upload',
   '/api/export/async',
-  '/api/ai/analyze-layout'
+  '/api/ai'
 ];
 
 app.use((req, res, next) => {
