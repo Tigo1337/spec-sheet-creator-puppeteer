@@ -232,118 +232,112 @@ export async function importPdf(
     // 2. Extract Text (Traditional)
     const textElements = await extractTextElements(page, pageHeightPt);
 
-    // 3. AI Analysis & Cropping
-    let visionElements: CanvasElement[] = [];
+    // 3. AI Analysis & Cropping (STRICT - No Fallback)
+    const visionElements: CanvasElement[] = [];
 
-    try {
-      // Call Backend API to identify images and tables
-      const aiResponse = await fetch("/api/ai/analyze-layout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: backgroundDataUrl }),
-      });
+    // Call Backend API to identify images and tables
+    console.log("PDF Importer: Sending page image to AI layout analysis...");
+    const aiResponse = await fetch("/api/ai/analyze-layout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: backgroundDataUrl }),
+    });
 
-      if (!aiResponse.ok) {
-        const errorText = await aiResponse.text();
-        throw new Error(`AI Endpoint Error ${aiResponse.status}: ${errorText}`);
+    if (!aiResponse.ok) {
+      const errorBody = await aiResponse.text();
+      throw new Error("AI Analysis Failed (" + aiResponse.status + "): " + errorBody);
+    }
+
+    const layout = await aiResponse.json();
+    console.log("PDF Importer: AI Analysis successful. Detected " + layout.images.length + " images and " + layout.tables.length + " tables.");
+
+    // Process Images
+    if (layout.images && Array.isArray(layout.images)) {
+      for (const imgData of layout.images) {
+        const [ymin, xmin, ymax, xmax] = imgData.box_2d;
+
+        // Generate crop
+        const croppedUrl = await cropImage(backgroundDataUrl, imgData.box_2d, canvasWidth, canvasHeight);
+
+        // Calculate canvas position
+        const x = (xmin / 1000) * canvasWidth;
+        const y = (ymin / 1000) * canvasHeight;
+        const w = ((xmax - xmin) / 1000) * canvasWidth;
+        const h = ((ymax - ymin) / 1000) * canvasHeight;
+
+        visionElements.push({
+          id: nanoid(),
+          type: "image",
+          imageSrc: croppedUrl,
+          position: { x: Math.round(x), y: Math.round(y) },
+          dimension: { width: Math.round(w), height: Math.round(h) },
+          rotation: 0,
+          locked: false,
+          visible: true,
+          zIndex: 10, // Above background, below text
+          pageIndex: 0,
+          aspectRatioLocked: true,
+          aspectRatio: w / h,
+        });
       }
+    }
 
-      const layout = await aiResponse.json();
+    // Process Tables
+    if (layout.tables && Array.isArray(layout.tables)) {
+      for (const tableData of layout.tables) {
+        const [ymin, xmin, ymax, xmax] = tableData.box_2d;
 
-        // Process Images
-        if (layout.images && Array.isArray(layout.images)) {
-          for (const imgData of layout.images) {
-            const [ymin, xmin, ymax, xmax] = imgData.box_2d;
+        const x = (xmin / 1000) * canvasWidth;
+        const y = (ymin / 1000) * canvasHeight;
+        const w = ((xmax - xmin) / 1000) * canvasWidth;
+        const h = ((ymax - ymin) / 1000) * canvasHeight;
 
-            // Generate crop
-            const croppedUrl = await cropImage(backgroundDataUrl, imgData.box_2d, canvasWidth, canvasHeight);
-
-            // Calculate canvas position
-            const x = (xmin / 1000) * canvasWidth;
-            const y = (ymin / 1000) * canvasHeight;
-            const w = ((xmax - xmin) / 1000) * canvasWidth;
-            const h = ((ymax - ymin) / 1000) * canvasHeight;
-
-            visionElements.push({
-              id: nanoid(),
-              type: "image",
-              imageSrc: croppedUrl,
-              position: { x: Math.round(x), y: Math.round(y) },
-              dimension: { width: Math.round(w), height: Math.round(h) },
-              rotation: 0,
-              locked: false,
-              visible: true,
-              zIndex: 10, // Above background, below text
-              pageIndex: 0,
-              aspectRatioLocked: true,
-              aspectRatio: w / h,
-            });
+        // Basic table structure (empty for now, but formatted)
+        visionElements.push({
+          id: nanoid(),
+          type: "table",
+          position: { x: Math.round(x), y: Math.round(y) },
+          dimension: { width: Math.round(w), height: Math.round(h) },
+          rotation: 0,
+          locked: false,
+          visible: true,
+          zIndex: 10,
+          pageIndex: 0,
+          aspectRatioLocked: false,
+          tableSettings: {
+            columns: Array.from({ length: tableData.cols || 3 }).map((_, i) => ({
+              id: `col-${i}`,
+              header: `Col ${i + 1}`,
+              width: Math.round(w / (tableData.cols || 3)),
+              headerAlign: "left",
+              rowAlign: "left"
+            })),
+            headerStyle: { fontFamily: "Inter", fontSize: 12, fontWeight: 700, color: "#000", textAlign: "left", verticalAlign: "middle", lineHeight: 1.2, letterSpacing: 0 },
+            rowStyle: { fontFamily: "Inter", fontSize: 12, fontWeight: 400, color: "#000", textAlign: "left", verticalAlign: "middle", lineHeight: 1.2, letterSpacing: 0 },
+            headerBackgroundColor: "#f3f4f6",
+            rowBackgroundColor: "#ffffff",
+            borderColor: "#e5e7eb",
+            borderWidth: 1,
+            cellPadding: 8,
+            autoFitColumns: false,
+            autoHeightAdaptation: false,
+            minColumnWidth: 50,
+            equalRowHeights: true,
+            minRowHeight: 24,
+            alternateRowColors: false
           }
-        }
-
-        // Process Tables
-        if (layout.tables && Array.isArray(layout.tables)) {
-          for (const tableData of layout.tables) {
-            const [ymin, xmin, ymax, xmax] = tableData.box_2d;
-
-            const x = (xmin / 1000) * canvasWidth;
-            const y = (ymin / 1000) * canvasHeight;
-            const w = ((xmax - xmin) / 1000) * canvasWidth;
-            const h = ((ymax - ymin) / 1000) * canvasHeight;
-
-            // Basic table structure (empty for now, but formatted)
-            visionElements.push({
-              id: nanoid(),
-              type: "table",
-              position: { x: Math.round(x), y: Math.round(y) },
-              dimension: { width: Math.round(w), height: Math.round(h) },
-              rotation: 0,
-              locked: false,
-              visible: true,
-              zIndex: 10,
-              pageIndex: 0,
-              aspectRatioLocked: false,
-              tableSettings: {
-                columns: Array.from({ length: tableData.cols || 3 }).map((_, i) => ({
-                  id: `col-${i}`,
-                  header: `Col ${i + 1}`,
-                  width: Math.round(w / (tableData.cols || 3)),
-                  headerAlign: "left",
-                  rowAlign: "left"
-                })),
-                headerStyle: { fontFamily: "Inter", fontSize: 12, fontWeight: 700, color: "#000", textAlign: "left", verticalAlign: "middle", lineHeight: 1.2, letterSpacing: 0 },
-                rowStyle: { fontFamily: "Inter", fontSize: 12, fontWeight: 400, color: "#000", textAlign: "left", verticalAlign: "middle", lineHeight: 1.2, letterSpacing: 0 },
-                headerBackgroundColor: "#f3f4f6",
-                rowBackgroundColor: "#ffffff",
-                borderColor: "#e5e7eb",
-                borderWidth: 1,
-                cellPadding: 8,
-                autoFitColumns: false,
-                autoHeightAdaptation: false,
-                minColumnWidth: 50,
-                equalRowHeights: true,
-                minRowHeight: 24,
-                alternateRowColors: false
-              }
-            });
-          }
-        }
-    } catch (e) {
-      console.error("AI Layout Analysis failed, falling back to basic import:", e);
+        });
+      }
     }
 
     await pdfDoc.destroy();
 
-    // 4. Combine Everything
-    // If AI found images, we hide the main background so user can manipulate the pieces
-    // If AI failed, we show the main background as a fallback
-    const hideBackground = visionElements.some(el => el.type === "image");
-
+    // 4. Return AI-reconstructed layout (no fallback)
     return {
       elements: [...visionElements, ...textElements],
       canvasWidth,
       canvasHeight,
-      backgroundDataUrl, // Store keeps this as "Layer 0" (likely locked)
+      backgroundDataUrl,
       totalPages,
       importedPage: pageNumber,
     };
