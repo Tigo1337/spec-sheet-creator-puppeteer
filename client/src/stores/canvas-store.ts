@@ -109,12 +109,13 @@ interface CanvasState {
   setSaveStatus: (status: "saved" | "saving" | "unsaved" | "error") => void; 
   saveAsTemplate: (name: string, description?: string, previewImages?: string[]) => Template;
   loadTemplate: (template: Template) => void;
-  loadCatalogDesign: (data: { 
-    sections: Record<CatalogSectionType, CatalogSection>, 
-    chapterDesigns: any, 
-    canvasWidth: number, 
+  loadCatalogDesign: (data: {
+    sections: Record<CatalogSectionType, CatalogSection>,
+    chapterDesigns: any,
+    canvasWidth: number,
     canvasHeight: number,
   }) => void;
+  loadPdfDesign: (elements: CanvasElement[], width: number, height: number, backgroundDataUrl: string) => void;
   setExportSettings: (settings: Partial<ExportSettings>) => void;
   setActiveTool: (tool: "select" | "text" | "shape" | "image") => void;
   setRightPanelTab: (tab: "properties" | "data" | "export" | "designs") => void;
@@ -372,6 +373,57 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   loadCatalogDesign: (data) => {
       history = []; historyIndex = -1;
       set({ isCatalogMode: true, catalogSections: data.sections, chapterDesigns: data.chapterDesigns, activeSectionType: "cover", activeChapterGroup: null, elements: data.sections.cover.elements, backgroundColor: data.sections.cover.backgroundColor, canvasWidth: data.canvasWidth, canvasHeight: data.canvasHeight, gridSize: get().gridSize, hasUnsavedChanges: false, pageCount: 1, activePageIndex: 0 });
+  },
+  loadPdfDesign: (elements, width, height, backgroundDataUrl) => {
+    // Clear history for fresh start
+    history = [];
+    historyIndex = -1;
+
+    // Create a locked background image element at zIndex 0
+    const backgroundElement: CanvasElement = {
+      id: nanoid(),
+      type: "image",
+      position: { x: 0, y: 0 },
+      dimension: { width, height },
+      rotation: 0,
+      locked: true, // Locked so users don't accidentally move it
+      visible: true,
+      zIndex: 0, // Background layer
+      pageIndex: 0,
+      imageSrc: backgroundDataUrl,
+      aspectRatioLocked: true,
+      aspectRatio: width / height,
+    };
+
+    // Ensure all text elements have zIndex starting from 1
+    const textElements = elements.map((el, index) => ({
+      ...el,
+      zIndex: index + 1,
+      pageIndex: 0,
+    }));
+
+    // Combine background + text elements
+    const allElements = [backgroundElement, ...textElements];
+
+    // Save initial state to history
+    saveToHistory(allElements);
+
+    // Reset canvas state with imported PDF content
+    set({
+      canvasWidth: width,
+      canvasHeight: height,
+      elements: allElements,
+      selectedElementIds: [],
+      backgroundColor: "#ffffff",
+      pageCount: 1,
+      activePageIndex: 0,
+      currentTemplate: null,
+      currentDesignId: null,
+      hasUnsavedChanges: true,
+      saveStatus: "unsaved",
+      isCatalogMode: false,
+      activeTool: "select",
+    });
   },
   setExportSettings: (settings) => {
     const state = get();
