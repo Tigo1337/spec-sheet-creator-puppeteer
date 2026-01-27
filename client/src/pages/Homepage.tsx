@@ -1,27 +1,28 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { useLocation } from "wouter"; 
+import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { 
-  FileSpreadsheet, 
+import {
+  FileSpreadsheet,
   FileText,
-  Palette, 
-  Printer, 
-  LayoutTemplate, 
-  Download, 
-  CheckCircle2, 
-  ArrowRight, 
-  QrCode, 
-  Files, 
+  Palette,
+  Printer,
+  LayoutTemplate,
+  Download,
+  CheckCircle2,
+  ArrowRight,
+  QrCode,
+  Files,
   Sparkles,
   Star,
   ChevronRight,
-  Check, 
+  Check,
   Loader2,
   Zap,
   ShieldCheck,
   MousePointer2,
-  X
+  X,
+  Diamond
 } from 'lucide-react';
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { Footer } from "@/components/layout/Footer";
@@ -29,16 +30,16 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"; 
+} from "@/components/ui/select";
 
 export default function Homepage() {
-  const [, setLocation] = useLocation(); 
+  const [, setLocation] = useLocation();
   const [isAnnual, setIsAnnual] = useState(false);
 
   // State for Scale Tier Dropdown
@@ -73,7 +74,7 @@ export default function Homepage() {
 
   const getPrice = (planId: string) => {
     if (!prices) return null;
-    return prices.find((p: any) => 
+    return prices.find((p: any) =>
       p.metadata?.planId === planId || (p.product && p.product.metadata?.planId === planId)
     );
   }
@@ -111,7 +112,7 @@ export default function Homepage() {
     const price = getPrice(planIdMetadata);
     if (!price) {
       console.error(`Price not found for ${planIdMetadata}`);
-      return; 
+      return;
     }
     sessionStorage.setItem("checkoutPlan", plan);
     sessionStorage.setItem("checkoutPriceId", price.id);
@@ -139,7 +140,7 @@ export default function Homepage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#2A9D90]/20">
+    <div className="min-h-screen bg-matte text-slate-900 font-sans selection:bg-[#2A9D90]/20">
       <Helmet>
         <title>Doculoom | Spec Sheet & Catalog Maker</title>
         <meta name="description" content="Generate data-driven PDF catalogs, price lists, and spec sheets from Excel. Professional high-resolution export supported. Try for free." />
@@ -155,23 +156,34 @@ export default function Homepage() {
 
         {/* Hero Section */}
         <section className="relative overflow-hidden pt-[60px] pb-0">
+          {/* Tech Grid Background with Radial Fade */}
+          <div className="absolute inset-0 bg-tech-grid" style={{
+            background: `radial-gradient(ellipse at center, transparent 0%, #f8fafc 70%),
+                        repeating-linear-gradient(to right, rgba(0, 0, 0, 0.03) 0px, rgba(0, 0, 0, 0.03) 1px, transparent 1px, transparent 40px),
+                        repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.03) 0px, rgba(0, 0, 0, 0.03) 1px, transparent 1px, transparent 40px)`
+          }}></div>
+
           <div className="max-w-7xl mx-auto px-4 relative z-10">
             <div className="text-center space-y-8 max-w-4xl mx-auto">
-              <div className={`inline-flex items-center rounded-full border border-[#2A9D90]/30 bg-[#2A9D90]/10 px-3 py-1 text-sm font-medium ${accentColor} mb-4`}>
-                <Sparkles className={"h-4 w-4 ${accentBg} mr-2"} />
+              {/* System Notification Badge */}
+              <div className="inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 shadow-sm mb-4">
+                <Sparkles className="h-4 w-4 text-[#2A9D90] mr-2" />
                 New: AI Data Enrichment and Standardization
               </div>
-              <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900">
+
+              <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-slate-900">
                 Data-Driven Design for <br className="hidden md:block" />
-                <span className={accentColor}>Professional Spec Sheets</span>
+                <span className="font-serif italic text-[#2A9D90]">Professional</span> Spec Sheets
               </h1>
+
               <p className="text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
                 Batch generate multi-page PDF catalogs, price lists, and technical sheets directly from Excel. Engineered for speed and design precision.
               </p>
+
               <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
-                <Button 
-                  size="lg" 
-                  data-testid="btn-cta-signup" 
+                <Button
+                  size="lg"
+                  data-testid="btn-cta-signup"
                   onClick={handleFreeSignup}
                   className={`h-14 px-8 text-lg ${accentBg} hover:bg-[#2A9D90]/90 text-white shadow-xl shadow-[#2A9D90]/20 hover:shadow-2xl transition-all border-0`}
                 >
@@ -179,10 +191,10 @@ export default function Homepage() {
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
 
-                <Button 
-                  variant="outline" 
-                  size="lg" 
-                  data-testid="btn-learn-more" 
+                <Button
+                  variant="outline"
+                  size="lg"
+                  data-testid="btn-learn-more"
                   onClick={() => setLocation("/templates")}
                   className="h-14 px-8 text-lg border-slate-200 hover:bg-slate-50 hover:text-slate-900"
                 >
@@ -196,23 +208,27 @@ export default function Homepage() {
         {/* Visual Proof Section: Before & After */}
         <section className="py-0 overflow-hidden">
           <div className="max-w-7xl mx-auto px-4">
-             <div className="bg-slate-50 rounded-3xl p-8 lg:p-16 border border-slate-100 relative overflow-hidden">
+             <div className="bg-white rounded-3xl p-8 lg:p-16 border border-slate-200 relative overflow-hidden shadow-sm">
                 <div className="grid lg:grid-cols-5 gap-12 items-center">
                    <div className="lg:col-span-2 space-y-6">
-                      <h2 className="text-3xl font-bold tracking-tight">From messy data to <br/>polished design.</h2>
-                      <p className="text-slate-600">Stop fighting with manual copy-pasting. Doculoom bridges the gap between your product database and professional PDF output.</p>
+                      <h2 className="text-3xl font-bold tracking-tight text-slate-900">From messy data to <br/>polished design.</h2>
+                      <p className="text-slate-600 leading-relaxed">Stop fighting with manual copy-pasting. Doculoom bridges the gap between your product database and professional PDF output.</p>
                       <ul className="space-y-3">
-                         <li className="flex items-center gap-2 text-sm font-medium"><Check className="h-4 w-4 text-[#2A9D90]" /> No more formatting errors</li>
-                         <li className="flex items-center gap-2 text-sm font-medium"><Check className="h-4 w-4 text-[#2A9D90]" /> Instant multi-page generation</li>
-                         <li className="flex items-center gap-2 text-sm font-medium"><Check className="h-4 w-4 text-[#2A9D90]" /> Professional 300 DPI exports</li>
+                         <li className="flex items-center gap-2 text-sm font-medium text-slate-700"><Check className="h-4 w-4 text-[#2A9D90]" /> No more formatting errors</li>
+                         <li className="flex items-center gap-2 text-sm font-medium text-slate-700"><Check className="h-4 w-4 text-[#2A9D90]" /> Instant multi-page generation</li>
+                         <li className="flex items-center gap-2 text-sm font-medium text-slate-700"><Check className="h-4 w-4 text-[#2A9D90]" /> Professional 300 DPI exports</li>
                       </ul>
                    </div>
                    <div className="lg:col-span-3 flex flex-col md:flex-row gap-4 items-center justify-center relative">
-                      {/* Before: Raw Data Card */}
-                      <div className="w-full md:w-64 bg-white border border-slate-200 rounded-lg shadow-sm p-4 rotate-[-2deg] z-10">
-                         <div className="flex items-center gap-2 mb-3 border-b pb-2">
+                      {/* Before: Raw Data Card - Blueprint/File Folder Style */}
+                      <div className="w-full md:w-64 bg-white border border-slate-200 rounded-lg shadow-sm p-4 rotate-[-2deg] z-10 relative">
+                         {/* Folder Tab Effect */}
+                         <div className="absolute -top-3 left-4 bg-slate-100 border border-slate-200 border-b-0 rounded-t px-3 py-1">
+                            <span className="font-mono text-[9px] font-bold uppercase text-slate-500 tracking-wider">Source File</span>
+                         </div>
+                         <div className="flex items-center gap-2 mb-3 border-b border-slate-100 pb-2 pt-2">
                             <FileSpreadsheet className="h-4 w-4 text-green-600" />
-                            <span className="text-[10px] font-mono font-bold uppercase text-slate-400">Inventory.csv</span>
+                            <span className="font-mono text-[10px] font-bold uppercase text-slate-400">Inventory.csv</span>
                          </div>
                          <div className="space-y-2">
                             <div className="h-2 w-full bg-slate-100 rounded"></div>
@@ -220,21 +236,33 @@ export default function Homepage() {
                             <div className="h-2 w-full bg-slate-100 rounded"></div>
                             <div className="h-2 w-3/4 bg-slate-100 rounded"></div>
                          </div>
+                         {/* Technical Footer */}
+                         <div className="tech-footer mt-4">
+                            <span>REF: CSV-001</span>
+                            <span>RAW DATA</span>
+                         </div>
                       </div>
 
-                      <div className="hidden md:block bg-[#2A9D90] p-2 rounded-full text-white shadow-lg z-20">
-                         <ArrowRight className="h-6 w-6" />
+                      {/* Technical Line Connector with Diamond */}
+                      <div className="hidden md:flex items-center gap-0">
+                         <div className="w-8 h-[1px] bg-slate-300"></div>
+                         <Diamond className="w-3 h-3 text-[#2A9D90] fill-[#2A9D90]" />
+                         <div className="w-8 h-[1px] bg-slate-300"></div>
                       </div>
 
-                      {/* After: Polished Spec Sheet Card */}
-                      <div className="w-full md:w-72 bg-white border-2 border-[#2A9D90] rounded-lg shadow-2xl p-4 rotate-[2deg] z-10 relative overflow-hidden">
+                      {/* After: Polished Spec Sheet Card - Blueprint Style */}
+                      <div className="w-full md:w-72 bg-white border border-slate-200 rounded-lg shadow-sm p-4 rotate-[2deg] z-10 relative overflow-hidden">
+                         {/* Folder Tab Effect */}
+                         <div className="absolute -top-3 left-4 bg-[#2A9D90] border border-[#2A9D90] border-b-0 rounded-t px-3 py-1">
+                            <span className="font-mono text-[9px] font-bold uppercase text-white tracking-wider">Output</span>
+                         </div>
                          <div className="absolute top-0 right-0 bg-[#2A9D90] text-white text-[8px] px-2 py-0.5 font-bold uppercase tracking-widest">PDF Export</div>
-                         <div className="aspect-[3/4] flex flex-col">
+                         <div className="aspect-[3/4] flex flex-col pt-2">
                             <div className="h-32 bg-slate-100 rounded mb-3 overflow-hidden">
-                               <img 
-                                src="https://res.cloudinary.com/olilepage/image/upload/f_auto,q_auto:best,dpr_auto/v1769141734/room-scene-update/modular-corner-sectional-dark-gray-modern-ultra-4k-ar-16-9.webp" 
-                                className="w-full h-full object-cover" 
-                                alt="Sample" 
+                               <img
+                                src="https://res.cloudinary.com/olilepage/image/upload/f_auto,q_auto:best,dpr_auto/v1769141734/room-scene-update/modular-corner-sectional-dark-gray-modern-ultra-4k-ar-16-9.webp"
+                                className="w-full h-full object-cover"
+                                alt="Sample"
                                />
                             </div>
                             <div className={`h-3 w-1/2 ${accentBg} rounded mb-2`}></div>
@@ -248,6 +276,11 @@ export default function Homepage() {
                                <QrCode className="h-6 w-6 text-slate-900" />
                             </div>
                          </div>
+                         {/* Technical Footer */}
+                         <div className="tech-footer">
+                            <span>FIG 1.0</span>
+                            <span>SCALE: 100%</span>
+                         </div>
                       </div>
                    </div>
                 </div>
@@ -255,16 +288,23 @@ export default function Homepage() {
           </div>
         </section>
 
+        {/* How it Works Section - CAD Wireframe Style */}
         <section className="py-0 overflow-hidden">
           <div className="max-w-7xl mx-auto px-4 space-y-16">
 
             {/* ROW 1: Import (Visual Left) */}
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
 
-              {/* Visual Container */}
-              <div className="w-full h-[515px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative">
-                <div className="bg-white rounded w-3/4 aspect-[3/4] p-4 relative flex flex-col border border-slate-300">
-                  <div className="grid grid-cols-4 gap-2 text-[10px] text-slate-400 font-mono px-3 shrink-0 mb-2">
+              {/* Visual Container - CAD Wireframe Style */}
+              <div className="w-full h-[515px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative bg-slate-900">
+                {/* Grid overlay */}
+                <div className="absolute inset-0 opacity-20" style={{
+                  backgroundSize: '20px 20px',
+                  backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px)'
+                }}></div>
+
+                <div className="bg-slate-800 border border-slate-700 rounded w-3/4 aspect-[3/4] p-4 relative flex flex-col">
+                  <div className="grid grid-cols-4 gap-2 text-[10px] text-slate-500 font-mono px-3 shrink-0 mb-2">
                     <div className="truncate">NAME</div>
                     <div className="truncate">SKU</div>
                     <div className="truncate">DESC</div>
@@ -272,24 +312,27 @@ export default function Homepage() {
                   </div>
                   <div className="flex-1 overflow-hidden flex flex-col gap-2 relative [mask-image:linear-gradient(to_bottom,black_90%,transparent)]">
                     {[...Array(11)].map((_, i) => (
-                      <div key={i} className="h-8 w-full bg-white border border-slate-100 rounded grid grid-cols-4 items-center px-3 gap-2 shrink-0">
-                        <div className={`h-1.5 w-8 ${accentBg} opacity-80 rounded`}></div>
-                        <div className={`h-1.5 w-8 ${accentBg} opacity-50 rounded`}></div>
-                        <div className={`h-1.5 w-8 ${accentBg} opacity-20 rounded`}></div>
-                        <div className="h-1.5 w-8 bg-slate-100 rounded"></div>
+                      <div key={i} className="h-8 w-full bg-slate-800 border border-slate-700 rounded grid grid-cols-4 items-center px-3 gap-2 shrink-0">
+                        <div className="h-1.5 w-8 bg-[#2A9D90] opacity-80 rounded"></div>
+                        <div className="h-1.5 w-8 bg-[#2A9D90] opacity-50 rounded"></div>
+                        <div className="h-1.5 w-8 bg-[#2A9D90] opacity-20 rounded"></div>
+                        <div className="h-1.5 w-8 bg-slate-700 rounded"></div>
                       </div>
                     ))}
                   </div>
+                  {/* Corner Mark */}
+                  <div className="absolute bottom-2 right-2 text-slate-600 font-mono text-xs">&#x231F;</div>
                 </div>
               </div>
 
               {/* Content */}
               <div>
+                <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-2 block">Step 1</span>
                 <div className={`inline-flex items-center rounded-full bg-[#2A9D90]/10 px-3 py-1 text-sm font-medium ${accentColor} mb-6`}>
                   <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  Step 1
+                  Import
                 </div>
-                <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 mb-6">Import Your Data</h2>
+                <h2 className="text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 mb-6">Import Your Data</h2>
                 <p className="text-lg text-slate-600 leading-relaxed mb-8">
                   Upload your existing Excel or CSV files. Doculoom automatically detects headers and organizes your product data, SKUs, and descriptions for instant use. No need to reformat your entire database.
                 </p>
@@ -308,11 +351,12 @@ export default function Homepage() {
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
               {/* Content */}
               <div className="order-2 lg:order-1">
+                <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-2 block">Step 2</span>
                 <div className={`inline-flex items-center rounded-full bg-[#2A9D90]/10 px-3 py-1 text-sm font-medium ${accentColor} mb-6`}>
                   <Palette className="h-4 w-4 mr-2" />
-                  Step 2
+                  Design
                 </div>
-                <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 mb-6">Map & Design</h2>
+                <h2 className="text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 mb-6">Map & Design</h2>
                 <p className="text-lg text-slate-600 leading-relaxed mb-8">
                   Drag and drop your data fields onto the canvas. Customize fonts, colors, and layout. Build one master template that works for thousands of records. What you see is exactly what gets printed.
                 </p>
@@ -326,26 +370,34 @@ export default function Homepage() {
                 </ul>
               </div>
 
-              {/* Visual Container */}
-              <div className="w-full h-[515px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative order-1 lg:order-2">
-                 <div className="bg-white rounded w-3/4 aspect-[3/4] p-4 relative flex flex-col border border-slate-300">
+              {/* Visual Container - CAD Wireframe Style */}
+              <div className="w-full h-[515px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative order-1 lg:order-2 bg-slate-900">
+                {/* Grid overlay */}
+                <div className="absolute inset-0 opacity-20" style={{
+                  backgroundSize: '20px 20px',
+                  backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px)'
+                }}></div>
+
+                 <div className="bg-slate-800 border border-slate-700 rounded w-3/4 aspect-[3/4] p-4 relative flex flex-col">
                     <div className="flex justify-between mb-3">
-                      <div className={`h-2 w-8 ${accentBg} opacity-80 rounded`}></div>
-                      <div className={`h-2 w-8 ${accentBg} opacity-80 rounded`}></div>
+                      <div className="h-2 w-8 bg-[#2A9D90] opacity-80 rounded"></div>
+                      <div className="h-2 w-8 bg-[#2A9D90] opacity-80 rounded"></div>
                     </div>
-                    <div className="h-32 bg-slate-50 rounded mb-3 flex items-center justify-center border-2 border-dashed border-slate-200 shrink-0">
-                      <div className="text-slate-400 text-[10px]">Product Image</div>
+                    <div className="h-32 bg-slate-700 rounded mb-3 flex items-center justify-center border-2 border-dashed border-slate-600 shrink-0">
+                      <div className="text-slate-500 text-[10px] font-mono">Product Image</div>
                     </div>
                     <div className="flex flex-col gap-2">
-                      <div className={`h-2 w-full ${accentBg} opacity-20 rounded`}></div>
-                      <div className={`h-2 w-full ${accentBg} opacity-20 rounded`}></div>
-                      <div className={`h-2 w-full ${accentBg} opacity-20 rounded`}></div>
-                      <div className={`h-2 w-full ${accentBg} opacity-20 rounded`}></div>
-                      <div className={`h-2 w-2/3 ${accentBg} opacity-20 rounded`}></div>
+                      <div className="h-2 w-full bg-[#2A9D90] opacity-20 rounded"></div>
+                      <div className="h-2 w-full bg-[#2A9D90] opacity-20 rounded"></div>
+                      <div className="h-2 w-full bg-[#2A9D90] opacity-20 rounded"></div>
+                      <div className="h-2 w-full bg-[#2A9D90] opacity-20 rounded"></div>
+                      <div className="h-2 w-2/3 bg-[#2A9D90] opacity-20 rounded"></div>
                     </div>
                     <div className="absolute bottom-4 right-4">
-                      <QrCode className="w-8 h-8 text-slate-800 opacity-90" />
+                      <QrCode className="w-8 h-8 text-slate-600 opacity-90" />
                     </div>
+                    {/* Corner Mark */}
+                    <div className="absolute bottom-2 right-12 text-slate-600 font-mono text-xs">&#x231F;</div>
                   </div>
               </div>
             </div>
@@ -353,38 +405,47 @@ export default function Homepage() {
             {/* ROW 3: Generate (Visual Left) */}
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
 
-              {/* Visual Container */}
-              <div className="w-full h-[515px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative">
-                 <div className="bg-white rounded w-3/4 aspect-[3/4] p-4 relative flex flex-col border border-slate-300">
+              {/* Visual Container - CAD Wireframe Style */}
+              <div className="w-full h-[515px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative bg-slate-900">
+                {/* Grid overlay */}
+                <div className="absolute inset-0 opacity-20" style={{
+                  backgroundSize: '20px 20px',
+                  backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px)'
+                }}></div>
+
+                 <div className="bg-slate-800 border border-slate-700 rounded w-3/4 aspect-[3/4] p-4 relative flex flex-col">
                     <div className="flex justify-between mb-3 items-end shrink-0">
-                      <span className={`text-[10px] font-bold ${accentColor} opacity-80`}>FLOATING VANITY</span>
-                      <span className={`text-[10px] font-bold ${accentColor} opacity-80`}>FLT-VAN-WNT</span>
+                      <span className="text-[10px] font-bold text-[#2A9D90] opacity-80 font-mono">FLOATING VANITY</span>
+                      <span className="text-[10px] font-bold text-[#2A9D90] opacity-80 font-mono">FLT-VAN-WNT</span>
                     </div>
-                    <div className="aspect-video w-full bg-slate-50 rounded-sm mb-3 border border-slate-100 overflow-hidden shrink-0">
-                        <img 
-                          src="https://res.cloudinary.com/olilepage/image/upload/f_auto,q_auto:best,dpr_auto/v1768705685/room-scene-update/floating-vanity-walnut-brown-zen-spa-ultra-4k-ar-16-9.jpg" 
-                          alt="Floating Vanity" 
+                    <div className="aspect-video w-full bg-slate-700 rounded-sm mb-3 border border-slate-600 overflow-hidden shrink-0">
+                        <img
+                          src="https://res.cloudinary.com/olilepage/image/upload/f_auto,q_auto:best,dpr_auto/v1768705685/room-scene-update/floating-vanity-walnut-brown-zen-spa-ultra-4k-ar-16-9.jpg"
+                          alt="Floating Vanity"
                           className="w-full h-full object-cover"
                         />
                     </div>
                     <div className="flex flex-col gap-1 flex-1">
-                      <p className="text-[10px] text-slate-500 leading-[1.4] text-left">
+                      <p className="text-[10px] text-slate-400 leading-[1.4] text-left font-mono">
                         Transform your bathroom into a private sanctuary with this stunning floating vanity. Featuring a sophisticated fluted exterior, the textured design adds architectural depth and modern elegance to any space.
                       </p>
                     </div>
                     <div className="absolute bottom-4 right-4">
-                      <QrCode className="w-8 h-8 text-slate-800 opacity-90" />
+                      <QrCode className="w-8 h-8 text-slate-600 opacity-90" />
                     </div>
+                    {/* Corner Mark */}
+                    <div className="absolute bottom-2 right-12 text-slate-600 font-mono text-xs">&#x231F;</div>
                   </div>
               </div>
 
               {/* Content */}
               <div>
+                <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-2 block">Step 3</span>
                 <div className={`inline-flex items-center rounded-full bg-[#2A9D90]/10 px-3 py-1 text-sm font-medium ${accentColor} mb-6`}>
                   <FileText className="h-4 w-4 mr-2" />
-                  Step 3
+                  Export
                 </div>
-                <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 mb-6">Generate & Export</h2>
+                <h2 className="text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 mb-6">Generate & Export</h2>
                 <p className="text-lg text-slate-600 leading-relaxed mb-8">
                   Generate hundreds of catalog pages or spec sheets in seconds. Export professional high-resolution files or digital PDFs for the web. Includes automatic QR code generation for every record.
                 </p>
@@ -402,85 +463,114 @@ export default function Homepage() {
           </div>
         </section>
 
-        {/* Features Grid */}
-        <section id="features" className="py-0 bg-white">
+        {/* Features Grid - Bento Grid Layout */}
+        <section id="features" className="py-0 bg-matte">
           <div className="max-w-7xl mx-auto px-4">
             <div className="text-center max-w-3xl mx-auto mb-16">
-              <h2 className="text-3xl font-bold mb-4">Built for High-Volume Production</h2>
-              <p className="text-lg text-slate-600">
+              <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-4 block">Capabilities</span>
+              <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-4">Built for High-Volume Production</h2>
+              <p className="text-lg text-slate-600 leading-relaxed">
                 The only tool that combines variable data printing features with an intuitive web-based designer.
               </p>
             </div>
-            <div className="grid md:grid-cols-3 gap-8">
-              <FeatureCard 
+
+            {/* Bento Grid */}
+            <div className="grid md:grid-cols-4 gap-6">
+              {/* Excel & CSV Import - Regular */}
+              <BentoCard
                 icon={<FileSpreadsheet className={accentColor} size={24} />}
                 title="Excel & CSV Import"
                 description="Upload your product catalogs or employee lists. We automatically detect headers for instant field mapping."
+                className="md:col-span-1"
               />
-              <FeatureCard 
+
+              {/* Drag & Drop Builder - Large */}
+              <BentoCard
                 icon={<LayoutTemplate className={accentColor} size={24} />}
                 title="Drag & Drop Builder"
-                description="Position images, text, and shapes precisely. Use alignment guides and snap-to-grid for pixel-perfect layouts."
+                description="Position images, text, and shapes precisely. Use alignment guides and snap-to-grid for pixel-perfect layouts. Our free-form canvas gives you complete creative control while maintaining data integrity across all your documents."
+                className="md:col-span-2"
+                large
               />
-               <FeatureCard 
+
+              {/* High-Resolution Output - Regular */}
+              <BentoCard
                 icon={<Printer className={accentColor} size={24} />}
                 title="High-Resolution Output"
                 description="Our rendering engine converts your designs to professional high-resolution PDFs suitable for any professional use."
+                className="md:col-span-1"
               />
-              <FeatureCard 
+
+              {/* Dynamic QR Codes - Regular */}
+              <BentoCard
                 icon={<QrCode className={accentColor} size={24} />}
                 title="Dynamic QR Codes"
                 description="Create QR codes that track scans. Update the destination URL even after you've printed and distributed your PDFs."
+                className="md:col-span-1"
               />
-              <FeatureCard 
+
+              {/* Multi-Page Documents - Regular */}
+              <BentoCard
                 icon={<Files className={accentColor} size={24} />}
                 title="Multi-Page Documents"
                 description="Need more space? Add multiple pages to your template. Perfect for brochures, catalogs, and detailed reports."
+                className="md:col-span-1"
               />
-              <FeatureCard 
+
+              {/* Bulk Generation - Large */}
+              <BentoCard
                 icon={<Download className={accentColor} size={24} />}
                 title="Bulk Generation"
-                description="Generate hundreds of unique PDFs in one click. Our queue system ensures stable, high-quality rendering for every file."
+                description="Generate hundreds of unique PDFs in one click. Our queue system ensures stable, high-quality rendering for every file. Process thousands of records without manual intervention."
+                className="md:col-span-2"
+                large
               />
             </div>
           </div>
         </section>
 
         {/* Why Doculoom? */}
-        <section className="py-0 bg-slate-50/50">
+        <section className="py-0 bg-white">
            <div className="max-w-5xl mx-auto px-4 py-20">
               <div className="text-center mb-12">
-                 <h2 className="text-3xl font-bold mb-4">Why Doculoom?</h2>
-                 <p className="text-slate-600">Most design tools aren't built for data. Most data tools aren't built for design.</p>
+                 <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-4 block">The Difference</span>
+                 <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-4">Why Doculoom?</h2>
+                 <p className="text-slate-600 leading-relaxed">Most design tools aren't built for data. Most data tools aren't built for design.</p>
               </div>
               <div className="grid md:grid-cols-3 gap-8">
-                 <div className="p-8 bg-white border border-slate-200 rounded-xl space-y-4 shadow-sm">
+                 <div className="p-8 bg-white border border-slate-200 rounded-xl space-y-4 shadow-sm relative">
                     <div className={`w-10 h-10 rounded-lg ${accentBg} bg-opacity-10 flex items-center justify-center`}>
                        <Palette className={accentColor} size={20} />
                     </div>
-                    <h3 className="font-bold text-lg">Total Design Control</h3>
-                    <p className="text-sm text-slate-500 leading-relaxed">
+                    <h3 className="font-bold text-lg tracking-tight text-slate-900">Total Design Control</h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
                        Don't settle for rigid layouts. Our free-form canvas gives you the creative freedom of a professional design suite while maintaining strict data integrity.
                     </p>
+                    {/* Corner Mark */}
+                    <div className="absolute bottom-3 right-3 text-slate-300 font-mono text-sm">&#x231F;</div>
                  </div>
-                 <div className="p-8 bg-white border border-slate-200 rounded-xl space-y-4 shadow-sm">
+                 <div className="p-8 bg-white border border-slate-200 rounded-xl space-y-4 shadow-sm relative">
                     <div className={`w-10 h-10 rounded-lg ${accentBg} bg-opacity-10 flex items-center justify-center`}>
                        <FileSpreadsheet className={accentColor} size={20} />
                     </div>
-                    <h3 className="font-bold text-lg">Seamless Data Linking</h3>
-                    <p className="text-sm text-slate-500 leading-relaxed">
+                    <h3 className="font-bold text-lg tracking-tight text-slate-900">Seamless Data Linking</h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
                        Doculoom was built from the ground up to speak the language of Excel and CSV. Change a value in your spreadsheet, and every related document updates instantly.
                     </p>
+                    {/* Corner Mark */}
+                    <div className="absolute bottom-3 right-3 text-slate-300 font-mono text-sm">&#x231F;</div>
                  </div>
                  <div className="p-8 bg-slate-900 text-white rounded-xl space-y-4 shadow-2xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 bg-[#2A9D90] px-3 py-1 text-[10px] font-bold uppercase">The Advantage</div>
+                    <div className="absolute top-0 right-0 bg-[#2A9D90] px-3 py-1 text-[10px] font-bold uppercase font-mono tracking-wider">The Advantage</div>
                     <div className={`w-10 h-10 rounded-lg bg-[#2A9D90] bg-opacity-20 flex items-center justify-center`}>
                        <Zap className="text-[#2A9D90]" size={20} />
                     </div>
-                    <h3 className="font-bold text-lg">Production-Grade Speed</h3>
+                    <h3 className="font-bold text-lg tracking-tight">Production-Grade Speed</h3>
                     <p className="text-sm text-slate-300 leading-relaxed">
                        Generate 100 or 1,000 pages with a single click. Our cloud engine handles the heavy lifting, delivering high-resolution PDFs ready for any professional use.
                     </p>
+                    {/* Corner Mark */}
+                    <div className="absolute bottom-3 right-3 text-slate-600 font-mono text-sm">&#x231F;</div>
                  </div>
               </div>
            </div>
@@ -491,7 +581,8 @@ export default function Homepage() {
           <div className="max-w-7xl mx-auto px-4">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <div>
-                <h2 className="text-3xl font-bold mb-6">Perfect for variable data workflows</h2>
+                <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-4 block">Applications</span>
+                <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-6">Perfect for variable data workflows</h2>
                 <div className="space-y-4">
                   <UseCaseItem title="Retail & Wholesale" desc="Generate 1000s of shelf tags with unique barcodes and pricing." accentColor={accentColor} />
                   <UseCaseItem title="Technical Specs" desc="Create standardized equipment specification sheets from ERP data exports." accentColor={accentColor} />
@@ -499,9 +590,9 @@ export default function Homepage() {
                   <UseCaseItem title="Direct Mail" desc="Design personalized postcards with dynamic offers and tracking URLs." accentColor={accentColor} />
                 </div>
                 <div className="mt-8">
-                  <Button 
-                    variant="outline" 
-                    className="gap-2 hover:text-[#2A9D90] hover:bg-[#2A9D90]/5"
+                  <Button
+                    variant="outline"
+                    className="gap-2 hover:text-[#2A9D90] hover:bg-[#2A9D90]/5 border-slate-200"
                     onClick={() => setLocation("/templates")}
                   >
                     See template library <ChevronRight size={16} />
@@ -511,7 +602,7 @@ export default function Homepage() {
               <div className="bg-slate-100 rounded-2xl p-8 border border-slate-200 h-[500px] flex items-center justify-center relative overflow-hidden">
                  <div className={`absolute top-0 right-0 w-64 h-64 ${accentBg} rounded-full blur-3xl opacity-20 translate-x-1/2 -translate-y-1/2`}></div>
                  <div className={`absolute bottom-0 left-0 w-64 h-64 ${accentBg} rounded-full blur-3xl opacity-20 -translate-x-1/2 translate-y-1/2`}></div>
-                 <div className="bg-white shadow-2xl rounded-lg w-[300px] h-[420px] p-6 relative z-10 rotate-3 transition-transform hover:rotate-0 duration-500">
+                 <div className="bg-white shadow-2xl rounded-lg w-[300px] h-[420px] p-6 relative z-10 rotate-3 transition-transform hover:rotate-0 duration-500 border border-slate-200">
                     <div className="flex justify-between items-start mb-4">
                       <div className="w-12 h-12 bg-slate-900 rounded"></div>
                       <div className="text-right">
@@ -520,7 +611,7 @@ export default function Homepage() {
                       </div>
                     </div>
                     <div className="h-32 bg-slate-100 rounded mb-4 flex items-center justify-center text-slate-400">
-                      <div className="text-xs">Dynamic Image</div>
+                      <div className="text-xs font-mono">Dynamic Image</div>
                     </div>
                     <div className={`h-6 w-3/4 ${accentBg} opacity-20 rounded mb-2`}></div>
                     <div className="space-y-2 mb-4">
@@ -532,36 +623,42 @@ export default function Homepage() {
                         <QrCode className="w-12 h-12 text-slate-800" />
                       </div>
                     </div>
+                    {/* Technical Footer */}
+                    <div className="tech-footer">
+                       <span>SAMPLE-001</span>
+                       <span>PREVIEW</span>
+                    </div>
                  </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Pricing Section */}
-        <section id="pricing" className="py-0 bg-white text-slate-900">
+        {/* Pricing Section - Specification Sheet Style */}
+        <section id="pricing" className="py-0 bg-matte text-slate-900">
           <div className="max-w-7xl mx-auto px-4">
             <div className="text-center max-w-3xl mx-auto mb-16">
-              <h2 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight">Simple, predictable pricing</h2>
-              <p className="text-xl text-slate-600 mb-8">Start for free, upgrade for professional automation features.</p>
+              <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-4 block">Pricing</span>
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-slate-900 mb-4">Simple, predictable pricing</h2>
+              <p className="text-xl text-slate-600 leading-relaxed mb-8">Start for free, upgrade for professional automation features.</p>
 
               <div className="flex items-center justify-center gap-4">
-                <Label 
+                <Label
                   className={`text-sm cursor-pointer ${!isAnnual ? "font-bold text-slate-900" : "text-slate-500"}`}
                   onClick={() => setIsAnnual(false)}
                 >
                   Monthly
                 </Label>
-                <Switch 
-                  checked={isAnnual} 
+                <Switch
+                  checked={isAnnual}
                   onCheckedChange={setIsAnnual}
-                  className="data-[state=checked]:bg-[#2A9D90] bg-slate-200 border-slate-200" 
+                  className="data-[state=checked]:bg-[#2A9D90] bg-slate-200 border-slate-200"
                 />
-                <Label 
+                <Label
                   className={`text-sm cursor-pointer flex items-center gap-2 ${isAnnual ? "font-bold text-slate-900" : "text-slate-500"}`}
                   onClick={() => setIsAnnual(true)}
                 >
-                  Annual 
+                  Annual
                   <span className="bg-[#2A9D90]/10 text-[#2A9D90] text-xs px-2 py-0.5 rounded-full font-medium border border-[#2A9D90]/20">
                     Get 2 months on us when you pay annually.
                   </span>
@@ -571,16 +668,16 @@ export default function Homepage() {
 
             <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto items-start">
 
-              <PricingCard 
+              <SpecPricingCard
                 name="Starter"
                 price="$0"
                 period="/mo"
                 description="Perfect for individuals and testing."
                 features={[
-                  '50 Pages / month', 
+                  '50 Pages / month',
                   '50 AI Credits / month',
-                  'Digital Ready Export', 
-                  'CSV & Excel Data Import', 
+                  'Digital Ready Export',
+                  'CSV & Excel Data Import',
                   'Basic QR Codes',
                   'Watermarked Exports'
                 ]}
@@ -589,36 +686,36 @@ export default function Homepage() {
                 onAction={handleFreeSignup}
               />
 
-              <PricingCard 
+              <SpecPricingCard
                 name="Pro"
                 highlighted
-                price={isAnnual 
-                  ? formatPrice("prod_pro_annual", "$33.33", true) 
+                price={isAnnual
+                  ? formatPrice("prod_pro_annual", "$33.33", true)
                   : formatPrice("prod_pro_monthly", "$39.99", false)
                 }
                 period="/mo"
                 description="For growing teams needing professional files."
                 subtext={isAnnual ? `Billed ${formatPrice("prod_pro_annual", "$399.99", false)} yearly` : undefined}
                 features={[
-                  'Unlimited PDFs', 
+                  'Unlimited PDFs',
                   '1,000 AI Credits / month',
-                  'Professional Exports', 
-                  'Manageable QR Codes', 
+                  'Professional Exports',
+                  'Manageable QR Codes',
                   'Watermark Removal',
                   'Priority Rendering Queue',
                 ]}
                 cta={isAnnual ? "Start Pro Annual" : "Start Pro Monthly"}
                 ctaVariant="teal"
                 onAction={() => handlePlanSelect(
-                  isAnnual ? "pro_annual" : "pro_monthly", 
+                  isAnnual ? "pro_annual" : "pro_monthly",
                   isAnnual ? "prod_pro_annual" : "prod_pro_monthly"
                 )}
               />
 
-               <PricingCard 
+               <SpecPricingCard
                 name="Scale"
-                price={isAnnual 
-                  ? formatPrice(currentScaleTier.annualId, "Loading...", true) 
+                price={isAnnual
+                  ? formatPrice(currentScaleTier.annualId, "Loading...", true)
                   : formatPrice(currentScaleTier.monthlyId, "Loading...", false)
                 }
                 period="/mo"
@@ -627,11 +724,11 @@ export default function Homepage() {
                 features={[
                   'Everything in Pro',
                   <div key="credits-selector" className="w-full">
-                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">
+                    <label className="font-mono text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 block">
                       AI Credit Limit
                     </label>
                     <Select value={scaleCredits} onValueChange={setScaleCredits}>
-                      <SelectTrigger className="w-full h-9 bg-slate-50 border-slate-200">
+                      <SelectTrigger className="w-full h-9 bg-slate-50 border-slate-200 font-mono text-sm">
                         <SelectValue placeholder="Select limit" />
                       </SelectTrigger>
                       <SelectContent>
@@ -645,14 +742,14 @@ export default function Homepage() {
                       </SelectContent>
                     </Select>
                   </div>,
-                  'AI Product Memory', 
-                  'Dedicated Rendering Server', 
+                  'AI Product Memory',
+                  'Dedicated Rendering Server',
                   'SLA Support'
                 ]}
                 cta={isAnnual ? "Start Scale Annual" : "Start Scale Monthly"}
                 ctaVariant="dark"
                 onAction={() => handlePlanSelect(
-                  "scale_custom", 
+                  "scale_custom",
                   isAnnual ? currentScaleTier.annualId : currentScaleTier.monthlyId
                 )}
               />
@@ -661,12 +758,12 @@ export default function Homepage() {
         </section>
 
         {/* CTA */}
-        <section className={`py-12 ${accentBg} bg-opacity-5`}>
+        <section className="py-12 bg-white border-y border-slate-100">
           <div className="max-w-4xl mx-auto px-4 text-center">
-            <h2 className="text-4xl font-bold mb-6 text-slate-900">Ready to automate your documents?</h2>
+            <h2 className="text-4xl font-bold tracking-tight text-slate-900 mb-6">Ready to automate your documents?</h2>
             <div className="flex justify-center gap-4">
-               <Button 
-                 size="lg" 
+               <Button
+                 size="lg"
                  onClick={handleFreeSignup}
                  className={`h-14 px-8 text-lg ${accentBg} hover:bg-[#2A9D90]/90 text-white shadow-lg`}
                >
@@ -683,12 +780,22 @@ export default function Homepage() {
 }
 
 // Sub-components
-function FeatureCard({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) {
+
+// Bento Card Component with corner mark
+function BentoCard({ icon, title, description, className = "", large = false }: {
+  icon: React.ReactNode,
+  title: string,
+  description: string,
+  className?: string,
+  large?: boolean
+}) {
   return (
-    <div className="p-6 rounded-xl border border-slate-100 bg-slate-50 hover:shadow-lg transition-shadow">
-      <div className="mb-4 bg-white w-12 h-12 rounded-lg flex items-center justify-center shadow-sm border border-slate-100">{icon}</div>
-      <h3 className="text-xl font-bold mb-2 text-slate-900">{title}</h3>
+    <div className={`p-6 rounded-xl border border-slate-200 bg-white hover:shadow-lg transition-shadow relative ${className}`}>
+      <div className="mb-4 bg-slate-50 w-12 h-12 rounded-lg flex items-center justify-center border border-slate-100">{icon}</div>
+      <h3 className={`font-bold tracking-tight text-slate-900 mb-2 ${large ? 'text-2xl' : 'text-xl'}`}>{title}</h3>
       <p className="text-slate-600 leading-relaxed">{description}</p>
+      {/* Corner Mark */}
+      <div className="absolute bottom-3 right-3 text-slate-300 font-mono text-sm">&#x231F;</div>
     </div>
   );
 }
@@ -702,34 +809,53 @@ function UseCaseItem({ title, desc, accentColor }: { title: string, desc: string
         </div>
       </div>
       <div>
-        <h4 className="font-bold text-slate-900">{title}</h4>
-        <p className="text-slate-600 text-sm">{desc}</p>
+        <h4 className="font-bold tracking-tight text-slate-900">{title}</h4>
+        <p className="text-slate-600 text-sm leading-relaxed">{desc}</p>
       </div>
     </div>
   );
 }
 
-function PricingCard({ name, price, period, description, subtext, features, cta, ctaVariant, highlighted, onAction }: { name: string, price: string, period?: string, description?: string, subtext?: string, features: (string | React.ReactNode)[], cta: string, ctaVariant: 'teal' | 'dark', highlighted?: boolean, onAction?: () => void }) {
+// Specification Sheet Style Pricing Card
+function SpecPricingCard({ name, price, period, description, subtext, features, cta, ctaVariant, highlighted, onAction }: {
+  name: string,
+  price: string,
+  period?: string,
+  description?: string,
+  subtext?: string,
+  features: (string | React.ReactNode)[],
+  cta: string,
+  ctaVariant: 'teal' | 'dark',
+  highlighted?: boolean,
+  onAction?: () => void
+}) {
   return (
-    <div className={`p-8 relative rounded-2xl bg-white flex flex-col h-full ${highlighted ? 'border-2 border-[#2A9D90] shadow-xl scale-105 z-10' : 'border border-slate-200'}`}>
+    <div className={`p-8 relative rounded-xl bg-white flex flex-col h-full ${
+      highlighted
+        ? 'border-t-4 border-t-[#2A9D90] border-x border-b border-slate-200 shadow-xl scale-105 z-10'
+        : 'border-t-4 border-t-slate-900 border-x border-b border-slate-200'
+    }`}>
       {highlighted && (
-        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2A9D90] text-white hover:bg-[#2A9D90]">Most Popular</Badge>
+        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2A9D90] text-white hover:bg-[#2A9D90] font-mono text-[10px] uppercase tracking-wider">Most Popular</Badge>
       )}
       <div className="mb-6">
-        <h3 className="text-2xl font-bold text-slate-900 mb-2">{name}</h3>
-        {description && <p className="text-slate-600 text-sm">{description}</p>}
+        <span className="font-mono text-xs uppercase tracking-wider text-slate-400 block mb-1">Plan</span>
+        <h3 className="text-2xl font-bold tracking-tight text-slate-900 mb-2">{name}</h3>
+        {description && <p className="text-slate-600 text-sm leading-relaxed">{description}</p>}
       </div>
       <div className="mb-6">
+        <span className="font-mono text-xs uppercase tracking-wider text-slate-400 block mb-1">Price</span>
         <div className="flex items-baseline">
-            <span className="text-4xl font-bold text-slate-900">{price}</span>
+            <span className="text-4xl font-mono font-bold text-slate-900">{price}</span>
             <span className="text-slate-600 ml-2">{period}</span>
         </div>
-        {subtext && (<span className="text-xs text-slate-500 mt-1 block">{subtext}</span>)}
+        {subtext && (<span className="font-mono text-xs text-slate-500 mt-1 block">{subtext}</span>)}
       </div>
       <Button onClick={onAction} className={`w-full mb-8 h-12 text-lg ${ctaVariant === 'teal' ? 'bg-[#2A9D90] hover:bg-[#2A9D90]/90 text-white' : 'bg-slate-900 hover:bg-slate-800 text-white'}`}>
         {cta}
       </Button>
       <div className="space-y-4 flex-1">
+        <span className="font-mono text-xs uppercase tracking-wider text-slate-400 block">Includes</span>
         {features.map((feature, i) => (
           <div key={i} className="flex items-start gap-3">
              {typeof feature === 'string' ? (
@@ -737,6 +863,11 @@ function PricingCard({ name, price, period, description, subtext, features, cta,
             ) : (<div className="w-full">{feature}</div>)}
           </div>
         ))}
+      </div>
+      {/* Technical Footer */}
+      <div className="tech-footer">
+         <span>REV 1.0</span>
+         <span>{name.toUpperCase()}</span>
       </div>
     </div>
   );
