@@ -236,7 +236,7 @@ export async function importPdf(
     const visionElements: CanvasElement[] = [];
 
     // Call Backend API to identify images and tables
-    console.log("PDF Importer: Sending page image to AI layout analysis...");
+    console.log("PDF Importer: Sending image to AI (" + backgroundDataUrl.length + " chars)");
     const aiResponse = await fetch("/api/ai/analyze-layout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -332,9 +332,26 @@ export async function importPdf(
 
     await pdfDoc.destroy();
 
-    // 4. Return AI-reconstructed layout (no fallback)
+    // 4. Create background element (hidden by default when AI extracts content)
+    const hasAiContent = visionElements.length > 0;
+    const backgroundElement: CanvasElement = {
+      id: nanoid(),
+      type: "image",
+      imageSrc: backgroundDataUrl,
+      position: { x: 0, y: 0 },
+      dimension: { width: canvasWidth, height: canvasHeight },
+      rotation: 0,
+      locked: true,
+      visible: !hasAiContent, // Hidden when AI successfully extracts images/tables
+      zIndex: 0, // Below everything
+      pageIndex: 0,
+      aspectRatioLocked: true,
+      aspectRatio: canvasWidth / canvasHeight,
+    };
+
+    // 5. Return AI-reconstructed layout (no fallback)
     return {
-      elements: [...visionElements, ...textElements],
+      elements: [backgroundElement, ...visionElements, ...textElements],
       canvasWidth,
       canvasHeight,
       backgroundDataUrl,
@@ -343,7 +360,7 @@ export async function importPdf(
     };
 
   } catch (error) {
-    console.error("PDF Import Failed:", error);
+    console.error("Critical PDF Import Failure:", error);
     throw error;
   }
 }
