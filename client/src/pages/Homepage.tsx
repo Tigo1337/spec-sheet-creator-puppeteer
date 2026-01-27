@@ -152,10 +152,10 @@ export default function Homepage() {
 
       <PublicHeader />
 
-      <main className="space-y-32 mb-24">
+      <main className="space-y-20 mb-16">
 
         {/* Hero Section */}
-        <section className="relative overflow-hidden pt-[60px] pb-0">
+        <section className="relative overflow-hidden pt-12 pb-0">
           {/* Tech Grid Background with Radial Fade */}
           <div className="absolute inset-0 bg-tech-grid" style={{
             background: `radial-gradient(ellipse at center, transparent 0%, #f8fafc 70%),
@@ -164,7 +164,7 @@ export default function Homepage() {
           }}></div>
 
           <div className="max-w-7xl mx-auto px-4 relative z-10">
-            <div className="text-center space-y-8 max-w-4xl mx-auto">
+            <div className="text-center space-y-6 max-w-4xl mx-auto">
               {/* System Notification Badge */}
               <div className="inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 shadow-sm mb-4">
                 <Sparkles className="h-4 w-4 text-[#2A9D90] mr-2" />
@@ -224,11 +224,11 @@ export default function Homepage() {
                       <div className="w-full md:w-64 bg-white border border-slate-200 rounded-lg shadow-sm p-4 rotate-[-2deg] z-10 relative">
                          {/* Folder Tab Effect */}
                          <div className="absolute -top-3 left-4 bg-slate-100 border border-slate-200 border-b-0 rounded-t px-3 py-1">
-                            <span className="font-mono text-[9px] font-bold uppercase text-slate-500 tracking-wider">Source File</span>
+                            <span className="font-sans text-[9px] font-bold uppercase text-slate-500 tracking-wider">Source File</span>
                          </div>
                          <div className="flex items-center gap-2 mb-3 border-b border-slate-100 pb-2 pt-2">
                             <FileSpreadsheet className="h-4 w-4 text-green-600" />
-                            <span className="font-mono text-[10px] font-bold uppercase text-slate-400">Inventory.csv</span>
+                            <span className="font-sans text-[10px] font-bold uppercase text-slate-400">Inventory.csv</span>
                          </div>
                          <div className="space-y-2">
                             <div className="h-2 w-full bg-slate-100 rounded"></div>
@@ -254,7 +254,7 @@ export default function Homepage() {
                       <div className="w-full md:w-72 bg-white border border-slate-200 rounded-lg shadow-sm p-4 rotate-[2deg] z-10 relative overflow-hidden">
                          {/* Folder Tab Effect */}
                          <div className="absolute -top-3 left-4 bg-[#2A9D90] border border-[#2A9D90] border-b-0 rounded-t px-3 py-1">
-                            <span className="font-mono text-[9px] font-bold uppercase text-white tracking-wider">Output</span>
+                            <span className="font-sans text-[9px] font-bold uppercase text-white tracking-wider">Output</span>
                          </div>
                          <div className="absolute top-0 right-0 bg-[#2A9D90] text-white text-[8px] px-2 py-0.5 font-bold uppercase tracking-widest">PDF Export</div>
                          <div className="aspect-[3/4] flex flex-col pt-2">
@@ -304,7 +304,7 @@ export default function Homepage() {
                 }}></div>
 
                 <div className="bg-slate-800 border border-slate-700 rounded w-3/4 aspect-[3/4] p-4 relative flex flex-col">
-                  <div className="grid grid-cols-4 gap-2 text-[10px] text-slate-500 font-mono px-3 shrink-0 mb-2">
+                  <div className="grid grid-cols-4 gap-2 text-[10px] text-slate-500 font-sans px-3 shrink-0 mb-2">
                     <div className="truncate">NAME</div>
                     <div className="truncate">SKU</div>
                     <div className="truncate">DESC</div>
@@ -321,13 +321,13 @@ export default function Homepage() {
                     ))}
                   </div>
                   {/* Corner Mark */}
-                  <div className="absolute bottom-2 right-2 text-slate-600 font-mono text-xs">&#x231F;</div>
+                  <div className="absolute bottom-2 right-2 text-slate-600 font-sans text-xs">&#x231F;</div>
                 </div>
               </div>
 
               {/* Content */}
               <div>
-                <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-2 block">Step 1</span>
+                <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-2 block">Step 1</span>
                 <div className={`inline-flex items-center rounded-full bg-[#2A9D90]/10 px-3 py-1 text-sm font-medium ${accentColor} mb-6`}>
                   <FileSpreadsheet className="h-4 w-4 mr-2" />
                   Import
@@ -351,7 +351,7 @@ export default function Homepage() {
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
               {/* Content */}
               <div className="order-2 lg:order-1">
-                <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-2 block">Step 2</span>
+                <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-2 block">Step 2</span>
                 <div className={`inline-flex items-center rounded-full bg-[#2A9D90]/10 px-3 py-1 text-sm font-medium ${accentColor} mb-6`}>
                   <Palette className="h-4 w-4 mr-2" />
                   Design
@@ -384,7 +384,7 @@ export default function Homepage() {
                       <div className="h-2 w-8 bg-[#2A9D90] opacity-80 rounded"></div>
                     </div>
                     <div className="h-32 bg-slate-700 rounded mb-3 flex items-center justify-center border-2 border-dashed border-slate-600 shrink-0">
-                      <div className="text-slate-500 text-[10px] font-mono">Product Image</div>
+                      <div className="text-slate-500 text-[10px] font-sans">Product Image</div>
                     </div>
                     <div className="flex flex-col gap-2">
                       <div className="h-2 w-full bg-[#2A9D90] opacity-20 rounded"></div>
@@ -397,7 +397,7 @@ export default function Homepage() {
                       <QrCode className="w-8 h-8 text-slate-600 opacity-90" />
                     </div>
                     {/* Corner Mark */}
-                    <div className="absolute bottom-2 right-12 text-slate-600 font-mono text-xs">&#x231F;</div>
+                    <div className="absolute bottom-2 right-12 text-slate-600 font-sans text-xs">&#x231F;</div>
                   </div>
               </div>
             </div>
@@ -415,8 +415,8 @@ export default function Homepage() {
 
                  <div className="bg-slate-800 border border-slate-700 rounded w-3/4 aspect-[3/4] p-4 relative flex flex-col">
                     <div className="flex justify-between mb-3 items-end shrink-0">
-                      <span className="text-[10px] font-bold text-[#2A9D90] opacity-80 font-mono">FLOATING VANITY</span>
-                      <span className="text-[10px] font-bold text-[#2A9D90] opacity-80 font-mono">FLT-VAN-WNT</span>
+                      <span className="text-[10px] font-bold text-[#2A9D90] opacity-80 font-sans">FLOATING VANITY</span>
+                      <span className="text-[10px] font-bold text-[#2A9D90] opacity-80 font-sans">FLT-VAN-WNT</span>
                     </div>
                     <div className="aspect-video w-full bg-slate-700 rounded-sm mb-3 border border-slate-600 overflow-hidden shrink-0">
                         <img
@@ -426,7 +426,7 @@ export default function Homepage() {
                         />
                     </div>
                     <div className="flex flex-col gap-1 flex-1">
-                      <p className="text-[10px] text-slate-400 leading-[1.4] text-left font-mono">
+                      <p className="text-[10px] text-slate-400 leading-[1.4] text-left font-sans">
                         Transform your bathroom into a private sanctuary with this stunning floating vanity. Featuring a sophisticated fluted exterior, the textured design adds architectural depth and modern elegance to any space.
                       </p>
                     </div>
@@ -434,13 +434,13 @@ export default function Homepage() {
                       <QrCode className="w-8 h-8 text-slate-600 opacity-90" />
                     </div>
                     {/* Corner Mark */}
-                    <div className="absolute bottom-2 right-12 text-slate-600 font-mono text-xs">&#x231F;</div>
+                    <div className="absolute bottom-2 right-12 text-slate-600 font-sans text-xs">&#x231F;</div>
                   </div>
               </div>
 
               {/* Content */}
               <div>
-                <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-2 block">Step 3</span>
+                <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-2 block">Step 3</span>
                 <div className={`inline-flex items-center rounded-full bg-[#2A9D90]/10 px-3 py-1 text-sm font-medium ${accentColor} mb-6`}>
                   <FileText className="h-4 w-4 mr-2" />
                   Export
@@ -467,7 +467,7 @@ export default function Homepage() {
         <section id="features" className="py-0 bg-matte">
           <div className="max-w-7xl mx-auto px-4">
             <div className="text-center max-w-3xl mx-auto mb-16">
-              <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-4 block">Capabilities</span>
+              <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">Capabilities</span>
               <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-4">Built for High-Volume Production</h2>
               <p className="text-lg text-slate-600 leading-relaxed">
                 The only tool that combines variable data printing features with an intuitive web-based designer.
@@ -533,7 +533,7 @@ export default function Homepage() {
         <section className="py-0 bg-white">
            <div className="max-w-5xl mx-auto px-4 py-20">
               <div className="text-center mb-12">
-                 <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-4 block">The Difference</span>
+                 <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">The Difference</span>
                  <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-4">Why Doculoom?</h2>
                  <p className="text-slate-600 leading-relaxed">Most design tools aren't built for data. Most data tools aren't built for design.</p>
               </div>
@@ -547,7 +547,7 @@ export default function Homepage() {
                        Don't settle for rigid layouts. Our free-form canvas gives you the creative freedom of a professional design suite while maintaining strict data integrity.
                     </p>
                     {/* Corner Mark */}
-                    <div className="absolute bottom-3 right-3 text-slate-300 font-mono text-sm">&#x231F;</div>
+                    <div className="absolute bottom-3 right-3 text-slate-300 font-sans text-sm">&#x231F;</div>
                  </div>
                  <div className="p-8 bg-white border border-slate-200 rounded-xl space-y-4 shadow-sm relative">
                     <div className={`w-10 h-10 rounded-lg ${accentBg} bg-opacity-10 flex items-center justify-center`}>
@@ -558,10 +558,10 @@ export default function Homepage() {
                        Doculoom was built from the ground up to speak the language of Excel and CSV. Change a value in your spreadsheet, and every related document updates instantly.
                     </p>
                     {/* Corner Mark */}
-                    <div className="absolute bottom-3 right-3 text-slate-300 font-mono text-sm">&#x231F;</div>
+                    <div className="absolute bottom-3 right-3 text-slate-300 font-sans text-sm">&#x231F;</div>
                  </div>
                  <div className="p-8 bg-slate-900 text-white rounded-xl space-y-4 shadow-2xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 bg-[#2A9D90] px-3 py-1 text-[10px] font-bold uppercase font-mono tracking-wider">The Advantage</div>
+                    <div className="absolute top-0 right-0 bg-[#2A9D90] px-3 py-1 text-[10px] font-bold uppercase font-sans tracking-wider">The Advantage</div>
                     <div className={`w-10 h-10 rounded-lg bg-[#2A9D90] bg-opacity-20 flex items-center justify-center`}>
                        <Zap className="text-[#2A9D90]" size={20} />
                     </div>
@@ -570,7 +570,7 @@ export default function Homepage() {
                        Generate 100 or 1,000 pages with a single click. Our cloud engine handles the heavy lifting, delivering high-resolution PDFs ready for any professional use.
                     </p>
                     {/* Corner Mark */}
-                    <div className="absolute bottom-3 right-3 text-slate-600 font-mono text-sm">&#x231F;</div>
+                    <div className="absolute bottom-3 right-3 text-slate-600 font-sans text-sm">&#x231F;</div>
                  </div>
               </div>
            </div>
@@ -581,7 +581,7 @@ export default function Homepage() {
           <div className="max-w-7xl mx-auto px-4">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <div>
-                <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-4 block">Applications</span>
+                <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">Applications</span>
                 <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-6">Perfect for variable data workflows</h2>
                 <div className="space-y-4">
                   <UseCaseItem title="Retail & Wholesale" desc="Generate 1000s of shelf tags with unique barcodes and pricing." accentColor={accentColor} />
@@ -611,7 +611,7 @@ export default function Homepage() {
                       </div>
                     </div>
                     <div className="h-32 bg-slate-100 rounded mb-4 flex items-center justify-center text-slate-400">
-                      <div className="text-xs font-mono">Dynamic Image</div>
+                      <div className="text-xs font-sans">Dynamic Image</div>
                     </div>
                     <div className={`h-6 w-3/4 ${accentBg} opacity-20 rounded mb-2`}></div>
                     <div className="space-y-2 mb-4">
@@ -638,7 +638,7 @@ export default function Homepage() {
         <section id="pricing" className="py-0 bg-matte text-slate-900">
           <div className="max-w-7xl mx-auto px-4">
             <div className="text-center max-w-3xl mx-auto mb-16">
-              <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-4 block">Pricing</span>
+              <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">Pricing</span>
               <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-slate-900 mb-4">Simple, predictable pricing</h2>
               <p className="text-xl text-slate-600 leading-relaxed mb-8">Start for free, upgrade for professional automation features.</p>
 
@@ -724,11 +724,11 @@ export default function Homepage() {
                 features={[
                   'Everything in Pro',
                   <div key="credits-selector" className="w-full">
-                    <label className="font-mono text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 block">
+                    <label className="font-sans text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 block">
                       AI Credit Limit
                     </label>
                     <Select value={scaleCredits} onValueChange={setScaleCredits}>
-                      <SelectTrigger className="w-full h-9 bg-slate-50 border-slate-200 font-mono text-sm">
+                      <SelectTrigger className="w-full h-9 bg-slate-50 border-slate-200 font-sans text-sm">
                         <SelectValue placeholder="Select limit" />
                       </SelectTrigger>
                       <SelectContent>
@@ -795,7 +795,7 @@ function BentoCard({ icon, title, description, className = "", large = false }: 
       <h3 className={`font-bold tracking-tight text-slate-900 mb-2 ${large ? 'text-2xl' : 'text-xl'}`}>{title}</h3>
       <p className="text-slate-600 leading-relaxed">{description}</p>
       {/* Corner Mark */}
-      <div className="absolute bottom-3 right-3 text-slate-300 font-mono text-sm">&#x231F;</div>
+      <div className="absolute bottom-3 right-3 text-slate-300 font-sans text-sm">&#x231F;</div>
     </div>
   );
 }
@@ -836,26 +836,26 @@ function SpecPricingCard({ name, price, period, description, subtext, features, 
         : 'border-t-4 border-t-slate-900 border-x border-b border-slate-200'
     }`}>
       {highlighted && (
-        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2A9D90] text-white hover:bg-[#2A9D90] font-mono text-[10px] uppercase tracking-wider">Most Popular</Badge>
+        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2A9D90] text-white hover:bg-[#2A9D90] font-sans text-[10px] uppercase tracking-wider">Most Popular</Badge>
       )}
       <div className="mb-6">
-        <span className="font-mono text-xs uppercase tracking-wider text-slate-400 block mb-1">Plan</span>
+        <span className="font-sans text-xs uppercase tracking-wider text-slate-400 block mb-1">Plan</span>
         <h3 className="text-2xl font-bold tracking-tight text-slate-900 mb-2">{name}</h3>
         {description && <p className="text-slate-600 text-sm leading-relaxed">{description}</p>}
       </div>
       <div className="mb-6">
-        <span className="font-mono text-xs uppercase tracking-wider text-slate-400 block mb-1">Price</span>
+        <span className="font-sans text-xs uppercase tracking-wider text-slate-400 block mb-1">Price</span>
         <div className="flex items-baseline">
-            <span className="text-4xl font-mono font-bold text-slate-900">{price}</span>
+            <span className="text-4xl font-sans font-bold text-slate-900">{price}</span>
             <span className="text-slate-600 ml-2">{period}</span>
         </div>
-        {subtext && (<span className="font-mono text-xs text-slate-500 mt-1 block">{subtext}</span>)}
+        {subtext && (<span className="font-sans text-xs text-slate-500 mt-1 block">{subtext}</span>)}
       </div>
       <Button onClick={onAction} className={`w-full mb-8 h-12 text-lg ${ctaVariant === 'teal' ? 'bg-[#2A9D90] hover:bg-[#2A9D90]/90 text-white' : 'bg-slate-900 hover:bg-slate-800 text-white'}`}>
         {cta}
       </Button>
       <div className="space-y-4 flex-1">
-        <span className="font-mono text-xs uppercase tracking-wider text-slate-400 block">Includes</span>
+        <span className="font-sans text-xs uppercase tracking-wider text-slate-400 block">Includes</span>
         {features.map((feature, i) => (
           <div key={i} className="flex items-start gap-3">
              {typeof feature === 'string' ? (

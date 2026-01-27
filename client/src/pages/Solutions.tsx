@@ -40,10 +40,10 @@ export default function Solutions() {
 
       <PublicHeader />
 
-      <main className="space-y-32 mb-24">
+      <main className="space-y-20 mb-16">
 
         {/* Hero Section */}
-        <section className="relative overflow-hidden pt-[60px] pb-0">
+        <section className="relative overflow-hidden pt-12 pb-0">
           {/* Tech Grid Background with Radial Fade */}
           <div className="absolute inset-0" style={{
             background: `radial-gradient(ellipse at center, transparent 0%, #f8fafc 70%),
@@ -52,8 +52,8 @@ export default function Solutions() {
           }}></div>
 
           <div className="max-w-7xl mx-auto px-4 relative z-10">
-            <div className="text-center space-y-8 max-w-4xl mx-auto">
-              <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-4 block">Industry Solutions</span>
+            <div className="text-center space-y-6 max-w-4xl mx-auto">
+              <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">Industry Solutions</span>
 
               <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-slate-900">
                 Tailored for <span className="font-serif italic text-[#2A9D90]">Your</span> Industry
@@ -147,7 +147,7 @@ export default function Solutions() {
         <section className="py-0">
           <div className="max-w-7xl mx-auto px-4">
             <div className="text-center max-w-3xl mx-auto mb-16">
-              <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-4 block">Use Cases</span>
+              <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">Use Cases</span>
               <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-4">Built for Every Industry</h2>
               <p className="text-lg text-slate-600 leading-relaxed">
                 See how teams across industries use Doculoom to automate their document workflows.
@@ -191,7 +191,7 @@ export default function Solutions() {
 
               <div className="grid lg:grid-cols-2 gap-12 items-center relative z-10">
                 <div>
-                  <span className="font-mono text-xs uppercase tracking-wider text-slate-400 mb-4 block">Integration</span>
+                  <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">Integration</span>
                   <h2 className="text-3xl lg:text-4xl font-bold tracking-tight text-white mb-6">
                     Fits Into Your <span className="font-serif italic text-[#2A9D90]">Existing</span> Workflow
                   </h2>
@@ -212,26 +212,26 @@ export default function Solutions() {
                     <div className="w-3 h-3 rounded-full bg-red-500"></div>
                     <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
                     <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                    <span className="ml-2 font-mono text-xs text-slate-500">workflow.integration</span>
+                    <span className="ml-2 font-sans text-xs text-slate-500">workflow.integration</span>
                   </div>
                   <div className="space-y-3">
                     <div className="flex items-center gap-3 p-3 bg-slate-700/50 rounded border border-slate-600">
                       <FileSpreadsheet className="text-green-500" size={20} />
-                      <span className="font-mono text-sm text-slate-300">products.xlsx</span>
+                      <span className="font-sans text-sm text-slate-300">products.xlsx</span>
                       <ArrowRight className="text-slate-500 ml-auto" size={16} />
                     </div>
                     <div className="flex items-center gap-3 p-3 bg-[#2A9D90]/20 rounded border border-[#2A9D90]/40">
                       <LayoutTemplate className="text-[#2A9D90]" size={20} />
-                      <span className="font-mono text-sm text-[#2A9D90]">Doculoom Processing...</span>
+                      <span className="font-sans text-sm text-[#2A9D90]">Doculoom Processing...</span>
                     </div>
                     <div className="flex items-center gap-3 p-3 bg-slate-700/50 rounded border border-slate-600">
                       <Printer className="text-slate-400" size={20} />
-                      <span className="font-mono text-sm text-slate-300">catalog_2024.pdf</span>
-                      <span className="ml-auto font-mono text-xs text-green-400">READY</span>
+                      <span className="font-sans text-sm text-slate-300">catalog_2024.pdf</span>
+                      <span className="ml-auto font-sans text-xs text-green-400">READY</span>
                     </div>
                   </div>
                   {/* Corner Mark */}
-                  <div className="text-slate-600 font-mono text-xs mt-4 text-right">&#x231F;</div>
+                  <div className="text-slate-600 font-sans text-xs mt-4 text-right">&#x231F;</div>
                 </div>
               </div>
             </div>
@@ -310,7 +310,7 @@ function SolutionCard({
         : 'border-t-4 border-t-slate-900 border-x border-b border-slate-200 hover:shadow-lg transition-shadow'
     }`}>
       {highlighted && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2A9D90] text-white px-3 py-1 rounded-full text-[10px] font-mono uppercase tracking-wider">
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2A9D90] text-white px-3 py-1 rounded-full text-[10px] font-sans uppercase tracking-wider">
           Most Popular
         </div>
       )}
@@ -324,7 +324,7 @@ function SolutionCard({
       </div>
 
       <div className="space-y-3 mb-6 flex-1">
-        <span className="font-mono text-xs uppercase tracking-wider text-slate-400 block">Key Features</span>
+        <span className="font-sans text-xs uppercase tracking-wider text-slate-400 block">Key Features</span>
         {features.map((feature, i) => (
           <div key={i} className="flex items-center gap-3">
             <div className="w-5 h-5 rounded-full bg-[#2A9D90]/10 flex items-center justify-center flex-shrink-0">
@@ -336,7 +336,7 @@ function SolutionCard({
       </div>
 
       <div className="pt-4 border-t border-slate-100">
-        <span className="font-mono text-xs uppercase tracking-wider text-slate-400 block mb-2">Common Use Cases</span>
+        <span className="font-sans text-xs uppercase tracking-wider text-slate-400 block mb-2">Common Use Cases</span>
         <div className="flex flex-wrap gap-2">
           {useCases.map((useCase, i) => (
             <span key={i} className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded font-medium">
@@ -373,7 +373,7 @@ function IndustryCard({
       <h3 className="font-bold tracking-tight text-slate-900 mb-2">{title}</h3>
       <p className="text-slate-600 text-sm leading-relaxed">{description}</p>
       {/* Corner Mark */}
-      <div className="absolute bottom-3 right-3 text-slate-300 font-mono text-sm">&#x231F;</div>
+      <div className="absolute bottom-3 right-3 text-slate-300 font-sans text-sm">&#x231F;</div>
     </div>
   );
 }
@@ -382,9 +382,9 @@ function IndustryCard({
 function StatCard({ value, label, subtext }: { value: string; label: string; subtext: string }) {
   return (
     <div className="space-y-2">
-      <div className="text-5xl font-bold font-mono text-[#2A9D90]">{value}</div>
+      <div className="text-5xl font-bold font-sans text-[#2A9D90]">{value}</div>
       <div className="text-xl font-bold text-slate-900">{label}</div>
-      <div className="text-sm text-slate-500 font-mono uppercase tracking-wider">{subtext}</div>
+      <div className="text-sm text-slate-500 font-sans uppercase tracking-wider">{subtext}</div>
     </div>
   );
 }
