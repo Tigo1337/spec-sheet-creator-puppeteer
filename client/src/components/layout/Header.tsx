@@ -128,7 +128,7 @@ export function Header() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: designData.name,
-          type: designData.pageCount > 1 ? "multi" : "single",
+          type: "single",
           canvasWidth: designData.canvasWidth,
           canvasHeight: designData.canvasHeight,
           pageCount: designData.pageCount,
