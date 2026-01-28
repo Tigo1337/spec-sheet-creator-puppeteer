@@ -250,13 +250,25 @@ function processAITextRegions(
       placeholder = "• List item 1\n• List item 2\n• List item 3";
     }
 
+    // Use the content from AI if available, otherwise fall back to placeholder
+    const content = textData.content || placeholder;
+
+    // "Tight Fit" height calculation based on content length
+    // Keep width from AI bounding box, but calculate height dynamically
+    const charWidthAvg = fontSize * 0.55; // Average character width for Inter font
+    const charsPerLine = Math.max(1, Math.floor(w / charWidthAvg));
+    const estimatedLines = Math.ceil(content.length / charsPerLine);
+    const lineHeight = 1.4; // Matches textStyle lineHeight
+    const calculatedHeight = Math.max(fontSize * lineHeight, estimatedLines * fontSize * lineHeight);
+    const finalHeight = Math.round(calculatedHeight + 10); // Add small buffer for padding
+
     // Create the Text Element
     elements.push({
       id: nanoid(),
       type: "text",
       content: placeholder, // Use placeholder to focus on layout
       position: { x: Math.round(x), y: Math.round(y) },
-      dimension: { width: Math.round(w), height: Math.round(h) },
+      dimension: { width: Math.round(w), height: finalHeight },
       rotation: 0,
       locked: false,
       visible: true,
