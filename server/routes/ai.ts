@@ -45,7 +45,8 @@ router.post("/analyze-layout", async (req, res) => {
     const prompt = `
       Analyze this document page layout. I need to extract distinct visual elements to reconstruct it digitally.
 
-      1. **Images:** Identify logos, product photos, icons. (Ignore watermarks).
+      1. **Images:** Identify logos, product photos, icons. (Ignore subtle watermarks).
+         - CRITICAL: If you see multiple distinct images side-by-side (e.g., a row of 3 spec photos), define a SEPARATE bounding box for EACH image. Do NOT group them into one large box.
       2. **Tables:** Identify data grids.
       3. **Text Regions:** Identify distinct blocks of text.
          - Group continuous paragraphs into ONE region.
