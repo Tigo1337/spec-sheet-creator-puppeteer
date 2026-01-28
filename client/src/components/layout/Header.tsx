@@ -62,6 +62,7 @@ export function Header() {
   const [pendingImportElements, setPendingImportElements] = useState<CanvasElement[] | null>(null);
   const [pendingImportDimensions, setPendingImportDimensions] = useState<{ width: number; height: number } | null>(null);
   const [pendingBackgroundDataUrl, setPendingBackgroundDataUrl] = useState<string | null>(null);
+  const [pendingTotalPages, setPendingTotalPages] = useState<number>(1);
 
   const { isPro } = useSubscription();
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
@@ -120,16 +121,17 @@ export function Header() {
       elements: CanvasElement[];
       canvasWidth: number;
       canvasHeight: number;
+      pageCount: number;
     }) => {
       const response = await fetch("/api/designs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: designData.name,
-          type: "single",
+          type: designData.pageCount > 1 ? "multi" : "single",
           canvasWidth: designData.canvasWidth,
           canvasHeight: designData.canvasHeight,
-          pageCount: 1,
+          pageCount: designData.pageCount,
           backgroundColor: "#ffffff",
           elements: designData.elements,
         }),
@@ -168,10 +170,10 @@ export function Header() {
       setIsImporting(true);
       toast({
         title: "Importing PDF...",
-        description: "Reconstructing layout and extracting text.",
+        description: "Analyzing layout and extracting elements from all pages.",
       });
 
-      // 1. Process the PDF
+      // 1. Process the PDF (multi-page)
       const result = await importPdf(file);
 
       // 2. Store pending import data instead of loading immediately
@@ -181,6 +183,7 @@ export function Header() {
         height: result.canvasHeight,
       });
       setPendingBackgroundDataUrl(result.backgroundDataUrl);
+      setPendingTotalPages(result.totalPages);
 
       // 3. Set default name from filename (strip .pdf extension)
       const baseName = file.name.replace(/\.pdf$/i, "");
@@ -224,23 +227,25 @@ export function Header() {
       pendingBackgroundDataUrl || ""
     );
 
-    // 2. Save to database
+    // 2. Save to database (with correct page count for multi-page PDFs)
     createDesignMutation.mutate({
       name: trimmedName,
       elements: pendingImportElements,
       canvasWidth: pendingImportDimensions.width,
       canvasHeight: pendingImportDimensions.height,
+      pageCount: pendingTotalPages,
     });
 
     // 3. Clear pending state and close dialog
     setPendingImportElements(null);
     setPendingImportDimensions(null);
     setPendingBackgroundDataUrl(null);
+    setPendingTotalPages(1);
     setShowNameDialog(false);
 
     toast({
       title: "Design imported and saved",
-      description: "Autosave is now active.",
+      description: `${pendingTotalPages} page(s) imported. Autosave is now active.`,
     });
   };
 
@@ -249,6 +254,7 @@ export function Header() {
     setPendingImportElements(null);
     setPendingImportDimensions(null);
     setPendingBackgroundDataUrl(null);
+    setPendingTotalPages(1);
     setImportName("");
     setShowNameDialog(false);
   };
@@ -261,13 +267,15 @@ export function Header() {
       <Dialog open={showNameDialog} onOpenChange={setShowNameDialog}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Name your Design</DialogTitle>
+            <DialogTitle>Save Imported Design</DialogTitle>
             <DialogDescription>
-              Give your imported PDF a name to enable auto-save.
+              {pendingTotalPages > 1
+                ? `Imported ${pendingTotalPages} pages. Give your design a name to save it.`
+                : "Give your imported PDF a name to enable auto-save."}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <Label htmlFor="import-name">Name</Label>
+            <Label htmlFor="import-name">Design Name</Label>
             <Input
               id="import-name"
               value={importName}
@@ -294,7 +302,7 @@ export function Header() {
               {createDesignMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
-              Create & Save
+              Save & Edit
             </Button>
           </DialogFooter>
         </DialogContent>
