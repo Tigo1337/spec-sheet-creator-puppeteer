@@ -16,14 +16,26 @@ const router = Router();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 // Use the specific model requested for Vision tasks
+// Deterministic settings: temperature=0, topP=1, topK=1 ensure
+// the same PDF always produces the exact same layout analysis
 const visionModel = genAI.getGenerativeModel({
   model: "gemini-2.5-flash-lite",
-  generationConfig: { responseMimeType: "application/json" }
+  generationConfig: {
+    responseMimeType: "application/json",
+    temperature: 0,
+    topP: 1,
+    topK: 1,
+  }
 });
 
 const textModel = genAI.getGenerativeModel({
   model: "gemini-2.5-flash-lite",
-  generationConfig: { responseMimeType: "application/json" }
+  generationConfig: {
+    responseMimeType: "application/json",
+    temperature: 0,
+    topP: 1,
+    topK: 1,
+  }
 });
 
 /**

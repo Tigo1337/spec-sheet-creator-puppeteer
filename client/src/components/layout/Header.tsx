@@ -7,6 +7,16 @@ import {
 } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
   Undo2,
   Redo2,
   ZoomIn,
@@ -17,7 +27,7 @@ import {
   FileUp, // Added FileUp icon
   Sun,
   Moon,
-  Crown, 
+  Crown,
   Sparkles,
   ChevronDown,
   CheckCircle2,
@@ -26,6 +36,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useUser, UserButton } from "@clerk/clerk-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { QRManagerDialog } from "@/components/dialogs/QRManagerDialog";
 import { useSubscription } from "@/hooks/use-subscription";
 import { UpgradeDialog } from "@/components/dialogs/UpgradeDialog";
@@ -35,13 +46,22 @@ import { DesignManagerDialog } from "@/components/dialogs/DesignManagerDialog";
 import { format } from "date-fns";
 import { importPdf } from "@/lib/pdf-importer"; // Import the utility
 import { useToast } from "@/hooks/use-toast"; // Import toast for feedback
+import type { CanvasElement } from "@shared/schema";
 
 export function Header() {
   const { user } = useUser();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
+
+  // --- Save on Import State ---
+  const [showNameDialog, setShowNameDialog] = useState(false);
+  const [importName, setImportName] = useState("");
+  const [pendingImportElements, setPendingImportElements] = useState<CanvasElement[] | null>(null);
+  const [pendingImportDimensions, setPendingImportDimensions] = useState<{ width: number; height: number } | null>(null);
+  const [pendingBackgroundDataUrl, setPendingBackgroundDataUrl] = useState<string | null>(null);
 
   const { isPro } = useSubscription();
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
@@ -51,8 +71,8 @@ export function Header() {
     setZoom,
     showGrid,
     toggleGrid,
-    gridSize, 
-    setGridSize, 
+    gridSize,
+    setGridSize,
     snapToGrid,
     toggleSnapToGrid,
     undo,
@@ -60,9 +80,13 @@ export function Header() {
     hasUnsavedChanges,
     currentTemplate,
     setRightPanelTab,
-    saveStatus, 
+    saveStatus,
     lastSavedAt,
-    loadPdfDesign // Get the action from store
+    loadPdfDesign, // Get the action from store
+    loadDesignState,
+    canvasWidth,
+    canvasHeight,
+    backgroundColor,
   } = useCanvasStore();
 
   useEffect(() => {
@@ -89,6 +113,44 @@ export function Header() {
     fileInputRef.current?.click();
   };
 
+  // Mutation to create design after import
+  const createDesignMutation = useMutation({
+    mutationFn: async (designData: {
+      name: string;
+      elements: CanvasElement[];
+      canvasWidth: number;
+      canvasHeight: number;
+    }) => {
+      const response = await fetch("/api/designs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: designData.name,
+          type: "single",
+          canvasWidth: designData.canvasWidth,
+          canvasHeight: designData.canvasHeight,
+          pageCount: 1,
+          backgroundColor: "#ffffff",
+          elements: designData.elements,
+        }),
+      });
+      if (!response.ok) throw new Error("Failed to create design");
+      return response.json();
+    },
+    onSuccess: (newDesign) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/designs"] });
+      // Set the design ID in store so auto-save can take over
+      loadDesignState(newDesign.id, newDesign.name);
+    },
+    onError: () => {
+      toast({
+        title: "Save Failed",
+        description: "Design imported but could not be saved. Autosave will retry.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -112,18 +174,20 @@ export function Header() {
       // 1. Process the PDF
       const result = await importPdf(file);
 
-      // 2. Load into Store
-      loadPdfDesign(
-        result.elements,
-        result.canvasWidth,
-        result.canvasHeight,
-        result.backgroundDataUrl
-      );
-
-      toast({
-        title: "Success",
-        description: "PDF imported successfully!",
+      // 2. Store pending import data instead of loading immediately
+      setPendingImportElements(result.elements);
+      setPendingImportDimensions({
+        width: result.canvasWidth,
+        height: result.canvasHeight,
       });
+      setPendingBackgroundDataUrl(result.backgroundDataUrl);
+
+      // 3. Set default name from filename (strip .pdf extension)
+      const baseName = file.name.replace(/\.pdf$/i, "");
+      setImportName(baseName);
+
+      // 4. Open the naming dialog
+      setShowNameDialog(true);
     } catch (error) {
       console.error("PDF Import Error:", error);
       toast({
@@ -138,9 +202,103 @@ export function Header() {
     }
   };
 
+  // --- Finalize Import: Load into canvas and save to DB ---
+  const finalizeImport = () => {
+    if (!pendingImportElements || !pendingImportDimensions) return;
+
+    const trimmedName = importName.trim();
+    if (!trimmedName) {
+      toast({
+        title: "Name Required",
+        description: "Please enter a name for your design.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // 1. Load into canvas store
+    loadPdfDesign(
+      pendingImportElements,
+      pendingImportDimensions.width,
+      pendingImportDimensions.height,
+      pendingBackgroundDataUrl || ""
+    );
+
+    // 2. Save to database
+    createDesignMutation.mutate({
+      name: trimmedName,
+      elements: pendingImportElements,
+      canvasWidth: pendingImportDimensions.width,
+      canvasHeight: pendingImportDimensions.height,
+    });
+
+    // 3. Clear pending state and close dialog
+    setPendingImportElements(null);
+    setPendingImportDimensions(null);
+    setPendingBackgroundDataUrl(null);
+    setShowNameDialog(false);
+
+    toast({
+      title: "Design imported and saved",
+      description: "Autosave is now active.",
+    });
+  };
+
+  // --- Cancel Import ---
+  const cancelImport = () => {
+    setPendingImportElements(null);
+    setPendingImportDimensions(null);
+    setPendingBackgroundDataUrl(null);
+    setImportName("");
+    setShowNameDialog(false);
+  };
+
   return (
     <header className="h-14 border-b bg-sidebar flex items-center justify-between px-4 gap-4 flex-shrink-0">
       <UpgradeDialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog} />
+
+      {/* Name Dialog for PDF Import */}
+      <Dialog open={showNameDialog} onOpenChange={setShowNameDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Name your Design</DialogTitle>
+            <DialogDescription>
+              Give your imported PDF a name to enable auto-save.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="import-name">Name</Label>
+            <Input
+              id="import-name"
+              value={importName}
+              onChange={(e) => setImportName(e.target.value)}
+              placeholder="e.g. Product Spec Sheet"
+              className="mt-2"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  finalizeImport();
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelImport}>
+              Cancel
+            </Button>
+            <Button
+              onClick={finalizeImport}
+              disabled={createDesignMutation.isPending}
+            >
+              {createDesignMutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Create & Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Hidden File Input for Import */}
       <input
