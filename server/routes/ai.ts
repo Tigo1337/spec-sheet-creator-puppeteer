@@ -17,12 +17,12 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 // Use the specific model requested for Vision tasks
 const visionModel = genAI.getGenerativeModel({
-  model: "gemini-2.0-flash",
+  model: "gemini-2.5-flash-lite",
   generationConfig: { responseMimeType: "application/json" }
 });
 
 const textModel = genAI.getGenerativeModel({
-  model: "gemini-2.0-flash",
+  model: "gemini-2.5-flash-lite",
   generationConfig: { responseMimeType: "application/json" }
 });
 
