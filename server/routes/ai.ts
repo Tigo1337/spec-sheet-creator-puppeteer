@@ -44,20 +44,24 @@ router.post("/analyze-layout", async (req, res) => {
 
     const prompt = `
       Analyze this document page layout. I need to extract distinct visual elements to reconstruct it digitally.
-      1. Identify all **Visual Images** (logos, product photos, icons).
-      2. Identify all **Data Tables** (grids).
-      3. Identify all **Text Regions** (paragraphs, headings, bulleted lists). Group multi-line paragraphs and lists into a SINGLE bounding box. Do not split lines.
 
-      Return JSON:
+      1. **Images:** Identify logos, product photos, icons. (Ignore watermarks).
+      2. **Tables:** Identify data grids.
+      3. **Text Regions:** Identify distinct blocks of text.
+         - Group continuous paragraphs into ONE region.
+         - Group bulleted lists into ONE region.
+         - Identify Headers separately.
+
+      Return ONLY valid JSON with this structure:
       {
-        "images": [{ "box_2d": [y1, x1, y2, x2], "label": "string" }],
-        "tables": [{ "box_2d": [y1, x1, y2, x2], "rows": number, "cols": number }],
-        "text_regions": [{ "box_2d": [y1, x1, y2, x2], "type": "paragraph" | "heading" | "list" }]
+        "images": [ { "box_2d": [y1, x1, y2, x2], "label": "string" } ],
+        "tables": [ { "box_2d": [y1, x1, y2, x2], "rows": number, "cols": number } ],
+        "text_regions": [
+          { "box_2d": [y1, x1, y2, x2], "type": "heading" | "paragraph" | "list", "content": "string" }
+        ]
       }
 
-      Important:
-      - "box_2d" coordinates must be normalized to 0-1000 scale.
-      - Do not hallucinate elements. If no elements of a type exist, return an empty array.
+      "box_2d" is [ymin, xmin, ymax, xmax] in 0-1000 PDFQuad coordinates.
     `;
 
     // 2. Generate Content
