@@ -1,21 +1,21 @@
 /**
- * AI-Assisted PDF Layout Template Generator (Hybrid Mode)
+ * AI-Assisted PDF Layout Template Generator (Hybrid Intersection Engine)
  *
  * Workflow:
- * 1. Render PDF page to a high-quality "Master Image" (for AI analysis only).
- * 2. Extract RAW text items from PDF.js with accurate font sizes and positions.
- * 3. Send "Master Image" to Gemini AI to identify discrete elements:
- *    - Visual Images (logos, product photos, icons)
- *    - Data Tables (grids)
- *    - Text Regions (paragraphs, headings, lists) - grouped as unified bounding boxes
- * 4. HYBRID: For each AI text region, intersect with raw text items to derive:
- *    - Accurate font size (average/mode of matching items)
- *    - Font weight detection from PDF font names
- *    - Text alignment inference
- * 5. Calculate element height dynamically based on placeholder text length.
+ * 1. PHASE A: Extract raw metadata from PDF.js with perfect coordinates.
+ * 2. PHASE B: Send rendered page image to AI for semantic region detection.
+ * 3. PHASE C: INTERSECTION ENGINE - For each AI region, intersect with raw items to:
+ *    - Refine bounds using min/max of matched raw items (pixel-perfect sizing)
+ *    - Calculate average font size from matched items
+ *    - Detect text alignment from line start positions
+ * 4. PHASE D: Cleanup - Fallback to AI coordinates if no intersecting items found.
  *
- * NOTE: The backgroundDataUrl is NEVER added as a canvas element. It is only used
- * for AI analysis and then discarded. No background layer is created.
+ * The AI gives us good "regions" but bad "coordinates."
+ * The PDF gives us bad "regions" (fragmented lines) but perfect "coordinates."
+ * This hybrid approach combines the best of both.
+ *
+ * NOTE: No backgroundElement is ever created. The rendered image is only used
+ * for AI analysis and then discarded.
  */
 
 import * as pdfjsLib from "pdfjs-dist";
@@ -25,7 +25,6 @@ import type { CanvasElement } from "@shared/schema";
 
 // --- CONFIGURATION ---
 const PDFJS_VERSION = pdfjsLib.version || "5.4.449";
-// Use unpkg for reliable worker loading
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
 
 const PDF_DPI = 72;
@@ -38,7 +37,10 @@ const RENDER_SCALE = 2; // Render at 2x for high quality AI analysis
 const DEFAULT_FONT_SIZE = 14;
 const DEFAULT_FONT_WEIGHT = 400;
 const DEFAULT_LINE_HEIGHT = 1.4;
-const CHAR_WIDTH_RATIO = 0.55; // Average character width ratio for Inter font
+const CHAR_WIDTH_RATIO = 0.55;
+
+// Intersection matching threshold (50% overlap required)
+const INTERSECTION_THRESHOLD = 0.5;
 
 export interface PdfImportResult {
   elements: CanvasElement[];
@@ -54,27 +56,26 @@ export interface PdfImportOptions {
   imageQuality?: number;
 }
 
-// --- RAW TEXT ITEM INTERFACE ---
+// --- RAW ITEM INTERFACE (Phase A Output) ---
 
 /**
- * Represents a single text chunk extracted from PDF.js with accurate font info.
- * These are kept in memory and NOT added to the canvas directly.
+ * Represents a single text snippet extracted from PDF.js with accurate positioning.
+ * This is the "truth" for coordinates and font info.
  */
-interface RawTextItem {
-  text: string;
-  x: number; // Canvas pixel X position
-  y: number; // Canvas pixel Y position
-  width: number; // Estimated width in canvas pixels
-  height: number; // Font height in canvas pixels
+interface RawItem {
+  x: number;       // Canvas pixel X position (left edge)
+  y: number;       // Canvas pixel Y position (top edge)
+  width: number;   // Width in canvas pixels
+  height: number;  // Height in canvas pixels
+  text: string;    // The actual text content
   fontSize: number; // Font size in canvas pixels
-  fontWeight: number; // 400 (normal) or 700 (bold)
   fontFamily: string; // Original PDF font name
 }
 
 // --- HELPER FUNCTIONS ---
 
 /**
- * Type guard to check if a text content item is a TextItem (has 'str' property).
+ * Type guard to check if a text content item is a TextItem.
  */
 function isTextItem(item: TextItem | TextMarkedContent): item is TextItem {
   return "str" in item && typeof item.str === "string";
@@ -82,7 +83,6 @@ function isTextItem(item: TextItem | TextMarkedContent): item is TextItem {
 
 /**
  * Extract font weight from PDF font name.
- * PDF fonts often include weight indicators in their names.
  */
 function extractFontWeight(fontName: string): number {
   const lowerFont = fontName.toLowerCase();
@@ -116,7 +116,6 @@ function convertPdfToCanvasCoords(
   pdfY: number,
   pageHeightPt: number
 ): { x: number; y: number } {
-  // Flip Y axis and scale to canvas DPI
   const canvasX = pdfX * DPI_SCALE;
   const canvasY = (pageHeightPt - pdfY) * DPI_SCALE;
   return { x: canvasX, y: canvasY };
@@ -129,19 +128,21 @@ function estimateTextWidth(text: string, fontSize: number): number {
   return text.length * fontSize * CHAR_WIDTH_RATIO;
 }
 
-// --- RAW TEXT SCANNER ---
+// ============================================================================
+// PHASE A: EXTRACT RAW METADATA
+// ============================================================================
 
 /**
- * Extract all text items from a PDF page with accurate font sizes and positions.
- * Returns RawTextItem[] which is kept in memory for intersection matching.
- * Does NOT add elements to the canvas.
+ * Extract raw layout data from a PDF page.
+ * Returns an array of RawItem with exact bounding boxes.
+ * These items are kept in memory for intersection matching.
  */
-async function extractRawTextItems(
+async function extractRawLayout(
   page: pdfjsLib.PDFPageProxy,
   pageHeightPt: number
-): Promise<RawTextItem[]> {
+): Promise<RawItem[]> {
   const textContent = await page.getTextContent();
-  const rawItems: RawTextItem[] = [];
+  const rawItems: RawItem[] = [];
 
   for (const item of textContent.items) {
     if (!isTextItem(item)) continue;
@@ -152,181 +153,42 @@ async function extractRawTextItems(
     const pdfX = transform[4];
     const pdfY = transform[5];
 
-    // Font size is typically in the scaleY component (index 3) or scaleX (index 0)
-    // Use absolute value as it can be negative for certain text orientations
+    // Font size from transform matrix
     const pdfFontSize = Math.abs(transform[3]) || Math.abs(transform[0]) || 12;
     const canvasFontSize = pdfFontSize * DPI_SCALE;
 
-    // Convert coordinates
+    // Convert PDF coords to canvas coords
     const { x, y } = convertPdfToCanvasCoords(pdfX, pdfY, pageHeightPt);
-
-    // Get font info
-    const fontName = item.fontName || "";
-    const fontWeight = extractFontWeight(fontName);
 
     // Calculate dimensions
     const width = item.width ? item.width * DPI_SCALE : estimateTextWidth(item.str, canvasFontSize);
     const height = item.height ? item.height * DPI_SCALE : canvasFontSize;
 
     rawItems.push({
-      text: item.str,
       x,
-      y: y - height, // Adjust Y to top of text box
+      y: y - height, // Adjust Y to top of text box (PDF Y is baseline)
       width,
       height,
+      text: item.str,
       fontSize: canvasFontSize,
-      fontWeight,
-      fontFamily: fontName,
+      fontFamily: item.fontName || "",
     });
   }
 
   return rawItems;
 }
 
-// --- REGION INTERSECTION LOGIC ---
+// ============================================================================
+// PHASE B: AI ANALYSIS (Render + Send to AI)
+// ============================================================================
 
 /**
- * Find all raw text items that fall inside an AI-detected bounding box.
- * Uses center-point intersection for more accurate matching.
+ * Render a PDF page to a high-quality image for AI analysis.
  */
-function findIntersectingTextItems(
-  rawItems: RawTextItem[],
-  box: { x: number; y: number; width: number; height: number }
-): RawTextItem[] {
-  return rawItems.filter((item) => {
-    // Calculate center point of the text item
-    const itemCenterX = item.x + item.width / 2;
-    const itemCenterY = item.y + item.height / 2;
-
-    // Check if center is inside the box
-    return (
-      itemCenterX >= box.x &&
-      itemCenterX <= box.x + box.width &&
-      itemCenterY >= box.y &&
-      itemCenterY <= box.y + box.height
-    );
-  });
-}
-
-/**
- * Calculate the mode (most common value) from an array of numbers.
- * Used for detecting the dominant font size in a region.
- */
-function calculateMode(values: number[]): number | null {
-  if (values.length === 0) return null;
-
-  // Round to nearest integer for grouping similar sizes
-  const counts = new Map<number, number>();
-  for (const val of values) {
-    const rounded = Math.round(val);
-    counts.set(rounded, (counts.get(rounded) || 0) + 1);
-  }
-
-  let mode = values[0];
-  let maxCount = 0;
-  for (const [value, count] of counts) {
-    if (count > maxCount) {
-      maxCount = count;
-      mode = value;
-    }
-  }
-
-  return mode;
-}
-
-/**
- * Calculate average value from an array of numbers.
- */
-function calculateAverage(values: number[]): number | null {
-  if (values.length === 0) return null;
-  return values.reduce((sum, val) => sum + val, 0) / values.length;
-}
-
-/**
- * Derive font metrics from intersecting raw text items.
- * Returns the detected font size (mode or average) and dominant font weight.
- */
-function deriveFontMetrics(
-  matchingItems: RawTextItem[]
-): { fontSize: number; fontWeight: number } {
-  if (matchingItems.length === 0) {
-    return { fontSize: DEFAULT_FONT_SIZE, fontWeight: DEFAULT_FONT_WEIGHT };
-  }
-
-  const fontSizes = matchingItems.map((item) => item.fontSize);
-  const fontWeights = matchingItems.map((item) => item.fontWeight);
-
-  // Use mode for font size (most common size in the region)
-  const modeFontSize = calculateMode(fontSizes);
-  // Fall back to average if mode fails
-  const avgFontSize = calculateAverage(fontSizes);
-  const detectedFontSize = modeFontSize || avgFontSize || DEFAULT_FONT_SIZE;
-
-  // Use mode for font weight (most common weight)
-  const modeWeight = calculateMode(fontWeights);
-  const detectedFontWeight = modeWeight || DEFAULT_FONT_WEIGHT;
-
-  return {
-    fontSize: Math.round(detectedFontSize),
-    fontWeight: detectedFontWeight,
-  };
-}
-
-/**
- * Detect text alignment based on the horizontal distribution of text items within the box.
- */
-function detectTextAlignment(
-  matchingItems: RawTextItem[],
-  boxX: number,
-  boxWidth: number
-): "left" | "center" | "right" {
-  if (matchingItems.length === 0) return "left";
-
-  // Calculate the average horizontal center of all text items
-  const itemCenters = matchingItems.map((item) => item.x + item.width / 2);
-  const avgCenter = itemCenters.reduce((sum, c) => sum + c, 0) / itemCenters.length;
-
-  const boxCenter = boxX + boxWidth / 2;
-  const tolerance = boxWidth * 0.15; // 15% tolerance
-
-  if (Math.abs(avgCenter - boxCenter) < tolerance) {
-    return "center";
-  } else if (avgCenter > boxCenter + tolerance) {
-    return "right";
-  }
-  return "left";
-}
-
-// --- DYNAMIC HEIGHT CALCULATION ---
-
-/**
- * Calculate the element height based on placeholder text and detected font size.
- * Ignores the AI's bounding box height and calculates a "tight fit" height.
- */
-function calculateDynamicHeight(
-  placeholderText: string,
-  elementWidth: number,
-  fontSize: number
-): number {
-  // Heuristic for height calculation
-  const characterWidth = fontSize * CHAR_WIDTH_RATIO;
-  const charsPerLine = Math.max(1, Math.floor(elementWidth / characterWidth));
-  const numberOfLines = Math.ceil(placeholderText.length / charsPerLine);
-  const lineHeightPx = fontSize * DEFAULT_LINE_HEIGHT;
-
-  const calculatedHeight = Math.max(lineHeightPx, numberOfLines * lineHeightPx);
-
-  // Add small buffer for visual padding
-  return Math.round(calculatedHeight + 8);
-}
-
-// --- ELEMENT PROCESSORS ---
-
 async function renderPageToImage(
   page: pdfjsLib.PDFPageProxy,
   options: PdfImportOptions
 ): Promise<string> {
-  // Render at high resolution for AI analysis
   const viewport = page.getViewport({ scale: RENDER_SCALE * DPI_SCALE });
   const canvas = document.createElement("canvas");
   canvas.width = viewport.width;
@@ -342,10 +204,187 @@ async function renderPageToImage(
   return canvas.toDataURL("image/png", options.imageQuality || 0.92);
 }
 
+// ============================================================================
+// PHASE C: THE INTERSECTION ENGINE (The Fix)
+// ============================================================================
+
+/**
+ * Calculate the overlap ratio between a raw item and an AI box.
+ * Returns a value between 0 and 1 representing how much of the raw item
+ * is inside the AI box.
+ */
+function calculateOverlapRatio(
+  item: RawItem,
+  box: { x: number; y: number; width: number; height: number }
+): number {
+  // Calculate intersection rectangle
+  const intersectLeft = Math.max(item.x, box.x);
+  const intersectTop = Math.max(item.y, box.y);
+  const intersectRight = Math.min(item.x + item.width, box.x + box.width);
+  const intersectBottom = Math.min(item.y + item.height, box.y + box.height);
+
+  // Check if there's any intersection
+  if (intersectRight <= intersectLeft || intersectBottom <= intersectTop) {
+    return 0;
+  }
+
+  // Calculate intersection area
+  const intersectArea = (intersectRight - intersectLeft) * (intersectBottom - intersectTop);
+  const itemArea = item.width * item.height;
+
+  if (itemArea === 0) return 0;
+
+  return intersectArea / itemArea;
+}
+
+/**
+ * Find all RawItems that intersect with an AI bounding box.
+ * Requires at least INTERSECTION_THRESHOLD (50%) overlap.
+ */
+function findIntersectingItems(
+  rawItems: RawItem[],
+  aiBox: { x: number; y: number; width: number; height: number }
+): RawItem[] {
+  return rawItems.filter((item) => {
+    const overlap = calculateOverlapRatio(item, aiBox);
+    return overlap >= INTERSECTION_THRESHOLD;
+  });
+}
+
+/**
+ * Refine the bounding box using the exact coordinates from matched raw items.
+ * Returns pixel-perfect bounds based on actual text positions.
+ */
+function refineBounds(
+  matchingItems: RawItem[]
+): { minX: number; minY: number; maxX: number; maxY: number } | null {
+  if (matchingItems.length === 0) return null;
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  for (const item of matchingItems) {
+    minX = Math.min(minX, item.x);
+    minY = Math.min(minY, item.y);
+    maxX = Math.max(maxX, item.x + item.width);
+    maxY = Math.max(maxY, item.y + item.height);
+  }
+
+  return { minX, minY, maxX, maxY };
+}
+
+/**
+ * Calculate the average font size from matched raw items.
+ */
+function calculateAvgFontSize(matchingItems: RawItem[]): number {
+  if (matchingItems.length === 0) return DEFAULT_FONT_SIZE;
+
+  const total = matchingItems.reduce((sum, item) => sum + item.fontSize, 0);
+  return Math.round(total / matchingItems.length);
+}
+
+/**
+ * Detect the dominant font weight from matched raw items.
+ */
+function detectFontWeight(matchingItems: RawItem[]): number {
+  if (matchingItems.length === 0) return DEFAULT_FONT_WEIGHT;
+
+  // Count occurrences of each font weight
+  const weightCounts = new Map<number, number>();
+  for (const item of matchingItems) {
+    const weight = extractFontWeight(item.fontFamily);
+    weightCounts.set(weight, (weightCounts.get(weight) || 0) + 1);
+  }
+
+  // Find the most common weight
+  let maxCount = 0;
+  let dominantWeight = DEFAULT_FONT_WEIGHT;
+  for (const [weight, count] of weightCounts) {
+    if (count > maxCount) {
+      maxCount = count;
+      dominantWeight = weight;
+    }
+  }
+
+  return dominantWeight;
+}
+
+/**
+ * Detect text alignment by analyzing the horizontal positions of matched items.
+ *
+ * - Left aligned: minX values of lines are similar (within tolerance)
+ * - Center aligned: center points of lines are similar
+ * - Right aligned: maxX values of lines are similar
+ */
+function detectAlignment(
+  matchingItems: RawItem[],
+  regionWidth: number
+): "left" | "center" | "right" {
+  if (matchingItems.length < 2) return "left";
+
+  // Group items into lines by Y position (items within 5px are same line)
+  const lineGroups: RawItem[][] = [];
+  const sortedByY = [...matchingItems].sort((a, b) => a.y - b.y);
+
+  let currentLine: RawItem[] = [sortedByY[0]];
+  for (let i = 1; i < sortedByY.length; i++) {
+    const item = sortedByY[i];
+    const prevItem = currentLine[currentLine.length - 1];
+
+    if (Math.abs(item.y - prevItem.y) < 5) {
+      currentLine.push(item);
+    } else {
+      lineGroups.push(currentLine);
+      currentLine = [item];
+    }
+  }
+  lineGroups.push(currentLine);
+
+  if (lineGroups.length < 2) return "left";
+
+  // Calculate line start positions (minX of each line)
+  const lineStarts = lineGroups.map((line) => Math.min(...line.map((item) => item.x)));
+
+  // Calculate line centers
+  const lineCenters = lineGroups.map((line) => {
+    const minX = Math.min(...line.map((item) => item.x));
+    const maxX = Math.max(...line.map((item) => item.x + item.width));
+    return (minX + maxX) / 2;
+  });
+
+  // Calculate line ends (maxX of each line)
+  const lineEnds = lineGroups.map((line) => Math.max(...line.map((item) => item.x + item.width)));
+
+  // Calculate variance for each alignment type
+  const tolerance = regionWidth * 0.1; // 10% of region width
+
+  const startVariance = Math.max(...lineStarts) - Math.min(...lineStarts);
+  const centerVariance = Math.max(...lineCenters) - Math.min(...lineCenters);
+  const endVariance = Math.max(...lineEnds) - Math.min(...lineEnds);
+
+  // Determine alignment based on which has lowest variance
+  if (startVariance <= tolerance && startVariance <= centerVariance && startVariance <= endVariance) {
+    return "left";
+  }
+  if (centerVariance <= tolerance && centerVariance <= startVariance && centerVariance <= endVariance) {
+    return "center";
+  }
+  if (endVariance <= tolerance) {
+    return "right";
+  }
+
+  return "left"; // Default fallback
+}
+
+// ============================================================================
+// ELEMENT PROCESSORS
+// ============================================================================
+
 /**
  * Process AI-detected images and create placeholder image elements.
- * Uses undefined imageSrc so the UI shows an empty image placeholder block.
- * NO actual image cropping is performed - this is a layout template.
+ * Uses AI coordinates directly (no raw text intersection for images).
  */
 function processAIImages(
   images: Array<{ box_2d: [number, number, number, number]; label?: string }>,
@@ -358,7 +397,6 @@ function processAIImages(
   for (const imgData of images) {
     const [ymin, xmin, ymax, xmax] = imgData.box_2d;
 
-    // Calculate canvas position from normalized coordinates
     const x = (xmin / 1000) * canvasWidth;
     const y = (ymin / 1000) * canvasHeight;
     const w = ((xmax - xmin) / 1000) * canvasWidth;
@@ -384,16 +422,14 @@ function processAIImages(
 }
 
 /**
- * Process AI-detected tables and create table elements with generic headers.
- * Also returns bounding boxes for filtering out overlapping text.
+ * Process AI-detected tables and create table elements.
  */
 function processAITables(
   tables: Array<{ box_2d: [number, number, number, number]; cols?: number; rows?: number }>,
   canvasWidth: number,
   canvasHeight: number
-): { elements: CanvasElement[]; boundingBoxes: Array<{ x: number; y: number; width: number; height: number }> } {
+): CanvasElement[] {
   const elements: CanvasElement[] = [];
-  const boundingBoxes: Array<{ x: number; y: number; width: number; height: number }> = [];
   let zIndex = 10;
 
   for (const tableData of tables) {
@@ -403,14 +439,6 @@ function processAITables(
     const y = (ymin / 1000) * canvasHeight;
     const w = ((xmax - xmin) / 1000) * canvasWidth;
     const h = ((ymax - ymin) / 1000) * canvasHeight;
-
-    // Store bounding box for text overlap filtering
-    boundingBoxes.push({
-      x: Math.round(x),
-      y: Math.round(y),
-      width: Math.round(w),
-      height: Math.round(h),
-    });
 
     const numCols = tableData.cols || 3;
 
@@ -428,7 +456,7 @@ function processAITables(
       tableSettings: {
         columns: Array.from({ length: numCols }).map((_, i) => ({
           id: `col-${i}`,
-          header: `Column ${i + 1}`, // Generic placeholder headers
+          header: `Column ${i + 1}`,
           width: Math.round(w / numCols),
           headerAlign: "left",
           rowAlign: "left"
@@ -468,82 +496,100 @@ function processAITables(
     });
   }
 
-  return { elements, boundingBoxes };
+  return elements;
 }
 
 /**
- * Process AI-detected text regions using HYBRID logic:
- * 1. Get AI bounding box (x, y, width) - ignore height
- * 2. Find intersecting raw text items from PDF.js
- * 3. Derive font size and weight from matching items
- * 4. Calculate height dynamically based on placeholder text
+ * Process AI-detected text regions using the HYBRID INTERSECTION ENGINE.
+ *
+ * For each AI region:
+ * 1. Query: Find all RawItems that intersect with the AI's box_2d (50% overlap)
+ * 2. Refine Bounds: Use min/max of matched raw items for pixel-perfect sizing
+ * 3. Detect Style: Average font size, alignment from matched items
+ * 4. Create Element: Use refined bounds for position/size
+ * 5. Fallback: If no intersecting items, use AI coordinates
  */
-function processAITextRegionsHybrid(
-  textRegions: Array<{ box_2d: [number, number, number, number]; type: "paragraph" | "heading" | "list"; content?: string }>,
-  rawTextItems: RawTextItem[],
+function processTextRegionsWithIntersection(
+  textRegions: Array<{ box_2d: [number, number, number, number]; type: "heading" | "paragraph" | "list"; content?: string }>,
+  rawItems: RawItem[],
   canvasWidth: number,
   canvasHeight: number
 ): CanvasElement[] {
   const elements: CanvasElement[] = [];
-  const zIndex = 50; // Text elements go on top of images/tables
+  let zIndex = 50;
 
-  for (const textData of textRegions) {
-    const [ymin, xmin, ymax, xmax] = textData.box_2d;
+  for (const region of textRegions) {
+    const [ymin, xmin, ymax, xmax] = region.box_2d;
 
-    // Convert 0-1000 coordinates to Pixels
-    const x = (xmin / 1000) * canvasWidth;
-    const y = (ymin / 1000) * canvasHeight;
-    const w = ((xmax - xmin) / 1000) * canvasWidth;
-    // Note: We IGNORE the AI height (ymax - ymin) and calculate our own
+    // Convert AI's 0-1000 coordinates to canvas pixels
+    const aiBox = {
+      x: (xmin / 1000) * canvasWidth,
+      y: (ymin / 1000) * canvasHeight,
+      width: ((xmax - xmin) / 1000) * canvasWidth,
+      height: ((ymax - ymin) / 1000) * canvasHeight,
+    };
 
-    // --- STEP 1: Find Intersecting Raw Text Items ---
-    const aiBox = { x, y, width: w, height: ((ymax - ymin) / 1000) * canvasHeight };
-    const matchingItems = findIntersectingTextItems(rawTextItems, aiBox);
+    // --- STEP 1: Find Intersecting Raw Items (50% overlap required) ---
+    const matchingItems = findIntersectingItems(rawItems, aiBox);
 
-    // --- STEP 2: Derive Font Metrics from Matching Items ---
-    let { fontSize, fontWeight } = deriveFontMetrics(matchingItems);
+    // --- STEP 2: Determine Final Position and Size ---
+    let finalX: number;
+    let finalY: number;
+    let finalWidth: number;
+    let finalHeight: number;
 
-    // --- STEP 3: Apply Type-Based Defaults (if no matches or for enhancement) ---
+    const refinedBounds = refineBounds(matchingItems);
+
+    if (refinedBounds) {
+      // Use refined bounds from raw items (pixel-perfect!)
+      finalX = refinedBounds.minX;
+      finalY = refinedBounds.minY;
+      finalWidth = refinedBounds.maxX - refinedBounds.minX;
+      finalHeight = refinedBounds.maxY - refinedBounds.minY;
+    } else {
+      // PHASE D: Fallback to AI coordinates if no intersecting items
+      finalX = aiBox.x;
+      finalY = aiBox.y;
+      finalWidth = aiBox.width;
+      finalHeight = aiBox.height;
+    }
+
+    // --- STEP 3: Detect Style from Matched Items ---
+    let avgFontSize = calculateAvgFontSize(matchingItems);
+    let fontWeight = detectFontWeight(matchingItems);
+    const alignment = detectAlignment(matchingItems, finalWidth);
+
+    // --- STEP 4: Apply Type-Based Adjustments ---
     let placeholder = "Lorem ipsum text block...";
 
-    if (textData.type === "heading") {
+    if (region.type === "heading") {
       // Headings should be at least 18px and bold
-      fontSize = Math.max(fontSize, 18);
+      avgFontSize = Math.max(avgFontSize, 18);
       fontWeight = Math.max(fontWeight, 700);
       placeholder = "Heading Text";
-    } else if (textData.type === "list") {
+    } else if (region.type === "list") {
       placeholder = "• List item 1\n• List item 2\n• List item 3";
     }
 
-    // Use AI content for placeholder if available (for more accurate height calculation)
-    const contentForHeight = textData.content || placeholder;
-
-    // --- STEP 4: Detect Text Alignment ---
-    const textAlign = detectTextAlignment(matchingItems, x, w);
-
-    // --- STEP 5: Calculate Dynamic Height ---
-    // Keep AI width, calculate height based on placeholder text
-    const calculatedHeight = calculateDynamicHeight(contentForHeight, w, fontSize);
-
-    // Create the Text Element
+    // --- STEP 5: Create the Element ---
     elements.push({
       id: nanoid(),
       type: "text",
-      content: placeholder, // Use placeholder to focus on layout
-      position: { x: Math.round(x), y: Math.round(y) },
-      dimension: { width: Math.round(w), height: calculatedHeight },
+      content: placeholder,
+      position: { x: Math.round(finalX), y: Math.round(finalY) },
+      dimension: { width: Math.round(finalWidth), height: Math.round(finalHeight) },
       rotation: 0,
       locked: false,
       visible: true,
-      zIndex: zIndex,
+      zIndex: zIndex++,
       pageIndex: 0,
       aspectRatioLocked: false,
       textStyle: {
         fontFamily: "Inter",
-        fontSize: fontSize,
+        fontSize: avgFontSize,
         fontWeight: fontWeight,
         color: "#000000",
-        textAlign: textAlign,
+        textAlign: alignment,
         verticalAlign: "top",
         lineHeight: DEFAULT_LINE_HEIGHT,
         letterSpacing: 0,
@@ -554,7 +600,9 @@ function processAITextRegionsHybrid(
   return elements;
 }
 
-// --- MAIN IMPORT FUNCTION ---
+// ============================================================================
+// MAIN IMPORT FUNCTION
+// ============================================================================
 
 export async function importPdf(
   file: File,
@@ -580,18 +628,20 @@ export async function importPdf(
     const canvasWidth = Math.round(pageWidthPt * DPI_SCALE);
     const canvasHeight = Math.round(pageHeightPt * DPI_SCALE);
 
-    // --- STEP 1: Extract Raw Text Items from PDF.js ---
-    // These are kept in memory for intersection matching, NOT added to canvas
-    console.log("PDF Importer: Extracting raw text items from PDF...");
-    const rawTextItems = await extractRawTextItems(page, pageHeightPt);
-    console.log(`PDF Importer: Extracted ${rawTextItems.length} raw text items`);
+    // =========================================================================
+    // PHASE A: Extract Raw Metadata (No elements created yet)
+    // =========================================================================
+    console.log("PDF Importer: PHASE A - Extracting raw layout from PDF...");
+    const rawItems = await extractRawLayout(page, pageHeightPt);
+    console.log(`PDF Importer: Extracted ${rawItems.length} raw text items with exact coordinates`);
 
-    // --- STEP 2: Render Full Page Image for AI Analysis ---
-    // This image is sent to AI and then DISCARDED - NOT added as a background layer
+    // =========================================================================
+    // PHASE B: AI Analysis
+    // =========================================================================
+    console.log("PDF Importer: PHASE B - Rendering page for AI analysis...");
     const backgroundDataUrl = await renderPageToImage(page, options);
 
-    // --- STEP 3: AI Layout Analysis ---
-    console.log("PDF Importer: Sending image to AI for layout analysis...");
+    console.log("PDF Importer: Sending image to AI for semantic region detection...");
     const aiResponse = await fetch("/api/ai/analyze-layout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -606,45 +656,52 @@ export async function importPdf(
     const layout = await aiResponse.json();
     console.log(`PDF Importer: AI detected ${layout.images?.length || 0} images, ${layout.tables?.length || 0} tables, ${layout.text_regions?.length || 0} text regions`);
 
-    // --- STEP 4: Process AI-detected Tables ---
-    const { elements: tableElements } = processAITables(
-      layout.tables || [],
-      canvasWidth,
-      canvasHeight
-    );
+    // =========================================================================
+    // PHASE C: The Intersection Engine (The Fix)
+    // =========================================================================
+    console.log("PDF Importer: PHASE C - Running intersection engine...");
 
-    // --- STEP 5: Process AI-detected Images ---
-    // Placeholder images, no actual cropped data
+    // Process images (use AI coordinates directly)
     const imageElements = processAIImages(
       layout.images || [],
       canvasWidth,
       canvasHeight
     );
 
-    // --- STEP 6: Process AI-detected Text Regions with HYBRID Logic ---
-    // For each AI text region:
-    //   1. Find intersecting raw text items
-    //   2. Derive fontSize and fontWeight from them
-    //   3. Generate element using AI's x, y, width and calculated height
-    const textElements = processAITextRegionsHybrid(
-      layout.text_regions || [],
-      rawTextItems,
+    // Process tables (use AI coordinates directly)
+    const tableElements = processAITables(
+      layout.tables || [],
       canvasWidth,
       canvasHeight
     );
 
+    // Process text regions with HYBRID INTERSECTION ENGINE
+    const textElements = processTextRegionsWithIntersection(
+      layout.text_regions || [],
+      rawItems,
+      canvasWidth,
+      canvasHeight
+    );
+
+    // =========================================================================
+    // PHASE D: Cleanup
+    // =========================================================================
+    // - Fallback to AI coordinates is handled inside processTextRegionsWithIntersection
+    // - No backgroundElement is created (backgroundDataUrl is for reference only)
+
     await pdfDoc.destroy();
 
-    // --- STEP 7: Combine All Elements ---
-    // NO BACKGROUND ELEMENT - backgroundDataUrl is NOT added to canvas elements
-    // zIndex ordering: Tables & Images at 10+, Text at 50+
+    // Combine all elements (NO background element)
     const allElements: CanvasElement[] = [
       ...tableElements,
       ...imageElements,
       ...textElements,
     ];
 
-    console.log(`PDF Importer: Created layout template with ${allElements.length} elements (${tableElements.length} tables, ${imageElements.length} images, ${textElements.length} text regions)`);
+    console.log(`PDF Importer: Created layout template with ${allElements.length} elements`);
+    console.log(`  - ${tableElements.length} tables`);
+    console.log(`  - ${imageElements.length} images`);
+    console.log(`  - ${textElements.length} text regions (intersection-refined)`);
 
     return {
       elements: allElements,
