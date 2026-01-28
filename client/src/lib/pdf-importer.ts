@@ -220,66 +220,57 @@ function processAITables(
  * This replaces the raw PDF.js text extraction with AI-identified text regions.
  */
 function processAITextRegions(
-  textRegions: Array<{ box_2d: [number, number, number, number]; type: "paragraph" | "heading" | "list" }>,
+  textRegions: Array<{ box_2d: [number, number, number, number]; type: "paragraph" | "heading" | "list"; content?: string }>,
   canvasWidth: number,
   canvasHeight: number
 ): CanvasElement[] {
   const elements: CanvasElement[] = [];
-  let zIndex = 50; // Text elements go on top of images/tables
+  const zIndex = 50; // Text elements go on top of images/tables
 
-  for (const region of textRegions) {
-    const [ymin, xmin, ymax, xmax] = region.box_2d;
+  for (const textData of textRegions) {
+    const [ymin, xmin, ymax, xmax] = textData.box_2d;
 
-    // Convert normalized coordinates (0-1000) to canvas pixels
+    // Convert 0-1000 coordinates to Pixels
     const x = (xmin / 1000) * canvasWidth;
     const y = (ymin / 1000) * canvasHeight;
     const w = ((xmax - xmin) / 1000) * canvasWidth;
     const h = ((ymax - ymin) / 1000) * canvasHeight;
 
-    // Determine placeholder content and font size based on region type
-    let content: string;
-    let fontSize: number;
-    let fontWeight: number;
+    // Determine font size roughly by height of the region vs content length
+    // or just use sensible defaults based on type
+    let fontSize = 14;
+    let fontWeight = 400;
+    let placeholder = "Lorem ipsum text block...";
 
-    switch (region.type) {
-      case "heading":
-        content = "Heading";
-        fontSize = 24;
-        fontWeight = 700;
-        break;
-      case "list":
-        content = "• List Item";
-        fontSize = 14;
-        fontWeight = 400;
-        break;
-      case "paragraph":
-      default:
-        content = "Paragraph Text...";
-        fontSize = 14;
-        fontWeight = 400;
-        break;
+    if (textData.type === 'heading') {
+      fontSize = 24;
+      fontWeight = 700;
+      placeholder = "Heading Text";
+    } else if (textData.type === 'list') {
+      placeholder = "• List item 1\n• List item 2\n• List item 3";
     }
 
+    // Create the Text Element
     elements.push({
       id: nanoid(),
       type: "text",
-      content,
+      content: placeholder, // Use placeholder to focus on layout
       position: { x: Math.round(x), y: Math.round(y) },
       dimension: { width: Math.round(w), height: Math.round(h) },
       rotation: 0,
       locked: false,
       visible: true,
-      zIndex: zIndex++,
+      zIndex: zIndex,
       pageIndex: 0,
       aspectRatioLocked: false,
       textStyle: {
         fontFamily: "Inter",
-        fontSize,
-        fontWeight,
+        fontSize: fontSize,
+        fontWeight: fontWeight,
         color: "#000000",
         textAlign: "left",
         verticalAlign: "top",
-        lineHeight: 1.2,
+        lineHeight: 1.4,
         letterSpacing: 0,
       },
     });
