@@ -57,18 +57,19 @@ router.post("/analyze-layout", async (req, res) => {
     const prompt = `
       Analyze this document page layout. I need to extract distinct visual elements to reconstruct it digitally.
 
-      1. **Images & Diagrams:** Identify logos, photos, AND technical drawings (schematics, wireframes, dimensioned plans).
-         - CRITICAL: If you see a Technical Drawing with measurements/lines, group the ENTIRE drawing into one "image" box. Do not try to extract the text inside the drawing.
-         - STRICT RULE: NEVER group distinct images together. Each separate visual element must have its own bounding box.
-         - WHITESPACE RULE: If there is ANY visible whitespace between two images, they MUST be returned as SEPARATE boxes. Do not create a bounding box that contains empty white space between images.
-         - GRID RULE: If you see a row or grid of images (like product thumbnails, icons, or photos arranged in a row/column), identify EACH ONE INDIVIDUALLY as a separate box.
+      1. **Images & Diagrams:** Identify distinct visual elements (photos, logos, diagrams, technical drawings).
+         - **CRITICAL:** If there is visible whitespace between two images, they MUST be returned as separate bounding boxes. Do NOT group multiple images into a single region, even if they are aligned in a row.
+         - STRICT SEPARATION: Each photo, logo, icon, or diagram MUST have its own individual bounding box.
+         - WHITESPACE CHECK: Before drawing a bounding box, verify there is NO empty whitespace inside. If you see gaps between visual elements, create SEPARATE boxes.
+         - GRID/ROW DETECTION: If you see images arranged in a row, column, or grid pattern, return EACH ONE as a separate entry in the images array.
+         - TECHNICAL DRAWINGS: Group the entire technical drawing (including internal dimensions/labels) into ONE box, but keep it separate from other images.
 
       2. **Tables:** Identify data grids with clear rows/cols.
 
       3. **Text Regions:** Identify blocks of text.
-         - Group continuous paragraphs.
-         - Group bulleted lists.
-         - Identify Headers.
+         - Group continuous paragraphs together.
+         - Group bulleted lists together.
+         - Identify distinct text blocks based on visual separation.
          - Do NOT include text that is inside a Technical Drawing (dimensions, labels on a diagram).
 
       Return ONLY valid JSON:
