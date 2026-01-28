@@ -46,9 +46,8 @@ export interface PdfImportResult {
   elements: CanvasElement[];
   canvasWidth: number;
   canvasHeight: number;
-  backgroundDataUrl: string; // Provided for reference only, NOT added to canvas
+  backgroundDataUrl: string; // Provided for reference only, NOT added to canvas (first page preview)
   totalPages: number;
-  importedPage: number;
 }
 
 export interface PdfImportOptions {
@@ -389,7 +388,8 @@ function detectAlignment(
 function processAIImages(
   images: Array<{ box_2d: [number, number, number, number]; label?: string }>,
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  pageIndex: number
 ): CanvasElement[] {
   const elements: CanvasElement[] = [];
   let zIndex = 10;
@@ -412,7 +412,7 @@ function processAIImages(
       locked: false,
       visible: true,
       zIndex: zIndex++,
-      pageIndex: 0,
+      pageIndex,
       aspectRatioLocked: true,
       aspectRatio: w / h,
     });
@@ -427,7 +427,8 @@ function processAIImages(
 function processAITables(
   tables: Array<{ box_2d: [number, number, number, number]; cols?: number; rows?: number }>,
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  pageIndex: number
 ): CanvasElement[] {
   const elements: CanvasElement[] = [];
   let zIndex = 10;
@@ -451,7 +452,7 @@ function processAITables(
       locked: false,
       visible: true,
       zIndex: zIndex++,
-      pageIndex: 0,
+      pageIndex,
       aspectRatioLocked: false,
       tableSettings: {
         columns: Array.from({ length: numCols }).map((_, i) => ({
@@ -513,7 +514,8 @@ function processTextRegionsWithIntersection(
   textRegions: Array<{ box_2d: [number, number, number, number]; type: "heading" | "paragraph" | "list"; content?: string }>,
   rawItems: RawItem[],
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  pageIndex: number
 ): CanvasElement[] {
   const elements: CanvasElement[] = [];
   let zIndex = 50;
@@ -582,7 +584,7 @@ function processTextRegionsWithIntersection(
       locked: false,
       visible: true,
       zIndex: zIndex++,
-      pageIndex: 0,
+      pageIndex,
       aspectRatioLocked: false,
       textStyle: {
         fontFamily: "Inter",
@@ -601,15 +603,54 @@ function processTextRegionsWithIntersection(
 }
 
 // ============================================================================
-// MAIN IMPORT FUNCTION
+// AI LAYOUT ANALYSIS HELPER
+// ============================================================================
+
+interface AILayoutResult {
+  images: Array<{ box_2d: [number, number, number, number]; label?: string }>;
+  tables: Array<{ box_2d: [number, number, number, number]; cols?: number; rows?: number }>;
+  text_regions: Array<{ box_2d: [number, number, number, number]; type: "heading" | "paragraph" | "list"; content?: string }>;
+}
+
+/**
+ * Send a rendered page image to the AI for semantic region detection.
+ * Returns the parsed layout data.
+ */
+async function analyzeLayoutWithAI(
+  imageDataUrl: string,
+  pageIndex: number
+): Promise<AILayoutResult> {
+  console.log(`PDF Importer: [Page ${pageIndex + 1}] Sending image to AI for semantic region detection...`);
+
+  const aiResponse = await fetch("/api/ai/analyze-layout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image: imageDataUrl }),
+  });
+
+  if (!aiResponse.ok) {
+    const errorBody = await aiResponse.text();
+    throw new Error(`AI Analysis Failed for page ${pageIndex + 1} (${aiResponse.status}): ${errorBody}`);
+  }
+
+  const layout = await aiResponse.json();
+  console.log(`PDF Importer: [Page ${pageIndex + 1}] AI detected ${layout.images?.length || 0} images, ${layout.tables?.length || 0} tables, ${layout.text_regions?.length || 0} text regions`);
+
+  return {
+    images: layout.images || [],
+    tables: layout.tables || [],
+    text_regions: layout.text_regions || [],
+  };
+}
+
+// ============================================================================
+// MAIN IMPORT FUNCTION (Multi-Page Support)
 // ============================================================================
 
 export async function importPdf(
   file: File,
   options: PdfImportOptions = {}
 ): Promise<PdfImportResult> {
-  const { pageNumber = 1 } = options;
-
   try {
     const arrayBuffer = await file.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({
@@ -620,96 +661,105 @@ export async function importPdf(
 
     const pdfDoc = await loadingTask.promise;
     const totalPages = pdfDoc.numPages;
-    const page = await pdfDoc.getPage(pageNumber);
-    const viewport = page.getViewport({ scale: 1 });
 
-    const pageWidthPt = viewport.width;
-    const pageHeightPt = viewport.height;
+    console.log(`PDF Importer: Processing ${totalPages} page(s)...`);
+
+    // Get dimensions from first page (used for all pages in the canvas)
+    const firstPage = await pdfDoc.getPage(1);
+    const firstViewport = firstPage.getViewport({ scale: 1 });
+    const pageWidthPt = firstViewport.width;
+    const pageHeightPt = firstViewport.height;
     const canvasWidth = Math.round(pageWidthPt * DPI_SCALE);
     const canvasHeight = Math.round(pageHeightPt * DPI_SCALE);
 
-    // =========================================================================
-    // PHASE A: Extract Raw Metadata (No elements created yet)
-    // =========================================================================
-    console.log("PDF Importer: PHASE A - Extracting raw layout from PDF...");
-    const rawItems = await extractRawLayout(page, pageHeightPt);
-    console.log(`PDF Importer: Extracted ${rawItems.length} raw text items with exact coordinates`);
+    // Accumulator for all elements across all pages
+    const allElements: CanvasElement[] = [];
+
+    // Store first page background for reference/preview
+    let firstPageBackgroundDataUrl = "";
 
     // =========================================================================
-    // PHASE B: AI Analysis
+    // LOOP THROUGH ALL PAGES
     // =========================================================================
-    console.log("PDF Importer: PHASE B - Rendering page for AI analysis...");
-    const backgroundDataUrl = await renderPageToImage(page, options);
+    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+      const pageIndex = pageNum - 1; // 0-based index for element.pageIndex
+      console.log(`\nPDF Importer: ===== Processing Page ${pageNum} of ${totalPages} =====`);
 
-    console.log("PDF Importer: Sending image to AI for semantic region detection...");
-    const aiResponse = await fetch("/api/ai/analyze-layout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: backgroundDataUrl }),
-    });
+      const page = await pdfDoc.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 1 });
+      const currentPageHeightPt = viewport.height;
 
-    if (!aiResponse.ok) {
-      const errorBody = await aiResponse.text();
-      throw new Error(`AI Analysis Failed (${aiResponse.status}): ${errorBody}`);
+      // =========================================================================
+      // PHASE A: Extract Raw Metadata for this page
+      // =========================================================================
+      console.log(`PDF Importer: [Page ${pageNum}] PHASE A - Extracting raw layout...`);
+      const rawItems = await extractRawLayout(page, currentPageHeightPt);
+      console.log(`PDF Importer: [Page ${pageNum}] Extracted ${rawItems.length} raw text items`);
+
+      // =========================================================================
+      // PHASE B: Render page and send to AI
+      // =========================================================================
+      console.log(`PDF Importer: [Page ${pageNum}] PHASE B - Rendering page for AI analysis...`);
+      const pageImageDataUrl = await renderPageToImage(page, options);
+
+      // Store first page background for preview
+      if (pageNum === 1) {
+        firstPageBackgroundDataUrl = pageImageDataUrl;
+      }
+
+      // Send to AI for semantic analysis
+      const layout = await analyzeLayoutWithAI(pageImageDataUrl, pageIndex);
+
+      // =========================================================================
+      // PHASE C: Run Intersection Engine for this page
+      // =========================================================================
+      console.log(`PDF Importer: [Page ${pageNum}] PHASE C - Running intersection engine...`);
+
+      // Process images (use AI coordinates directly)
+      const imageElements = processAIImages(
+        layout.images,
+        canvasWidth,
+        canvasHeight,
+        pageIndex
+      );
+
+      // Process tables (use AI coordinates directly)
+      const tableElements = processAITables(
+        layout.tables,
+        canvasWidth,
+        canvasHeight,
+        pageIndex
+      );
+
+      // Process text regions with HYBRID INTERSECTION ENGINE
+      const textElements = processTextRegionsWithIntersection(
+        layout.text_regions,
+        rawItems,
+        canvasWidth,
+        canvasHeight,
+        pageIndex
+      );
+
+      // Accumulate elements from this page
+      allElements.push(...tableElements, ...imageElements, ...textElements);
+
+      console.log(`PDF Importer: [Page ${pageNum}] Created ${tableElements.length} tables, ${imageElements.length} images, ${textElements.length} text regions`);
     }
-
-    const layout = await aiResponse.json();
-    console.log(`PDF Importer: AI detected ${layout.images?.length || 0} images, ${layout.tables?.length || 0} tables, ${layout.text_regions?.length || 0} text regions`);
-
-    // =========================================================================
-    // PHASE C: The Intersection Engine (The Fix)
-    // =========================================================================
-    console.log("PDF Importer: PHASE C - Running intersection engine...");
-
-    // Process images (use AI coordinates directly)
-    const imageElements = processAIImages(
-      layout.images || [],
-      canvasWidth,
-      canvasHeight
-    );
-
-    // Process tables (use AI coordinates directly)
-    const tableElements = processAITables(
-      layout.tables || [],
-      canvasWidth,
-      canvasHeight
-    );
-
-    // Process text regions with HYBRID INTERSECTION ENGINE
-    const textElements = processTextRegionsWithIntersection(
-      layout.text_regions || [],
-      rawItems,
-      canvasWidth,
-      canvasHeight
-    );
 
     // =========================================================================
     // PHASE D: Cleanup
     // =========================================================================
-    // - Fallback to AI coordinates is handled inside processTextRegionsWithIntersection
-    // - No backgroundElement is created (backgroundDataUrl is for reference only)
-
     await pdfDoc.destroy();
 
-    // Combine all elements (NO background element)
-    const allElements: CanvasElement[] = [
-      ...tableElements,
-      ...imageElements,
-      ...textElements,
-    ];
-
-    console.log(`PDF Importer: Created layout template with ${allElements.length} elements`);
-    console.log(`  - ${tableElements.length} tables`);
-    console.log(`  - ${imageElements.length} images`);
-    console.log(`  - ${textElements.length} text regions (intersection-refined)`);
+    console.log(`\nPDF Importer: ===== IMPORT COMPLETE =====`);
+    console.log(`PDF Importer: Created layout template with ${allElements.length} total elements across ${totalPages} page(s)`);
 
     return {
       elements: allElements,
       canvasWidth,
       canvasHeight,
-      backgroundDataUrl, // Provided for reference/debugging only - NOT in elements
+      backgroundDataUrl: firstPageBackgroundDataUrl, // First page preview
       totalPages,
-      importedPage: pageNumber,
     };
 
   } catch (error) {

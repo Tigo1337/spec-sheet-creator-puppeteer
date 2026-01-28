@@ -57,15 +57,19 @@ router.post("/analyze-layout", async (req, res) => {
     const prompt = `
       Analyze this document page layout. I need to extract distinct visual elements to reconstruct it digitally.
 
-      1. **Images:** Identify distinct visual assets (logos, product photos, icons).
-         - STRICT RULE: If you see multiple images arranged in a row or grid (e.g., 3 separate product shots), you MUST return them as separate bounding boxes. Do not group them into one large box.
-      2. **Tables:** Identify data grids.
-      3. **Text Regions:** Identify distinct blocks of text.
-         - Group continuous paragraphs into ONE region.
-         - Group bulleted lists into ONE region.
-         - Identify Headers separately.
+      1. **Images & Diagrams:** Identify logos, photos, AND technical drawings (schematics, wireframes, dimensioned plans).
+         - CRITICAL: If you see a Technical Drawing with measurements/lines, group the ENTIRE drawing into one "image" box. Do not try to extract the text inside the drawing.
+         - STRICT RULE: Separate distinct images. If there are 3 small icons side-by-side, return 3 boxes.
 
-      Return ONLY valid JSON with this structure:
+      2. **Tables:** Identify data grids with clear rows/cols.
+
+      3. **Text Regions:** Identify blocks of text.
+         - Group continuous paragraphs.
+         - Group bulleted lists.
+         - Identify Headers.
+         - Do NOT include text that is inside a Technical Drawing (dimensions, labels on a diagram).
+
+      Return ONLY valid JSON:
       {
         "images": [ { "box_2d": [y1, x1, y2, x2], "label": "string" } ],
         "tables": [ { "box_2d": [y1, x1, y2, x2], "rows": number, "cols": number } ],
@@ -73,8 +77,7 @@ router.post("/analyze-layout", async (req, res) => {
           { "box_2d": [y1, x1, y2, x2], "type": "heading" | "paragraph" | "list", "content": "string" }
         ]
       }
-
-      "box_2d" is [ymin, xmin, ymax, xmax] in 0-1000 PDFQuad coordinates.
+      "box_2d" is [ymin, xmin, ymax, xmax] in 0-1000 scale.
     `;
 
     // 2. Generate Content
