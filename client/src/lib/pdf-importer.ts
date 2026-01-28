@@ -644,7 +644,7 @@ async function analyzeLayoutWithAI(
 }
 
 // ============================================================================
-// MAIN IMPORT FUNCTION (Multi-Page Support)
+// MAIN IMPORT FUNCTION (Single Page Only)
 // ============================================================================
 
 export async function importPdf(
@@ -660,106 +660,92 @@ export async function importPdf(
     });
 
     const pdfDoc = await loadingTask.promise;
-    const totalPages = pdfDoc.numPages;
 
-    console.log(`PDF Importer: Processing ${totalPages} page(s)...`);
+    // =========================================================================
+    // ENFORCE SINGLE PAGE LIMIT
+    // =========================================================================
+    if (pdfDoc.numPages > 1) {
+      await pdfDoc.destroy();
+      throw new Error("Only single-page PDFs are supported at this time. Please upload a one-page document.");
+    }
 
-    // Get dimensions from first page (used for all pages in the canvas)
-    const firstPage = await pdfDoc.getPage(1);
-    const firstViewport = firstPage.getViewport({ scale: 1 });
-    const pageWidthPt = firstViewport.width;
-    const pageHeightPt = firstViewport.height;
+    console.log(`PDF Importer: Processing single-page PDF...`);
+
+    // Get the first (and only) page
+    const pageNumber = 1;
+    const pageIndex = 0;
+    const page = await pdfDoc.getPage(pageNumber);
+    const viewport = page.getViewport({ scale: 1 });
+    const pageWidthPt = viewport.width;
+    const pageHeightPt = viewport.height;
     const canvasWidth = Math.round(pageWidthPt * DPI_SCALE);
     const canvasHeight = Math.round(pageHeightPt * DPI_SCALE);
 
-    // Accumulator for all elements across all pages
-    const allElements: CanvasElement[] = [];
-
-    // Store first page background for reference/preview
-    let firstPageBackgroundDataUrl = "";
+    // =========================================================================
+    // PHASE A: Extract Raw Metadata
+    // =========================================================================
+    console.log(`PDF Importer: PHASE A - Extracting raw layout...`);
+    const rawItems = await extractRawLayout(page, pageHeightPt);
+    console.log(`PDF Importer: Extracted ${rawItems.length} raw text items`);
 
     // =========================================================================
-    // LOOP THROUGH ALL PAGES
+    // PHASE B: Render page and send to AI
     // =========================================================================
-    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-      const pageIndex = pageNum - 1; // 0-based index for element.pageIndex
-      console.log(`\nPDF Importer: ===== Processing Page ${pageNum} of ${totalPages} =====`);
+    console.log(`PDF Importer: PHASE B - Rendering page for AI analysis...`);
+    const backgroundDataUrl = await renderPageToImage(page, options);
 
-      const page = await pdfDoc.getPage(pageNum);
-      const viewport = page.getViewport({ scale: 1 });
-      const currentPageHeightPt = viewport.height;
+    // Send to AI for semantic analysis
+    const layout = await analyzeLayoutWithAI(backgroundDataUrl, pageIndex);
 
-      // =========================================================================
-      // PHASE A: Extract Raw Metadata for this page
-      // =========================================================================
-      console.log(`PDF Importer: [Page ${pageNum}] PHASE A - Extracting raw layout...`);
-      const rawItems = await extractRawLayout(page, currentPageHeightPt);
-      console.log(`PDF Importer: [Page ${pageNum}] Extracted ${rawItems.length} raw text items`);
+    // =========================================================================
+    // PHASE C: Run Intersection Engine
+    // =========================================================================
+    console.log(`PDF Importer: PHASE C - Running intersection engine...`);
 
-      // =========================================================================
-      // PHASE B: Render page and send to AI
-      // =========================================================================
-      console.log(`PDF Importer: [Page ${pageNum}] PHASE B - Rendering page for AI analysis...`);
-      const pageImageDataUrl = await renderPageToImage(page, options);
+    // Process images (use AI coordinates directly)
+    const imageElements = processAIImages(
+      layout.images,
+      canvasWidth,
+      canvasHeight,
+      pageIndex
+    );
 
-      // Store first page background for preview
-      if (pageNum === 1) {
-        firstPageBackgroundDataUrl = pageImageDataUrl;
-      }
+    // Process tables (use AI coordinates directly)
+    const tableElements = processAITables(
+      layout.tables,
+      canvasWidth,
+      canvasHeight,
+      pageIndex
+    );
 
-      // Send to AI for semantic analysis
-      const layout = await analyzeLayoutWithAI(pageImageDataUrl, pageIndex);
+    // Process text regions with HYBRID INTERSECTION ENGINE
+    const textElements = processTextRegionsWithIntersection(
+      layout.text_regions,
+      rawItems,
+      canvasWidth,
+      canvasHeight,
+      pageIndex
+    );
 
-      // =========================================================================
-      // PHASE C: Run Intersection Engine for this page
-      // =========================================================================
-      console.log(`PDF Importer: [Page ${pageNum}] PHASE C - Running intersection engine...`);
+    // Combine all elements from page 1
+    const elements = [...tableElements, ...imageElements, ...textElements];
 
-      // Process images (use AI coordinates directly)
-      const imageElements = processAIImages(
-        layout.images,
-        canvasWidth,
-        canvasHeight,
-        pageIndex
-      );
-
-      // Process tables (use AI coordinates directly)
-      const tableElements = processAITables(
-        layout.tables,
-        canvasWidth,
-        canvasHeight,
-        pageIndex
-      );
-
-      // Process text regions with HYBRID INTERSECTION ENGINE
-      const textElements = processTextRegionsWithIntersection(
-        layout.text_regions,
-        rawItems,
-        canvasWidth,
-        canvasHeight,
-        pageIndex
-      );
-
-      // Accumulate elements from this page
-      allElements.push(...tableElements, ...imageElements, ...textElements);
-
-      console.log(`PDF Importer: [Page ${pageNum}] Created ${tableElements.length} tables, ${imageElements.length} images, ${textElements.length} text regions`);
-    }
+    console.log(`PDF Importer: Created ${tableElements.length} tables, ${imageElements.length} images, ${textElements.length} text regions`);
 
     // =========================================================================
     // PHASE D: Cleanup
     // =========================================================================
     await pdfDoc.destroy();
 
-    console.log(`\nPDF Importer: ===== IMPORT COMPLETE =====`);
-    console.log(`PDF Importer: Created layout template with ${allElements.length} total elements across ${totalPages} page(s)`);
+    console.log(`PDF Importer: ===== IMPORT COMPLETE =====`);
+    console.log(`PDF Importer: Created layout template with ${elements.length} total elements`);
 
     return {
-      elements: allElements,
+      elements,
       canvasWidth,
       canvasHeight,
-      backgroundDataUrl: firstPageBackgroundDataUrl, // First page preview
-      totalPages,
+      backgroundDataUrl,
+      totalPages: 1,
     };
 
   } catch (error) {
