@@ -1,37 +1,38 @@
 /**
- * Pixel-Perfect PDF Layout Template Generator (Hybrid Intersection Engine v2)
+ * Pixel-Perfect PDF Layout Template Generator (Hybrid Intersection Engine v3)
  *
  * This module achieves PIXEL-PERFECT PDF import through a hybrid approach:
  *
  * STRATEGY:
- * - IMAGES: Native extraction from PDF operator list (bypasses AI completely)
+ * - IMAGES: AI vision with strict separation prompting (each distinct image = separate element)
  * - TEXT: Hybrid - AI detects regions, raw PDF.js items provide exact coordinates
  * - TABLES: AI detection (complex structures benefit from vision)
  *
  * Workflow:
- * 1. PHASE A: Extract raw metadata from PDF.js:
+ * 1. PHASE A: Extract raw text metadata from PDF.js:
  *    - Text items with exact positions, font sizes, and font weights
- *    - Images via operator list with CTM (Current Transformation Matrix) tracking
- *    This ensures 3 images in PDF = 3 separate elements (no AI merging)
  *
  * 2. PHASE B: Send rendered page image to AI for semantic region detection.
- *    AI detects text regions and tables. AI's image detection is IGNORED.
+ *    - AI detects images with STRICT SEPARATION (whitespace = separate boxes)
+ *    - AI detects text regions and tables
  *
  * 3. PHASE C: INTERSECTION ENGINE with VARIANCE SPLITTING:
  *    For each AI text region:
  *    - Find all raw items with 50%+ overlap
  *    - CHECK VARIANCE: If font sizes differ by >20%, SPLIT into sub-groups
+ *    - Group items by Y-position (lines) and create separate elements for each font-size group
  *    - Use MODE font size (most frequent), not average, to prevent artifact skew
- *    - Use refined bounds from raw items EXCLUSIVELY (never AI padding)
+ *    - Use refined bounds from raw items with HEIGHT BUFFER to prevent clipping
  *    - Fallback to AI coordinates ONLY if zero raw items found
+ *    - ALL text elements use type "text" (no heading distinction)
  *
  * 4. PHASE D: Cleanup.
  *
  * RESULT:
- * - 3 distinct images in PDF → 3 separate image elements
+ * - AI detects images with strict whitespace separation
  * - Header + body in same region → Split into 2 text elements with correct sizes
- * - Font sizes match source exactly (no averaging artifacts)
- * - Bounding boxes are pixel-perfect (no AI whitespace padding)
+ * - Font sizes match source exactly (using MODE, no averaging artifacts)
+ * - Bounding boxes include height buffer to prevent text clipping
  *
  * NOTE: No backgroundElement is ever created. The rendered image is only used
  * for AI analysis and then discarded.
@@ -196,172 +197,6 @@ async function extractRawLayout(
   return rawItems;
 }
 
-// ============================================================================
-// NATIVE IMAGE EXTRACTION (Pixel-Perfect Images)
-// ============================================================================
-
-/**
- * Represents a native image extracted from PDF operators with exact positioning.
- */
-interface NativeImage {
-  x: number;        // Canvas pixel X position (left edge)
-  y: number;        // Canvas pixel Y position (top edge)
-  width: number;    // Width in canvas pixels
-  height: number;   // Height in canvas pixels
-  objectId: string; // PDF object identifier for the image
-}
-
-/**
- * Multiply two 3x3 transformation matrices represented as [a, b, c, d, e, f]
- * where the matrix is:
- * | a  b  0 |
- * | c  d  0 |
- * | e  f  1 |
- */
-function multiplyMatrices(
-  m1: [number, number, number, number, number, number],
-  m2: [number, number, number, number, number, number]
-): [number, number, number, number, number, number] {
-  const [a1, b1, c1, d1, e1, f1] = m1;
-  const [a2, b2, c2, d2, e2, f2] = m2;
-  return [
-    a1 * a2 + b1 * c2,
-    a1 * b2 + b1 * d2,
-    c1 * a2 + d1 * c2,
-    c1 * b2 + d1 * d2,
-    e1 * a2 + f1 * c2 + e2,
-    e1 * b2 + f1 * d2 + f2,
-  ];
-}
-
-/**
- * Extract images natively from the PDF using operator list.
- * This bypasses AI vision entirely for image detection, providing pixel-perfect coordinates.
- *
- * Tracks the Current Transformation Matrix (CTM) through save/restore operations
- * to calculate exact image positions on the canvas.
- */
-async function extractNativeImages(
-  page: pdfjsLib.PDFPageProxy,
-  pageHeightPt: number
-): Promise<NativeImage[]> {
-  const operatorList = await page.getOperatorList();
-  const { OPS } = pdfjsLib;
-  const images: NativeImage[] = [];
-
-  // Identity matrix: [scaleX, skewX, skewY, scaleY, translateX, translateY]
-  const identityMatrix: [number, number, number, number, number, number] = [1, 0, 0, 1, 0, 0];
-
-  // CTM stack for save/restore operations
-  let ctm: [number, number, number, number, number, number] = [...identityMatrix];
-  const ctmStack: [number, number, number, number, number, number][] = [];
-
-  // Iterate through all PDF operators
-  for (let i = 0; i < operatorList.fnArray.length; i++) {
-    const op = operatorList.fnArray[i];
-    const args = operatorList.argsArray[i];
-
-    switch (op) {
-      case OPS.save:
-        // Push current CTM onto stack
-        ctmStack.push([...ctm]);
-        break;
-
-      case OPS.restore:
-        // Pop CTM from stack
-        if (ctmStack.length > 0) {
-          ctm = ctmStack.pop()!;
-        }
-        break;
-
-      case OPS.transform:
-        // Apply transformation to current CTM
-        if (args && args.length >= 6) {
-          const transformMatrix: [number, number, number, number, number, number] = [
-            args[0], args[1], args[2], args[3], args[4], args[5]
-          ];
-          ctm = multiplyMatrices(ctm, transformMatrix);
-        }
-        break;
-
-      case OPS.paintImageXObject:
-      case OPS.paintJpegXObject:
-      case OPS.paintImageXObjectRepeat:
-        // Image painting operation - extract coordinates from CTM
-        if (args && args.length >= 1) {
-          const objectId = args[0] as string;
-
-          // The CTM contains the image transformation:
-          // - ctm[0] = scaleX (width in PDF points)
-          // - ctm[3] = scaleY (height in PDF points, may be negative for flipped images)
-          // - ctm[4] = translateX (X position in PDF points)
-          // - ctm[5] = translateY (Y position in PDF points, from bottom)
-
-          // Extract image dimensions from CTM
-          const pdfWidth = Math.abs(ctm[0]);
-          const pdfHeight = Math.abs(ctm[3]);
-          const pdfX = ctm[4];
-          // PDF Y is from bottom; if image is flipped (negative scaleY), adjust origin
-          const pdfY = ctm[3] < 0 ? ctm[5] - pdfHeight : ctm[5];
-
-          // Convert PDF coordinates to canvas coordinates
-          const canvasX = pdfX * DPI_SCALE;
-          const canvasY = (pageHeightPt - pdfY - pdfHeight) * DPI_SCALE;
-          const canvasWidth = pdfWidth * DPI_SCALE;
-          const canvasHeight = pdfHeight * DPI_SCALE;
-
-          // Only add images with reasonable dimensions (filter out tiny artifacts)
-          if (canvasWidth > 5 && canvasHeight > 5) {
-            images.push({
-              x: canvasX,
-              y: canvasY,
-              width: canvasWidth,
-              height: canvasHeight,
-              objectId,
-            });
-          }
-        }
-        break;
-    }
-  }
-
-  console.log(`PDF Importer: Extracted ${images.length} native images from operator list`);
-  return images;
-}
-
-/**
- * Create CanvasElement objects from natively extracted images.
- * Uses exact PDF coordinates instead of AI vision, ensuring each distinct
- * image in the PDF becomes a separate element.
- */
-function processNativeImages(
-  nativeImages: NativeImage[],
-  pageIndex: number
-): CanvasElement[] {
-  const elements: CanvasElement[] = [];
-  let zIndex = 10;
-
-  for (const img of nativeImages) {
-    const aspectRatio = img.width / img.height;
-
-    elements.push({
-      id: nanoid(),
-      type: "image",
-      imageSrc: undefined, // Placeholder - shows empty image block in UI
-      position: { x: Math.round(img.x), y: Math.round(img.y) },
-      dimension: { width: Math.round(img.width), height: Math.round(img.height) },
-      rotation: 0,
-      locked: false,
-      visible: true,
-      zIndex: zIndex++,
-      pageIndex,
-      aspectRatioLocked: true,
-      aspectRatio: aspectRatio,
-    });
-  }
-
-  return elements;
-}
 
 // ============================================================================
 // PHASE B: AI ANALYSIS (Render + Send to AI)
@@ -827,11 +662,13 @@ function processAITables(
 
 /**
  * Create a single text element from a group of raw items.
- * Uses pixel-perfect bounds from the raw items exclusively.
+ * Uses pixel-perfect bounds from the raw items with a height buffer to prevent clipping.
+ *
+ * All elements are created with type "text" (no heading distinction).
+ * Font size is the MODE (most frequent) from the group, not averaged.
  */
 function createTextElementFromGroup(
   items: RawItem[],
-  regionType: "heading" | "paragraph" | "list",
   pageIndex: number,
   zIndex: number
 ): CanvasElement {
@@ -840,24 +677,20 @@ function createTextElementFromGroup(
   const finalX = bounds.minX;
   const finalY = bounds.minY;
   const finalWidth = bounds.maxX - bounds.minX;
-  const finalHeight = bounds.maxY - bounds.minY;
 
   // Use MODE font size (most frequent) to prevent artifacts from skewing the size
-  let fontSize = calculateModeFontSize(items);
-  let fontWeight = detectFontWeight(items);
+  const fontSize = calculateModeFontSize(items);
+  const fontWeight = detectFontWeight(items);
   const alignment = detectAlignment(items, finalWidth);
 
-  // Determine placeholder based on region type
-  let placeholder = "Lorem ipsum text block...";
+  // Add dynamic height buffer to prevent text clipping
+  // Buffer is 50% of average font size to accommodate descenders and line spacing
+  const avgFontSize = items.reduce((sum, item) => sum + item.fontSize, 0) / items.length;
+  const heightBuffer = avgFontSize * 0.5;
+  const finalHeight = (bounds.maxY - bounds.minY) + heightBuffer;
 
-  if (regionType === "heading") {
-    // Headings should be at least 18px and bold
-    fontSize = Math.max(fontSize, 18);
-    fontWeight = Math.max(fontWeight, 700);
-    placeholder = "Heading Text";
-  } else if (regionType === "list") {
-    placeholder = "• List item 1\n• List item 2\n• List item 3";
-  }
+  // Generic placeholder for all text elements
+  const placeholder = "Lorem ipsum text block...";
 
   return {
     id: nanoid(),
@@ -890,11 +723,12 @@ function createTextElementFromGroup(
  *
  * For each AI region:
  * 1. Query: Find all RawItems that intersect with the AI's box_2d (50% overlap)
- * 2. Variance Check: If font sizes vary significantly, split into sub-groups
+ * 2. Variance Check: If font sizes vary significantly (>20%), SPLIT into sub-groups
  * 3. For each group:
- *    - Refine Bounds: Use min/max of raw items for pixel-perfect sizing (NEVER fallback to AI box)
- *    - Detect Style: Use MODE font size (not average) to prevent artifact skew
- *    - Create Element: Use refined bounds exclusively
+ *    - Group items by Y-position (lines) to create separate elements for each font-size group
+ *    - Refine Bounds: Use min/max of raw items with HEIGHT BUFFER to prevent clipping
+ *    - Detect Style: Use MODE font size (most frequent), not average
+ *    - Create Element: All elements use type "text" (no heading distinction)
  * 4. Fallback: Only use AI coordinates if zero intersecting items found
  */
 function processTextRegionsWithIntersection(
@@ -925,14 +759,15 @@ function processTextRegionsWithIntersection(
     if (matchingItems.length === 0) {
       // FALLBACK: No raw items found, use AI coordinates
       // This happens for text that PDF.js couldn't extract (e.g., rasterized text)
+      // Add height buffer to AI box to prevent clipping
+      const fallbackHeight = aiBox.height + (DEFAULT_FONT_SIZE * 0.5);
+
       elements.push({
         id: nanoid(),
         type: "text",
-        content: region.type === "heading" ? "Heading Text" :
-                 region.type === "list" ? "• List item 1\n• List item 2\n• List item 3" :
-                 "Lorem ipsum text block...",
+        content: "Lorem ipsum text block...",
         position: { x: Math.round(aiBox.x), y: Math.round(aiBox.y) },
-        dimension: { width: Math.round(aiBox.width), height: Math.round(aiBox.height) },
+        dimension: { width: Math.round(aiBox.width), height: Math.round(fallbackHeight) },
         rotation: 0,
         locked: false,
         visible: true,
@@ -941,8 +776,8 @@ function processTextRegionsWithIntersection(
         aspectRatioLocked: false,
         textStyle: {
           fontFamily: "Inter",
-          fontSize: region.type === "heading" ? 24 : DEFAULT_FONT_SIZE,
-          fontWeight: region.type === "heading" ? 700 : DEFAULT_FONT_WEIGHT,
+          fontSize: DEFAULT_FONT_SIZE,
+          fontWeight: DEFAULT_FONT_WEIGHT,
           color: "#000000",
           textAlign: "left",
           verticalAlign: "top",
@@ -955,7 +790,8 @@ function processTextRegionsWithIntersection(
 
     // --- STEP 3: Check for Font Size Variance ---
     if (hasHighFontVariance(matchingItems)) {
-      // SPLIT: Group items by style and Y-position to create separate elements
+      // SPLIT: Group items by Y-position and font size to create separate elements
+      // This handles cases like headers and body text grouped together by AI
       const styleGroups = groupItemsByStyleAndPosition(matchingItems);
 
       console.log(`PDF Importer: Splitting region into ${styleGroups.length} sub-groups due to font variance`);
@@ -963,16 +799,12 @@ function processTextRegionsWithIntersection(
       for (const group of styleGroups) {
         if (group.length === 0) continue;
 
-        // Determine the appropriate type for this sub-group
-        const groupFontSize = calculateModeFontSize(group);
-        const isLikelyHeading = groupFontSize >= 18 || detectFontWeight(group) >= 600;
-        const subType = isLikelyHeading ? "heading" : region.type;
-
-        elements.push(createTextElementFromGroup(group, subType, pageIndex, zIndex++));
+        // Create text element for this font-size group (no heading distinction)
+        elements.push(createTextElementFromGroup(group, pageIndex, zIndex++));
       }
     } else {
       // NO SPLIT: All items have consistent font size, create single element
-      elements.push(createTextElementFromGroup(matchingItems, region.type, pageIndex, zIndex++));
+      elements.push(createTextElementFromGroup(matchingItems, pageIndex, zIndex++));
     }
   }
 
@@ -1059,27 +891,22 @@ export async function importPdf(
     const canvasHeight = Math.round(pageHeightPt * DPI_SCALE);
 
     // =========================================================================
-    // PHASE A: Extract Raw Metadata (Text AND Images)
+    // PHASE A: Extract Raw Text Metadata
     // =========================================================================
-    console.log(`PDF Importer: PHASE A - Extracting raw layout...`);
+    console.log(`PDF Importer: PHASE A - Extracting raw text layout...`);
 
     // Extract raw text items with pixel-perfect coordinates
     const rawItems = await extractRawLayout(page, pageHeightPt);
     console.log(`PDF Importer: Extracted ${rawItems.length} raw text items`);
 
-    // Extract native images with pixel-perfect coordinates from PDF operators
-    // This replaces AI vision for images, ensuring each distinct image stays separate
-    const nativeImages = await extractNativeImages(page, pageHeightPt);
-    console.log(`PDF Importer: Extracted ${nativeImages.length} native images from PDF stream`);
-
     // =========================================================================
-    // PHASE B: Render page and send to AI (for text regions and tables only)
+    // PHASE B: Render page and send to AI (for images, text regions, and tables)
     // =========================================================================
     console.log(`PDF Importer: PHASE B - Rendering page for AI analysis...`);
     const backgroundDataUrl = await renderPageToImage(page, options);
 
-    // Send to AI for semantic analysis (text regions and tables)
-    // NOTE: AI layout.images is now IGNORED - we use native extraction instead
+    // Send to AI for semantic analysis (images, text regions, and tables)
+    // AI uses strict separation prompting to ensure distinct images are not merged
     const layout = await analyzeLayoutWithAI(backgroundDataUrl, pageIndex);
 
     // =========================================================================
@@ -1087,9 +914,14 @@ export async function importPdf(
     // =========================================================================
     console.log(`PDF Importer: PHASE C - Running intersection engine...`);
 
-    // Process images using NATIVE EXTRACTION (pixel-perfect, no AI merging)
-    // This ensures 3 distinct images in PDF = 3 separate elements on canvas
-    const imageElements = processNativeImages(nativeImages, pageIndex);
+    // Process images using AI detection with strict separation
+    // AI is prompted to return separate bounding boxes for images with whitespace between them
+    const imageElements = processAIImages(
+      layout.images,
+      canvasWidth,
+      canvasHeight,
+      pageIndex
+    );
 
     // Process tables (use AI coordinates - tables are complex and benefit from AI detection)
     const tableElements = processAITables(
@@ -1112,7 +944,7 @@ export async function importPdf(
     // Combine all elements from page 1
     const elements = [...tableElements, ...imageElements, ...textElements];
 
-    console.log(`PDF Importer: Created ${tableElements.length} tables, ${imageElements.length} images (native), ${textElements.length} text regions`);
+    console.log(`PDF Importer: Created ${tableElements.length} tables, ${imageElements.length} images (AI), ${textElements.length} text regions`);
 
     // =========================================================================
     // PHASE D: Cleanup
