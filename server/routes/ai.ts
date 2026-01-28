@@ -59,7 +59,9 @@ router.post("/analyze-layout", async (req, res) => {
 
       1. **Images & Diagrams:** Identify logos, photos, AND technical drawings (schematics, wireframes, dimensioned plans).
          - CRITICAL: If you see a Technical Drawing with measurements/lines, group the ENTIRE drawing into one "image" box. Do not try to extract the text inside the drawing.
-         - STRICT RULE: Separate distinct images. If there are 3 small icons side-by-side, return 3 boxes.
+         - STRICT RULE: NEVER group distinct images together. Each separate visual element must have its own bounding box.
+         - WHITESPACE RULE: If there is ANY visible whitespace between two images, they MUST be returned as SEPARATE boxes. Do not create a bounding box that contains empty white space between images.
+         - GRID RULE: If you see a row or grid of images (like product thumbnails, icons, or photos arranged in a row/column), identify EACH ONE INDIVIDUALLY as a separate box.
 
       2. **Tables:** Identify data grids with clear rows/cols.
 

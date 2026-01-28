@@ -20,7 +20,7 @@
  * 3. PHASE C: INTERSECTION ENGINE with VARIANCE SPLITTING:
  *    For each AI text region:
  *    - Find all raw items with 50%+ overlap
- *    - CHECK VARIANCE: If font sizes vary (headers + body), SPLIT into sub-groups
+ *    - CHECK VARIANCE: If font sizes differ by >20%, SPLIT into sub-groups
  *    - Use MODE font size (most frequent), not average, to prevent artifact skew
  *    - Use refined bounds from raw items EXCLUSIVELY (never AI padding)
  *    - Fallback to AI coordinates ONLY if zero raw items found
@@ -50,7 +50,7 @@ const PDF_DPI = 72;
 const CANVAS_DPI = 96;
 const DPI_SCALE = CANVAS_DPI / PDF_DPI; // ~1.333
 
-const RENDER_SCALE = 2; // Render at 2x for high quality AI analysis
+const RENDER_SCALE = 3; // Render at 3x for high quality AI analysis (better gap detection)
 
 // Default values for text elements
 const DEFAULT_FONT_SIZE = 14;
@@ -501,6 +501,9 @@ function calculateModeFontSize(matchingItems: RawItem[]): number {
 /**
  * Check if there's high font size variance within matched items.
  * Returns true if distinct font size groups exist (e.g., headers + body text).
+ *
+ * Uses a >20% difference threshold: if any font size differs from another
+ * by more than 20%, we should split the region into separate elements.
  */
 function hasHighFontVariance(matchingItems: RawItem[]): boolean {
   if (matchingItems.length < 2) return false;
@@ -513,23 +516,24 @@ function hasHighFontVariance(matchingItems: RawItem[]): boolean {
 
   if (uniqueSizes.size < 2) return false;
 
-  // Calculate variance
-  const sizes = matchingItems.map((item) => item.fontSize);
-  const avg = sizes.reduce((sum, s) => sum + s, 0) / sizes.length;
-  const variance = sizes.reduce((sum, s) => sum + Math.pow(s - avg, 2), 0) / sizes.length;
-  const stdDev = Math.sqrt(variance);
-
-  // High variance if standard deviation is more than 20% of average
-  // or if there are font sizes that differ by more than 4px
   const sizeArray = Array.from(uniqueSizes).sort((a, b) => a - b);
-  const maxDiff = sizeArray[sizeArray.length - 1] - sizeArray[0];
+  const minSize = sizeArray[0];
+  const maxSize = sizeArray[sizeArray.length - 1];
 
-  return stdDev > avg * 0.2 || maxDiff > 4;
+  // Check if max font size is more than 20% larger than min font size
+  // This catches cases like Header (24px) + Body (12px) → 100% difference
+  // or Header (18px) + Body (14px) → 28% difference
+  const percentDifference = (maxSize - minSize) / minSize;
+
+  return percentDifference > 0.2;
 }
 
 /**
  * Group raw items by Y-position and font size to create sub-groups.
  * Used when a region has high font variance to split headers from body text.
+ *
+ * Uses >20% font size difference as the threshold for splitting groups.
+ * This ensures headers (24px) and body text (12px) become separate elements.
  */
 function groupItemsByStyleAndPosition(
   matchingItems: RawItem[]
@@ -555,28 +559,46 @@ function groupItemsByStyleAndPosition(
   lineGroups.push(currentLine);
 
   // Now group consecutive lines that have similar font sizes
+  // Use >20% difference threshold for splitting (same as hasHighFontVariance)
   const styleGroups: RawItem[][] = [];
   let currentGroup: RawItem[] = [];
   let currentGroupFontSize = 0;
 
   for (const line of lineGroups) {
-    // Calculate the dominant font size for this line
-    const lineFontSize = Math.round(
-      line.reduce((sum, item) => sum + item.fontSize, 0) / line.length
-    );
+    // Calculate the dominant font size for this line (use mode/most common)
+    const fontSizeCounts = new Map<number, number>();
+    for (const item of line) {
+      const roundedSize = Math.round(item.fontSize);
+      fontSizeCounts.set(roundedSize, (fontSizeCounts.get(roundedSize) || 0) + 1);
+    }
+    let lineFontSize = Math.round(line[0].fontSize);
+    let maxCount = 0;
+    for (const [size, count] of fontSizeCounts) {
+      if (count > maxCount) {
+        maxCount = count;
+        lineFontSize = size;
+      }
+    }
 
     if (currentGroup.length === 0) {
       // Start a new group
       currentGroup = [...line];
       currentGroupFontSize = lineFontSize;
-    } else if (Math.abs(lineFontSize - currentGroupFontSize) <= 2) {
-      // Same font size group (within 2px tolerance)
-      currentGroup.push(...line);
     } else {
-      // Different font size - start a new group
-      styleGroups.push(currentGroup);
-      currentGroup = [...line];
-      currentGroupFontSize = lineFontSize;
+      // Check if font sizes differ by more than 20%
+      const smallerSize = Math.min(lineFontSize, currentGroupFontSize);
+      const largerSize = Math.max(lineFontSize, currentGroupFontSize);
+      const percentDifference = (largerSize - smallerSize) / smallerSize;
+
+      if (percentDifference <= 0.2) {
+        // Same font size group (within 20% tolerance)
+        currentGroup.push(...line);
+      } else {
+        // Different font size (>20% difference) - start a new group
+        styleGroups.push(currentGroup);
+        currentGroup = [...line];
+        currentGroupFontSize = lineFontSize;
+      }
     }
   }
 
