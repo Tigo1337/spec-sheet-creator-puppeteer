@@ -771,7 +771,48 @@ export function CanvasElement({
 
         // Properties tables use static data, standard tables use Excel data
         if (isPropertiesTable && tableSettings.staticData) {
-            displayRows = tableSettings.staticData;
+            // Get the current Excel row for variable substitution
+            const currentExcelRow = excelData?.rows[selectedRowIndex];
+            const valueColHeader = tableSettings.columns[1]?.header || "Value";
+
+            // Process static data: substitute variables and filter rows with empty resolved values
+            displayRows = tableSettings.staticData
+                .map(row => {
+                    // Create a new row with substituted values
+                    const processedRow: Record<string, string> = {};
+                    let valueHadVariable = false;
+                    let resolvedValueIsEmpty = false;
+
+                    for (const [key, val] of Object.entries(row)) {
+                        let processedVal = val || "";
+
+                        // Check if this is the value column and if it contains variables
+                        const hasVariable = /{{.*?}}/.test(processedVal);
+                        if (key === valueColHeader && hasVariable) {
+                            valueHadVariable = true;
+                        }
+
+                        // Substitute variables with Excel data
+                        if (currentExcelRow && hasVariable) {
+                            processedVal = processedVal.replace(/{{(.*?)}}/g, (match, p1) => {
+                                const fieldName = p1.trim();
+                                return currentExcelRow[fieldName] !== undefined ? currentExcelRow[fieldName] : "";
+                            });
+                        }
+
+                        // Check if the resolved value is empty (for the value column)
+                        if (key === valueColHeader && valueHadVariable) {
+                            resolvedValueIsEmpty = processedVal.trim() === "";
+                        }
+
+                        processedRow[key] = processedVal;
+                    }
+
+                    // Attach metadata for filtering
+                    return { ...processedRow, _hideRow: valueHadVariable && resolvedValueIsEmpty };
+                })
+                .filter(row => !row._hideRow)
+                .map(({ _hideRow, ...rest }) => rest); // Remove metadata from final rows
         } else if (excelData && excelData.rows.length > 0) {
             if (tableSettings.groupByField && selectedRowIndex !== undefined) {
                const currentRow = excelData.rows[selectedRowIndex];

@@ -20,6 +20,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   AlignLeft,
   AlignCenter,
   AlignRight,
@@ -28,6 +34,7 @@ import {
   Table as TableIcon,
   ClipboardList,
   Plus,
+  Check,
 } from "lucide-react";
 import { availableFonts, type CanvasElement, type TextStyle, type TableColumn } from "@shared/schema";
 
@@ -199,34 +206,94 @@ export function TableProperties({
 
               {/* Static Data Rows */}
               <div className="space-y-2">
-                {(tableSettings.staticData || []).map((row, rowIdx) => (
-                  <div key={rowIdx} className="flex gap-2 items-center">
-                    <Input
-                      value={row[tableSettings.columns[0]?.header || "Feature"] || ""}
-                      onChange={(e) =>
-                        updatePropertyRow(rowIdx, tableSettings.columns[0]?.header || "Feature", e.target.value)
-                      }
-                      className="h-7 text-xs flex-1"
-                      placeholder="Property name"
-                    />
-                    <Input
-                      value={row[tableSettings.columns[1]?.header || "Value"] || ""}
-                      onChange={(e) =>
-                        updatePropertyRow(rowIdx, tableSettings.columns[1]?.header || "Value", e.target.value)
-                      }
-                      className="h-7 text-xs flex-1"
-                      placeholder="Value"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-destructive hover:bg-destructive/10 flex-none"
-                      onClick={() => deletePropertyRow(rowIdx)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
+                {(tableSettings.staticData || []).map((row, rowIdx) => {
+                  const valueColHeader = tableSettings.columns[1]?.header || "Value";
+                  const currentValue = row[valueColHeader] || "";
+                  // Extract fields used in this value
+                  const usedFields = new Set<string>();
+                  const matches = Array.from(currentValue.matchAll(/{{(.*?)}}/g));
+                  for (const match of matches) {
+                    usedFields.add(match[1]);
+                  }
+
+                  return (
+                    <div key={rowIdx} className="flex gap-2 items-center">
+                      <Input
+                        value={row[tableSettings.columns[0]?.header || "Feature"] || ""}
+                        onChange={(e) =>
+                          updatePropertyRow(rowIdx, tableSettings.columns[0]?.header || "Feature", e.target.value)
+                        }
+                        className="h-7 text-xs flex-1"
+                        placeholder="Property name"
+                      />
+                      <div className="flex-1 flex gap-1">
+                        <Input
+                          value={currentValue}
+                          onChange={(e) =>
+                            updatePropertyRow(rowIdx, valueColHeader, e.target.value)
+                          }
+                          className="h-7 text-xs flex-1 font-mono"
+                          placeholder="Value or {{Field}}"
+                        />
+                        {excelData && excelData.headers.length > 0 && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 flex-none text-primary hover:bg-primary/10"
+                                title="Insert data field"
+                              >
+                                <Database className="h-3 w-3" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="max-h-[300px] overflow-y-auto">
+                              {excelData.headers.map((header) => (
+                                <DropdownMenuItem
+                                  key={header}
+                                  onSelect={(e) => {
+                                    e.preventDefault();
+                                    const fieldTag = `{{${header}}}`;
+                                    if (currentValue.includes(fieldTag)) {
+                                      // Remove field if already present
+                                      updatePropertyRow(
+                                        rowIdx,
+                                        valueColHeader,
+                                        currentValue.split(fieldTag).join("")
+                                      );
+                                    } else {
+                                      // Add field
+                                      updatePropertyRow(
+                                        rowIdx,
+                                        valueColHeader,
+                                        currentValue + fieldTag
+                                      );
+                                    }
+                                  }}
+                                >
+                                  <div className="flex items-center justify-between w-full gap-2">
+                                    <span>{header}</span>
+                                    {usedFields.has(header) && (
+                                      <Check className="h-3 w-3 text-primary opacity-100" />
+                                    )}
+                                  </div>
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:bg-destructive/10 flex-none"
+                        onClick={() => deletePropertyRow(rowIdx)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
 
               <Button
