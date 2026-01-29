@@ -53,6 +53,7 @@ export function createTableElement(x: number, y: number): CanvasElement {
     visible: true,
     zIndex: Date.now(),
     tableSettings: {
+      variant: "standard",
       columns: [
         { id: nanoid(), header: "Item", width: 150, dataField: "Name" },
         { id: nanoid(), header: "Description", width: 200, dataField: "Description" },
@@ -79,6 +80,61 @@ export function createTableElement(x: number, y: number): CanvasElement {
         letterSpacing: 0,
       },
       headerBackgroundColor: "#f3f4f6",
+      rowBackgroundColor: "#ffffff",
+      borderColor: "#e5e7eb",
+      borderWidth: 1,
+      cellPadding: 8,
+    },
+  };
+}
+
+/**
+ * Creates a Properties Table element - a locked 2-column key/value table
+ * for displaying specifications like "Weight: 50lbs"
+ */
+export function createPropertiesTableElement(x: number, y: number): CanvasElement {
+  return {
+    id: nanoid(),
+    type: "table",
+    position: { x, y },
+    dimension: { width: 300, height: 150 },
+    rotation: 0,
+    locked: false,
+    visible: true,
+    zIndex: Date.now(),
+    tableSettings: {
+      variant: "properties",
+      columns: [
+        { id: nanoid(), header: "Feature", width: 120, headerAlign: "left", rowAlign: "left" },
+        { id: nanoid(), header: "Value", width: 180, headerAlign: "left", rowAlign: "left" },
+      ],
+      // Static data for properties tables (no data binding)
+      staticData: [
+        { Feature: "Material", Value: "Aluminium" },
+        { Feature: "Finish", Value: "Matte" },
+        { Feature: "Weight", Value: "2.5 lbs" },
+      ],
+      headerStyle: {
+        fontFamily: "Inter",
+        fontSize: 12,
+        fontWeight: 700,
+        color: "#374151",
+        textAlign: "left",
+        verticalAlign: "middle",
+        lineHeight: 1.2,
+        letterSpacing: 0,
+      },
+      rowStyle: {
+        fontFamily: "Inter",
+        fontSize: 12,
+        fontWeight: 400,
+        color: "#000000",
+        textAlign: "left",
+        verticalAlign: "middle",
+        lineHeight: 1.2,
+        letterSpacing: 0,
+      },
+      headerBackgroundColor: "#f9fafb",
       rowBackgroundColor: "#ffffff",
       borderColor: "#e5e7eb",
       borderWidth: 1,

@@ -76,9 +76,15 @@ export const tableSettingsSchema = z.object({
   groupByField: z.string().optional(),
   autoFitColumns: z.boolean().default(false),
   autoHeightAdaptation: z.boolean().default(false), // NEW: Toggle for dynamic flow
-  minColumnWidth: z.number().default(50), 
-  equalRowHeights: z.boolean().default(true), 
-  minRowHeight: z.number().default(24), 
+  minColumnWidth: z.number().default(50),
+  equalRowHeights: z.boolean().default(true),
+  minRowHeight: z.number().default(24),
+
+  // Variant: 'standard' for regular data tables, 'properties' for locked 2-column key/value tables
+  variant: z.enum(["standard", "properties"]).default("standard"),
+
+  // Static data for properties tables (key/value pairs not bound to Excel data)
+  staticData: z.array(z.record(z.string(), z.string())).optional(),
 
   // Styles
   headerStyle: textStyleSchema.default({
