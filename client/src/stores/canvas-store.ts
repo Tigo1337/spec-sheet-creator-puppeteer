@@ -45,6 +45,7 @@ interface CanvasState {
   activePageIndex: number;
   elements: CanvasElement[];
   selectedElementIds: string[];
+  hoveredElementId: string | null;
   currentDesignId: string | null;      
   saveStatus: "saved" | "saving" | "unsaved" | "error"; 
   lastSavedAt: Date | null;            
@@ -84,6 +85,7 @@ interface CanvasState {
   selectElement: (id: string, addToSelection?: boolean) => void;
   selectElements: (ids: string[]) => void;
   clearSelection: () => void;
+  setHoveredElement: (id: string | null) => void;
   selectAll: () => void;
   moveElement: (id: string, x: number, y: number) => void;
   resizeElement: (id: string, width: number, height: number) => void;
@@ -159,6 +161,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   activePageIndex: 0,
   elements: [],
   selectedElementIds: [],
+  hoveredElementId: null,
   currentDesignId: null,
   saveStatus: "saved",
   lastSavedAt: null,
@@ -275,6 +278,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
   selectElements: (ids) => set({ selectedElementIds: ids }),
   clearSelection: () => set({ selectedElementIds: [] }),
+  setHoveredElement: (id) => set({ hoveredElementId: id }),
   selectAll: () => set({ selectedElementIds: get().elements.map((el) => el.id) }),
   moveElement: (id, x, y) => {
     const { snapToGrid: shouldSnap, gridSize } = get();
