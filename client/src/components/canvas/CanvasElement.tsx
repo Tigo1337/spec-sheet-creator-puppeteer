@@ -759,35 +759,44 @@ export function CanvasElement({
         const tableSettings = element.tableSettings;
         if (!tableSettings) return null;
 
+        const isPropertiesTable = tableSettings.variant === "properties";
+
         const previewRows = [
             { "Name": "Product A", "Description": "Sample Item", "Price": "$10.00" },
             { "Name": "Product B", "Description": "Sample Item", "Price": "$20.00" },
             { "Name": "Product C", "Description": "Sample Item", "Price": "$30.00" }
         ];
 
-        let displayRows = previewRows;
+        let displayRows: Record<string, string>[] = previewRows;
 
-        if (excelData && excelData.rows.length > 0) {
+        // Properties tables use static data, standard tables use Excel data
+        if (isPropertiesTable && tableSettings.staticData) {
+            displayRows = tableSettings.staticData;
+        } else if (excelData && excelData.rows.length > 0) {
             if (tableSettings.groupByField && selectedRowIndex !== undefined) {
                const currentRow = excelData.rows[selectedRowIndex];
                const groupValue = currentRow[tableSettings.groupByField];
                if (groupValue) {
                    displayRows = excelData.rows.filter(r => r[tableSettings.groupByField!] === groupValue);
                } else {
-                   displayRows = [currentRow]; 
+                   displayRows = [currentRow];
                }
             } else {
-               displayRows = excelData.rows.slice(0, 5); 
+               displayRows = excelData.rows.slice(0, 5);
             }
         }
 
-        let columnWidths: Record<string, string> = {}; 
+        let columnWidths: Record<string, string> = {};
 
-        if (tableSettings.autoFitColumns) {
+        // Properties tables use 40%/60% split by default for key/value layout
+        if (isPropertiesTable && tableSettings.columns.length === 2) {
+            columnWidths[tableSettings.columns[0].id] = "40%";
+            columnWidths[tableSettings.columns[1].id] = "60%";
+        } else if (tableSettings.autoFitColumns) {
             const colWeights = tableSettings.columns.map(col => {
                 const headerLen = (col.header || "").length;
                 const maxContentLen = displayRows.reduce((max, row) => {
-                    const cellValue = row[col.dataField || ""] || "";
+                    const cellValue = row[col.dataField || col.header || ""] || "";
                     return Math.max(max, String(cellValue).length);
                 }, 0);
                 return { id: col.id, weight: Math.max(headerLen, maxContentLen, 3) };
@@ -844,15 +853,21 @@ export function CanvasElement({
                         {tableSettings.columns.map((col: any, cIdx) => (
                             <div key={col.id} role="cell" className="overflow-hidden flex items-center" style={{
                                 width: columnWidths[col.id],
-                                justifyContent: getJustifyContent(col.rowAlign || tableSettings.rowStyle?.textAlign), 
+                                justifyContent: getJustifyContent(col.rowAlign || tableSettings.rowStyle?.textAlign),
                                 borderRightWidth: cIdx === tableSettings.columns.length - 1 ? 0 : tableSettings.borderWidth * zoom,
                                 borderStyle: "solid",
                                 borderColor: tableSettings.borderColor,
                                 fontFamily: tableSettings.rowStyle?.fontFamily || "Inter",
                                 fontSize: (tableSettings.rowStyle?.fontSize || 12) * zoom,
-                                padding: `0 ${4 * zoom}px`, 
+                                padding: `0 ${4 * zoom}px`,
                             }}>
-                                <span className="truncate w-full">{row[col.dataField || ""] || "-"}</span>
+                                <span className="truncate w-full">
+                                  {/* Properties tables use header as key, standard tables use dataField */}
+                                  {isPropertiesTable
+                                    ? (row[col.header] || "-")
+                                    : (row[col.dataField || ""] || "-")
+                                  }
+                                </span>
                             </div>
                         ))}
                     </div>

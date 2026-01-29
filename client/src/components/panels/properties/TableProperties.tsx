@@ -2,6 +2,7 @@
  * Table element properties panel
  * Handles data grouping, column configuration, and header/row styling
  * This is a complex component managing table structure and appearance
+ * Supports both standard data tables and properties (key/value) tables
  */
 
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,8 @@ import {
   Trash2,
   Database,
   Table as TableIcon,
+  ClipboardList,
+  Plus,
 } from "lucide-react";
 import { availableFonts, type CanvasElement, type TextStyle, type TableColumn } from "@shared/schema";
 
@@ -43,6 +46,43 @@ export function TableProperties({
 }: TablePropertiesProps) {
   const tableSettings = element.tableSettings;
   if (!tableSettings) return null;
+
+  const isPropertiesTable = tableSettings.variant === "properties";
+
+  // Helper to update static data for properties tables
+  const updateStaticData = (newData: Record<string, string>[]) => {
+    updateElement(element.id, {
+      tableSettings: {
+        ...tableSettings,
+        staticData: newData,
+      },
+    });
+  };
+
+  const addProperty = () => {
+    const currentData = tableSettings.staticData || [];
+    const col1Header = tableSettings.columns[0]?.header || "Feature";
+    const col2Header = tableSettings.columns[1]?.header || "Value";
+    const newRow: Record<string, string> = {
+      [col1Header]: "New Property",
+      [col2Header]: "",
+    };
+    updateStaticData([...currentData, newRow]);
+  };
+
+  const updatePropertyRow = (rowIdx: number, colHeader: string, value: string) => {
+    const currentData = [...(tableSettings.staticData || [])];
+    if (currentData[rowIdx]) {
+      currentData[rowIdx] = { ...currentData[rowIdx], [colHeader]: value };
+      updateStaticData(currentData);
+    }
+  };
+
+  const deletePropertyRow = (rowIdx: number) => {
+    const currentData = [...(tableSettings.staticData || [])];
+    currentData.splice(rowIdx, 1);
+    updateStaticData(currentData);
+  };
 
   const handleTableStyleChange = async (
     section: "headerStyle" | "rowStyle",
@@ -118,214 +158,306 @@ export function TableProperties({
 
   return (
     <div className="space-y-6">
-      {/* 1. Grouping Configuration */}
-      <div>
-        <h3 className="font-medium text-sm mb-3 flex items-center gap-2 text-primary">
-          <Database className="h-4 w-4" />
-          Data Grouping
-        </h3>
-        <div className="space-y-4 p-3 bg-primary/5 rounded-md border border-primary/20">
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Group Products By</Label>
-            <Select
-              value={tableSettings.groupByField || "none"}
-              onValueChange={(val) =>
-                updateElement(element.id, {
-                  tableSettings: {
-                    ...tableSettings,
-                    groupByField: val === "none" ? undefined : val,
-                  },
-                })
-              }
-            >
-              <SelectTrigger className="bg-white">
-                <SelectValue placeholder="None (Show all)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None (Single/All)</SelectItem>
-                {excelData?.headers.map((h) => (
-                  <SelectItem key={h} value={h}>{h}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center justify-between border-t pt-3">
-            <div className="space-y-0.5">
-              <Label className="text-[10px] text-primary font-bold uppercase tracking-wider">
-                Dynamic Height Adaptation
-              </Label>
-              <p className="text-[9px] text-muted-foreground">
-                Auto-adjust height & push content
-              </p>
-            </div>
-            <Switch
-              checked={tableSettings.autoHeightAdaptation || false}
-              onCheckedChange={(checked) =>
-                updateElement(element.id, {
-                  tableSettings: { ...tableSettings, autoHeightAdaptation: checked },
-                })
-              }
-              className="scale-75"
-            />
-          </div>
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* 2. Column Manager */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-medium text-sm flex items-center gap-2">
-            <TableIcon className="h-4 w-4" /> Columns
-          </h3>
-          <div className="flex items-center gap-2">
-            <Label className="text-[10px] text-muted-foreground">Autofit</Label>
-            <Switch
-              checked={tableSettings.autoFitColumns || false}
-              onCheckedChange={(checked) =>
-                updateElement(element.id, {
-                  tableSettings: { ...tableSettings, autoFitColumns: checked },
-                })
-              }
-            />
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          {tableSettings.columns.map((col: TableColumn, idx: number) => (
-            <div key={col.id} className="flex flex-col gap-2 p-3 bg-muted/20 rounded border">
-              <div className="flex gap-2 items-end">
-                <div className="flex-1 space-y-1">
+      {/* Properties Table: Static Data Management */}
+      {isPropertiesTable && (
+        <>
+          <div>
+            <h3 className="font-medium text-sm mb-3 flex items-center gap-2 text-primary">
+              <ClipboardList className="h-4 w-4" />
+              Properties Data
+            </h3>
+            <div className="space-y-2 p-3 bg-primary/5 rounded-md border border-primary/20">
+              {/* Column Headers (Editable) */}
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">Label Column</Label>
                   <Input
-                    value={col.header}
+                    value={tableSettings.columns[0]?.header || "Feature"}
                     onChange={(e) => {
                       const newCols = [...tableSettings.columns];
-                      newCols[idx].header = e.target.value;
+                      if (newCols[0]) newCols[0].header = e.target.value;
                       updateColumns(newCols);
                     }}
                     className="h-7 text-xs"
-                    placeholder="Header"
                   />
-                  <Select
-                    value={col.dataField || ""}
-                    onValueChange={(val) => {
-                      const newCols = [...tableSettings.columns];
-                      newCols[idx].dataField = val;
-                      updateColumns(newCols);
-                    }}
-                  >
-                    <SelectTrigger className="h-7 text-xs bg-white">
-                      <SelectValue placeholder="Bind Field" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {excelData?.headers.map((h) => (
-                        <SelectItem key={h} value={h}>{h}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
-
-                <div className="w-20 flex-none space-y-1">
-                  <Label className="text-[10px] text-muted-foreground block text-center">Width</Label>
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">Value Column</Label>
                   <Input
-                    type="number"
-                    value={tableSettings.autoFitColumns ? getAutofitWidth(col.id) || col.width : col.width}
+                    value={tableSettings.columns[1]?.header || "Value"}
                     onChange={(e) => {
                       const newCols = [...tableSettings.columns];
-                      newCols[idx].width = Number(e.target.value);
+                      if (newCols[1]) newCols[1].header = e.target.value;
                       updateColumns(newCols);
                     }}
-                    className="h-7 text-xs text-center"
-                    disabled={tableSettings.autoFitColumns}
+                    className="h-7 text-xs"
                   />
                 </div>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-destructive hover:bg-destructive/10 flex-none"
-                  onClick={() => {
-                    const newCols = tableSettings.columns.filter((_: TableColumn, i: number) => i !== idx);
-                    updateColumns(newCols);
-                  }}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 mt-1">
-                <div className="space-y-1">
-                  <Label className="text-[10px] text-muted-foreground">Header Align</Label>
-                  <div className="flex gap-0.5">
-                    {(["left", "center", "right"] as const).map((alignValue) => (
-                      <Button
-                        key={alignValue}
-                        size="sm"
-                        variant={(col.headerAlign || "left") === alignValue ? "default" : "outline"}
-                        className="flex-1 h-6 px-0"
-                        onClick={() => {
-                          const newCols = [...tableSettings.columns];
-                          newCols[idx].headerAlign = alignValue;
-                          updateColumns(newCols);
-                        }}
-                      >
-                        {alignValue === "left" && <AlignLeft className="h-3 w-3" />}
-                        {alignValue === "center" && <AlignCenter className="h-3 w-3" />}
-                        {alignValue === "right" && <AlignRight className="h-3 w-3" />}
-                      </Button>
-                    ))}
+              <Separator className="my-2" />
+
+              {/* Static Data Rows */}
+              <div className="space-y-2">
+                {(tableSettings.staticData || []).map((row, rowIdx) => (
+                  <div key={rowIdx} className="flex gap-2 items-center">
+                    <Input
+                      value={row[tableSettings.columns[0]?.header || "Feature"] || ""}
+                      onChange={(e) =>
+                        updatePropertyRow(rowIdx, tableSettings.columns[0]?.header || "Feature", e.target.value)
+                      }
+                      className="h-7 text-xs flex-1"
+                      placeholder="Property name"
+                    />
+                    <Input
+                      value={row[tableSettings.columns[1]?.header || "Value"] || ""}
+                      onChange={(e) =>
+                        updatePropertyRow(rowIdx, tableSettings.columns[1]?.header || "Value", e.target.value)
+                      }
+                      className="h-7 text-xs flex-1"
+                      placeholder="Value"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:bg-destructive/10 flex-none"
+                      onClick={() => deletePropertyRow(rowIdx)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] text-muted-foreground">Row Align</Label>
-                  <div className="flex gap-0.5">
-                    {(["left", "center", "right"] as const).map((alignValue) => (
-                      <Button
-                        key={alignValue}
-                        size="sm"
-                        variant={(col.rowAlign || "left") === alignValue ? "default" : "outline"}
-                        className="flex-1 h-6 px-0"
-                        onClick={() => {
-                          const newCols = [...tableSettings.columns];
-                          newCols[idx].rowAlign = alignValue;
-                          updateColumns(newCols);
-                        }}
-                      >
-                        {alignValue === "left" && <AlignLeft className="h-3 w-3" />}
-                        {alignValue === "center" && <AlignCenter className="h-3 w-3" />}
-                        {alignValue === "right" && <AlignRight className="h-3 w-3" />}
-                      </Button>
+                ))}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs gap-2 mt-2"
+                onClick={addProperty}
+              >
+                <Plus className="h-3 w-3" />
+                Add Property
+              </Button>
+            </div>
+          </div>
+          <Separator />
+        </>
+      )}
+
+      {/* Standard Table: Data Grouping Configuration */}
+      {!isPropertiesTable && (
+        <>
+          <div>
+            <h3 className="font-medium text-sm mb-3 flex items-center gap-2 text-primary">
+              <Database className="h-4 w-4" />
+              Data Grouping
+            </h3>
+            <div className="space-y-4 p-3 bg-primary/5 rounded-md border border-primary/20">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Group Products By</Label>
+                <Select
+                  value={tableSettings.groupByField || "none"}
+                  onValueChange={(val) =>
+                    updateElement(element.id, {
+                      tableSettings: {
+                        ...tableSettings,
+                        groupByField: val === "none" ? undefined : val,
+                      },
+                    })
+                  }
+                >
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="None (Show all)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None (Single/All)</SelectItem>
+                    {excelData?.headers.map((h) => (
+                      <SelectItem key={h} value={h}>{h}</SelectItem>
                     ))}
-                  </div>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center justify-between border-t pt-3">
+                <div className="space-y-0.5">
+                  <Label className="text-[10px] text-primary font-bold uppercase tracking-wider">
+                    Dynamic Height Adaptation
+                  </Label>
+                  <p className="text-[9px] text-muted-foreground">
+                    Auto-adjust height & push content
+                  </p>
                 </div>
+                <Switch
+                  checked={tableSettings.autoHeightAdaptation || false}
+                  onCheckedChange={(checked) =>
+                    updateElement(element.id, {
+                      tableSettings: { ...tableSettings, autoHeightAdaptation: checked },
+                    })
+                  }
+                  className="scale-75"
+                />
               </div>
             </div>
-          ))}
+          </div>
+          <Separator />
+        </>
+      )}
 
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full text-xs gap-2"
-            onClick={() => {
-              const newCol: TableColumn = {
-                id: nanoid(),
-                header: "New Col",
-                width: 100,
-                headerAlign: "left" as const,
-                rowAlign: "left" as const,
-              };
-              const newCols = [...tableSettings.columns, newCol];
-              updateColumns(newCols);
-            }}
-          >
-            + Add Column
-          </Button>
-        </div>
-      </div>
+      {/* 2. Column Manager - Only show for standard tables */}
+      {!isPropertiesTable && (
+        <>
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-medium text-sm flex items-center gap-2">
+                <TableIcon className="h-4 w-4" /> Columns
+              </h3>
+              <div className="flex items-center gap-2">
+                <Label className="text-[10px] text-muted-foreground">Autofit</Label>
+                <Switch
+                  checked={tableSettings.autoFitColumns || false}
+                  onCheckedChange={(checked) =>
+                    updateElement(element.id, {
+                      tableSettings: { ...tableSettings, autoFitColumns: checked },
+                    })
+                  }
+                />
+              </div>
+            </div>
 
-      <Separator />
+            <div className="space-y-3">
+              {tableSettings.columns.map((col: TableColumn, idx: number) => (
+                <div key={col.id} className="flex flex-col gap-2 p-3 bg-muted/20 rounded border">
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1 space-y-1">
+                      <Input
+                        value={col.header}
+                        onChange={(e) => {
+                          const newCols = [...tableSettings.columns];
+                          newCols[idx].header = e.target.value;
+                          updateColumns(newCols);
+                        }}
+                        className="h-7 text-xs"
+                        placeholder="Header"
+                      />
+                      <Select
+                        value={col.dataField || ""}
+                        onValueChange={(val) => {
+                          const newCols = [...tableSettings.columns];
+                          newCols[idx].dataField = val;
+                          updateColumns(newCols);
+                        }}
+                      >
+                        <SelectTrigger className="h-7 text-xs bg-white">
+                          <SelectValue placeholder="Bind Field" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {excelData?.headers.map((h) => (
+                            <SelectItem key={h} value={h}>{h}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="w-20 flex-none space-y-1">
+                      <Label className="text-[10px] text-muted-foreground block text-center">Width</Label>
+                      <Input
+                        type="number"
+                        value={tableSettings.autoFitColumns ? getAutofitWidth(col.id) || col.width : col.width}
+                        onChange={(e) => {
+                          const newCols = [...tableSettings.columns];
+                          newCols[idx].width = Number(e.target.value);
+                          updateColumns(newCols);
+                        }}
+                        className="h-7 text-xs text-center"
+                        disabled={tableSettings.autoFitColumns}
+                      />
+                    </div>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:bg-destructive/10 flex-none"
+                      onClick={() => {
+                        const newCols = tableSettings.columns.filter((_: TableColumn, i: number) => i !== idx);
+                        updateColumns(newCols);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Header Align</Label>
+                      <div className="flex gap-0.5">
+                        {(["left", "center", "right"] as const).map((alignValue) => (
+                          <Button
+                            key={alignValue}
+                            size="sm"
+                            variant={(col.headerAlign || "left") === alignValue ? "default" : "outline"}
+                            className="flex-1 h-6 px-0"
+                            onClick={() => {
+                              const newCols = [...tableSettings.columns];
+                              newCols[idx].headerAlign = alignValue;
+                              updateColumns(newCols);
+                            }}
+                          >
+                            {alignValue === "left" && <AlignLeft className="h-3 w-3" />}
+                            {alignValue === "center" && <AlignCenter className="h-3 w-3" />}
+                            {alignValue === "right" && <AlignRight className="h-3 w-3" />}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Row Align</Label>
+                      <div className="flex gap-0.5">
+                        {(["left", "center", "right"] as const).map((alignValue) => (
+                          <Button
+                            key={alignValue}
+                            size="sm"
+                            variant={(col.rowAlign || "left") === alignValue ? "default" : "outline"}
+                            className="flex-1 h-6 px-0"
+                            onClick={() => {
+                              const newCols = [...tableSettings.columns];
+                              newCols[idx].rowAlign = alignValue;
+                              updateColumns(newCols);
+                            }}
+                          >
+                            {alignValue === "left" && <AlignLeft className="h-3 w-3" />}
+                            {alignValue === "center" && <AlignCenter className="h-3 w-3" />}
+                            {alignValue === "right" && <AlignRight className="h-3 w-3" />}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs gap-2"
+                onClick={() => {
+                  const newCol: TableColumn = {
+                    id: nanoid(),
+                    header: "New Col",
+                    width: 100,
+                    headerAlign: "left" as const,
+                    rowAlign: "left" as const,
+                  };
+                  const newCols = [...tableSettings.columns, newCol];
+                  updateColumns(newCols);
+                }}
+              >
+                + Add Column
+              </Button>
+            </div>
+          </div>
+          <Separator />
+        </>
+      )}
 
       {/* 3. Style Configuration */}
       <div>

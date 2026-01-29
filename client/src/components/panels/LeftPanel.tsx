@@ -37,7 +37,8 @@ import {
   QrCode,
   List,
   Table as TableIcon,
-  HelpCircle 
+  ClipboardList,
+  HelpCircle
 } from "lucide-react";
 import {
   createTextElement,
@@ -45,7 +46,8 @@ import {
   createImageElement,
   createQRCodeElement,
   createTOCElement,
-  createTableElement
+  createTableElement,
+  createPropertiesTableElement
 } from "@/lib/canvas-utils";
 import { availableFonts } from "@shared/schema";
 
@@ -128,6 +130,13 @@ export function LeftPanel() {
     const x = canvasWidth / 2 - 200;
     const y = canvasHeight / 2 - 100;
     addElement(createTableElement(x, y));
+    setActiveTool("select");
+  };
+
+  const handleAddPropertiesTable = () => {
+    const x = canvasWidth / 2 - 150;
+    const y = canvasHeight / 2 - 75;
+    addElement(createPropertiesTableElement(x, y));
     setActiveTool("select");
   };
 
@@ -362,6 +371,16 @@ export function LeftPanel() {
               >
                 <TableIcon className="h-4 w-4" />
                 <span>Add Data Table</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start gap-2"
+                onClick={handleAddPropertiesTable}
+                data-testid="add-properties-table"
+              >
+                <ClipboardList className="h-4 w-4" />
+                <span>Add Properties</span>
               </Button>
             </AccordionContent>
           </AccordionItem>
