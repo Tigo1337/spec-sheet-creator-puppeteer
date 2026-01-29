@@ -41,16 +41,17 @@ export function CanvasElement({
   zoom,
   onSelect,
 }: CanvasElementProps) {
-  const { 
-    excelData, 
-    selectedRowIndex, 
-    setSelectedRowIndex, 
-    updateElement, 
-    duplicateElement, 
-    deleteElement, 
-    bringToFront, 
+  const {
+    excelData,
+    selectedRowIndex,
+    setSelectedRowIndex,
+    updateElement,
+    duplicateElement,
+    deleteElement,
+    bringToFront,
     sendToBack,
-    elements: allElements 
+    elements: allElements,
+    hoveredElementId
   } = useCanvasStore();
 
   const { toast } = useToast();
@@ -74,6 +75,7 @@ export function CanvasElement({
   }>({ neededHeightAtCurrentWidth: 0, neededWidthToFitCurrentHeight: 0 });
 
   const elementScopeId = `el-${element.id}`;
+  const isHovered = hoveredElementId === element.id;
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: element.id,
@@ -967,9 +969,13 @@ export function CanvasElement({
           style={{
             ...style,
             ...(isSelected && !isEditing && {
-              outline: "2px solid #3b82f6", 
+              outline: "2px solid #3b82f6",
               outlineOffset: "0px",
               backgroundColor: "transparent",
+            }),
+            ...(isHovered && !isSelected && {
+              outline: "2px dashed #06b6d4",
+              outlineOffset: "0px",
             }),
           }}
           onKeyDown={handleKeyDown}

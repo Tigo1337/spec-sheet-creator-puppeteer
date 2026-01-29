@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Eye, EyeOff, Lock, Unlock, GripVertical, Type, Image as ImageIcon, Box } from "lucide-react";
 
 export function LayersTab() {
-  const { 
-    elements, 
-    selectedElementIds, 
-    selectElement, 
-    updateElement, 
-    activePageIndex 
+  const {
+    elements,
+    selectedElementIds,
+    selectElement,
+    updateElement,
+    activePageIndex,
+    setHoveredElement
   } = useCanvasStore();
 
   // Filter elements by active page and sort by z-index (reverse for UI list: Top is Front)
@@ -39,14 +40,16 @@ export function LayersTab() {
         )}
 
         {pageElements.map(element => (
-          <div 
+          <div
             key={element.id}
             className={`flex items-center gap-2 p-2 rounded-md border ${
-              selectedElementIds.includes(element.id) 
-                ? "bg-accent border-primary/20" 
+              selectedElementIds.includes(element.id)
+                ? "bg-accent border-primary/20"
                 : "bg-card border-transparent hover:bg-accent/50"
             }`}
             onClick={() => selectElement(element.id)}
+            onMouseEnter={() => setHoveredElement(element.id)}
+            onMouseLeave={() => setHoveredElement(null)}
           >
             <GripVertical className="h-4 w-4 text-muted-foreground cursor-move opacity-50" />
 
