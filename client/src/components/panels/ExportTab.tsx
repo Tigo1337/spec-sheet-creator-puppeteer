@@ -496,13 +496,56 @@ export function ExportTab() {
              tableEl.style.borderLeft = `${bWidth}px solid ${bColor}`;
 
              // Data resolution
+             const isPropertiesTable = tableSettings.variant === "properties";
              let displayRows: any[] = [];
-             if (excelData && excelData.rows.length > 0) {
+
+             if (isPropertiesTable && tableSettings.staticData) {
+                 // Properties tables use static data with variable substitution
+                 const valueColHeader = tableSettings.columns[1]?.header || "Value";
+
+                 displayRows = tableSettings.staticData
+                     .map((row: Record<string, string>) => {
+                         const processedRow: Record<string, string> = {};
+                         let valueHadVariable = false;
+                         let resolvedValueIsEmpty = false;
+
+                         for (const [key, val] of Object.entries(row)) {
+                             let processedVal = val || "";
+
+                             // Check if this is the value column and if it contains variables
+                             const hasVariable = /{{.*?}}/.test(processedVal);
+                             if (key === valueColHeader && hasVariable) {
+                                 valueHadVariable = true;
+                             }
+
+                             // Substitute variables with product data
+                             if (hasVariable) {
+                                 processedVal = processedVal.replace(/{{(.*?)}}/g, (match, p1) => {
+                                     const fieldName = p1.trim();
+                                     return sourceData[fieldName] !== undefined ? sourceData[fieldName] : "";
+                                 });
+                             }
+
+                             // Check if the resolved value is empty (for the value column)
+                             if (key === valueColHeader && valueHadVariable) {
+                                 resolvedValueIsEmpty = processedVal.trim() === "";
+                             }
+
+                             processedRow[key] = processedVal;
+                         }
+
+                         // Attach metadata for filtering
+                         return { ...processedRow, _hideRow: valueHadVariable && resolvedValueIsEmpty };
+                     })
+                     .filter((row: any) => !row._hideRow)
+                     .map(({ _hideRow, ...rest }: any) => rest); // Remove metadata from final rows
+             } else if (excelData && excelData.rows.length > 0) {
+                 // Standard tables use Excel data
                  if (tableSettings.groupByField) {
                      const groupVal = sourceData[tableSettings.groupByField];
                      displayRows = groupVal ? excelData.rows.filter(r => r[tableSettings.groupByField!] === groupVal) : [sourceData];
                  } else {
-                     displayRows = [sourceData]; 
+                     displayRows = [sourceData];
                  }
              }
 
@@ -516,10 +559,18 @@ export function ExportTab() {
              const hFont = `"${hMapped}", sans-serif`;
              const totalWidth = tableSettings.columns.reduce((acc, c) => acc + (c.width || 100), 0);
 
-             tableSettings.columns.forEach((col: any) => {
+             // Properties tables use 40%/60% split by default for key/value layout
+             const getColumnWidth = (col: any, idx: number) => {
+                 if (isPropertiesTable && tableSettings.columns.length === 2) {
+                     return idx === 0 ? "40%" : "60%";
+                 }
+                 return `${((col.width || 100) / totalWidth) * 100}%`;
+             };
+
+             tableSettings.columns.forEach((col: any, idx: number) => {
                  const th = document.createElement("th");
                  th.textContent = col.header;
-                 th.style.width = `${(col.width / totalWidth) * 100}%`;
+                 th.style.width = getColumnWidth(col, idx);
                  th.style.padding = "2px 4px"; // MATCHES COMPACT CANVAS HEADER PADDING
                  th.style.borderBottom = `${bWidth}px solid ${bColor}`;
                  th.style.borderRight = `${bWidth}px solid ${bColor}`;
@@ -554,7 +605,10 @@ export function ExportTab() {
 
                  tableSettings.columns.forEach((col: any) => {
                      const td = document.createElement("td");
-                     td.textContent = row[col.dataField || ""] || "-";
+                     // Properties tables use header as key, standard tables use dataField
+                     td.textContent = isPropertiesTable
+                         ? (row[col.header] || "-")
+                         : (row[col.dataField || ""] || "-");
                      td.style.padding = "0px 4px"; // MATCHES COMPACT CANVAS ROW PADDING
                      td.style.borderBottom = `${bWidth}px solid ${bColor}`;
                      td.style.borderRight = `${bWidth}px solid ${bColor}`;
