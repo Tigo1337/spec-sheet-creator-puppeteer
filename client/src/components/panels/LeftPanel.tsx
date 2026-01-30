@@ -98,10 +98,13 @@ export function LeftPanel() {
     setActiveTool("select");
   };
 
-  const handleAddShape = (shapeType: "rectangle" | "circle" | "line") => {
+  const handleAddShape = (
+    shapeType: "rectangle" | "circle" | "line",
+    dimensions?: { width: number; height: number }
+  ) => {
     const x = canvasWidth / 2 - 50;
     const y = canvasHeight / 2 - 50;
-    addElement(createShapeElement(x, y, shapeType));
+    addElement(createShapeElement(x, y, shapeType, dimensions));
     setActiveTool("select");
   };
 
@@ -453,13 +456,28 @@ export function LeftPanel() {
                       variant="ghost"
                       size="icon"
                       className="h-12 w-full"
-                      onClick={() => handleAddShape("line")}
+                      onClick={() => handleAddShape("line", { width: 100, height: 2 })}
                       data-testid="add-shape-line"
                     >
                       <Minus className="h-6 w-6" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Line</TooltipContent>
+                  <TooltipContent>Horizontal Line</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-12 w-full"
+                      onClick={() => handleAddShape("line", { width: 2, height: 100 })}
+                      data-testid="add-shape-vertical-line"
+                    >
+                      <Minus className="h-6 w-6 rotate-90" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Vertical Line</TooltipContent>
                 </Tooltip>
               </div>
             </AccordionContent>

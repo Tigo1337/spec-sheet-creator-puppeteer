@@ -416,12 +416,15 @@ export function ExportTab() {
          elementDiv.style.opacity = String(shapeStyle.opacity || 1);
 
          if (element.shapeType === "line") {
+            // Determine if line is vertical (height > width) or horizontal
+            const isVertical = element.dimension.height > element.dimension.width;
+
             elementDiv.style.display = "flex";
             elementDiv.style.alignItems = "center";
             elementDiv.style.justifyContent = "center";
             const lineStroke = document.createElement("div");
-            lineStroke.style.width = "100%";
-            lineStroke.style.height = `${shapeStyle.strokeWidth || 1}px`;
+            lineStroke.style.width = isVertical ? `${shapeStyle.strokeWidth || 1}px` : "100%";
+            lineStroke.style.height = isVertical ? "100%" : `${shapeStyle.strokeWidth || 1}px`;
             lineStroke.style.backgroundColor = shapeStyle.stroke || "#9ca3af";
             elementDiv.appendChild(lineStroke);
          } else {

@@ -172,6 +172,42 @@ export function DesignCanvas({
               useCanvasStore.getState().duplicateElement(selected[0]);
           }
       }
+
+      // Arrow key movement for selected elements
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+        const { selectedElementIds, elements, updateElement } = useCanvasStore.getState();
+
+        if (selectedElementIds.length > 0) {
+          e.preventDefault(); // Prevent page scrolling
+
+          const step = e.shiftKey ? 10 : 1; // 10px if Shift held, otherwise 1px
+
+          selectedElementIds.forEach((id) => {
+            const element = elements.find((el) => el.id === id);
+            if (element && !element.locked) {
+              let newX = element.position.x;
+              let newY = element.position.y;
+
+              switch (e.key) {
+                case "ArrowUp":
+                  newY -= step;
+                  break;
+                case "ArrowDown":
+                  newY += step;
+                  break;
+                case "ArrowLeft":
+                  newX -= step;
+                  break;
+                case "ArrowRight":
+                  newX += step;
+                  break;
+              }
+
+              updateElement(id, { position: { x: newX, y: newY } });
+            }
+          });
+        }
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);

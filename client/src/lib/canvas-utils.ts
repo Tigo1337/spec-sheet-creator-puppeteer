@@ -201,13 +201,21 @@ export function createTOCElement(
 export function createShapeElement(
   x: number,
   y: number,
-  shapeType: "rectangle" | "circle" | "line" = "rectangle"
+  shapeType: "rectangle" | "circle" | "line" = "rectangle",
+  dimensions?: { width: number; height: number }
 ): CanvasElement {
+  // Default dimensions based on shape type
+  const defaultDimensions = shapeType === "line"
+    ? { width: 100, height: 2 }  // Default horizontal line
+    : { width: 100, height: 100 };
+
+  const { width, height } = dimensions || defaultDimensions;
+
   return {
     id: nanoid(),
     type: "shape",
     position: { x, y }, // Removed internal snap
-    dimension: { width: 100, height: 100 },
+    dimension: { width, height },
     rotation: 0,
     locked: false,
     visible: true,
