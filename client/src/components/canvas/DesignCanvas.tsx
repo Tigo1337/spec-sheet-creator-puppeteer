@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useCanvasStore } from "@/stores/canvas-store";
 import { CanvasElement } from "./CanvasElement";
 import { SelectionBox } from "./SelectionBox";
@@ -42,7 +42,6 @@ export function DesignCanvas({
   activeId = null, 
   activeGuides = { vertical: null, horizontal: null, alignments: [] } 
 }: DesignCanvasProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
@@ -94,6 +93,100 @@ export function DesignCanvas({
     };
   }, []);
 
+  // Global keyboard shortcuts listener
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input, textarea, or editable element
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      // Get latest state directly from the store to avoid stale closures
+      const state = useCanvasStore.getState();
+      const selectedIds = state.selectedElementIds;
+
+      // Handle Delete
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedIds.length > 0) {
+          e.preventDefault();
+          state.deleteSelectedElements();
+        }
+      }
+
+      // Handle Escape
+      if (e.key === 'Escape') {
+        state.clearSelection();
+        state.setActiveTool('select');
+      }
+
+      // Handle Select All (Ctrl/Cmd + A)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+        e.preventDefault();
+        state.selectAll();
+      }
+
+      // Handle Undo/Redo (Ctrl/Cmd + Z)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          state.redo();
+        } else {
+          state.undo();
+        }
+      }
+
+      // Handle Duplicate (Ctrl/Cmd + D)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
+        e.preventDefault();
+        if (selectedIds.length === 1) {
+          state.duplicateElement(selectedIds[0]);
+        }
+      }
+
+      // Handle Arrow Movement
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        if (selectedIds.length > 0) {
+          e.preventDefault();
+
+          const step = e.shiftKey ? 10 : 1; // 10px if Shift held, otherwise 1px
+
+          selectedIds.forEach((id) => {
+            const element = state.elements.find((el) => el.id === id);
+            if (element && !element.locked) {
+              let newX = element.position.x;
+              let newY = element.position.y;
+
+              switch (e.key) {
+                case 'ArrowUp':
+                  newY -= step;
+                  break;
+                case 'ArrowDown':
+                  newY += step;
+                  break;
+                case 'ArrowLeft':
+                  newX -= step;
+                  break;
+                case 'ArrowRight':
+                  newX += step;
+                  break;
+              }
+
+              state.updateElement(id, { position: { x: newX, y: newY } });
+            }
+          });
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     const pageElement = document.getElementById('page-0');
     if (pageElement) {
@@ -107,9 +200,6 @@ export function DesignCanvas({
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent, pageIndex: number) => {
       if (isPanning) return;
-
-      // Focus the container to enable keyboard shortcuts
-      containerRef.current?.focus();
 
       if (activePageIndex !== pageIndex) {
         setActivePage(pageIndex);
@@ -140,85 +230,6 @@ export function DesignCanvas({
     [activeTool, zoom, addElement, clearSelection, setActiveTool, activePageIndex, setActivePage, isPanning, gridSize, snapToGrid]
   );
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-    // Ignore if user is typing in an input or textarea
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-      return;
-    }
-    // Ignore if user is editing content (e.g., contentEditable text)
-    if ((e.target as HTMLElement).isContentEditable) {
-      return;
-    }
-
-    if (e.key === "Delete" || e.key === "Backspace") {
-      e.preventDefault();
-      const { deleteSelectedElements } = useCanvasStore.getState();
-      deleteSelectedElements();
-    }
-    if (e.key === "Escape") {
-      clearSelection();
-      setActiveTool("select");
-    }
-    if ((e.metaKey || e.ctrlKey) && e.key === "a") {
-      e.preventDefault();
-      const { selectAll } = useCanvasStore.getState();
-      selectAll();
-    }
-    if ((e.metaKey || e.ctrlKey) && e.key === "z") {
-      e.preventDefault();
-      if (e.shiftKey) {
-        const { redo } = useCanvasStore.getState();
-        redo();
-      } else {
-        const { undo } = useCanvasStore.getState();
-        undo();
-      }
-    }
-    if ((e.metaKey || e.ctrlKey) && e.key === "d") {
-      e.preventDefault();
-      const selected = useCanvasStore.getState().selectedElementIds;
-      if (selected.length === 1) {
-        useCanvasStore.getState().duplicateElement(selected[0]);
-      }
-    }
-
-    // Arrow key movement for selected elements
-    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
-      const { selectedElementIds, elements, updateElement } = useCanvasStore.getState();
-
-      if (selectedElementIds.length > 0) {
-        e.preventDefault(); // Prevent page scrolling
-
-        const step = e.shiftKey ? 10 : 1; // 10px if Shift held, otherwise 1px
-
-        selectedElementIds.forEach((id) => {
-          const element = elements.find((el) => el.id === id);
-          if (element && !element.locked) {
-            let newX = element.position.x;
-            let newY = element.position.y;
-
-            switch (e.key) {
-              case "ArrowUp":
-                newY -= step;
-                break;
-              case "ArrowDown":
-                newY += step;
-                break;
-              case "ArrowLeft":
-                newX -= step;
-                break;
-              case "ArrowRight":
-                newX += step;
-                break;
-            }
-
-            updateElement(id, { position: { x: newX, y: newY } });
-          }
-        });
-      }
-    }
-  }, [clearSelection, setActiveTool]);
-
   const sortedElements = [...elements].sort((a, b) => a.zIndex - b.zIndex);
 
   return (
@@ -245,13 +256,7 @@ export function DesignCanvas({
         </div>
 
         <ScrollArea className={`flex-1 ${isPanning ? 'cursor-grab active:cursor-grabbing' : ''}`}>
-        <div
-            ref={containerRef}
-            tabIndex={0}
-            onKeyDown={handleKeyDown}
-            onMouseDown={() => containerRef.current?.focus()}
-            className="flex flex-col items-center p-8 pt-12 pl-12 gap-8 min-h-full outline-none"
-        >
+        <div className="flex flex-col items-center p-8 pt-12 pl-12 gap-8 min-h-full">
             {Array.from({ length: pageCount }).map((_, pageIndex) => (
                 <div key={pageIndex} className="relative group">
                     <div className="absolute -top-6 left-0 text-xs text-muted-foreground font-medium flex justify-between w-full">
