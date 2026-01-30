@@ -6,6 +6,7 @@ import { AlignmentGuides } from "./AlignmentGuides";
 import { Ruler } from "./Ruler";
 import { FloatingToolbar } from "./FloatingToolbar";
 import { CanvasRowNavigator } from "./CanvasRowNavigator";
+import { ZoomControls } from "./ZoomControls";
 import { ShortcutsDialog } from "@/components/dialogs/ShortcutsDialog";
 import { createTextElement, createShapeElement } from "@/lib/canvas-utils";
 import { type ActiveGuides } from "@/lib/alignment-guides"; 
@@ -193,6 +194,20 @@ export function DesignCanvas({
           });
         }
       }
+
+      // Handle Zoom In (Ctrl/Cmd + = or +)
+      if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        const newZoom = Math.min(2, state.zoom + 0.25);
+        state.setZoom(newZoom);
+      }
+
+      // Handle Zoom Out (Ctrl/Cmd + -)
+      if ((e.metaKey || e.ctrlKey) && e.key === '-') {
+        e.preventDefault();
+        const newZoom = Math.max(0.25, state.zoom - 0.25);
+        state.setZoom(newZoom);
+      }
     };
 
     window.addEventListener('keydown', handleGlobalKeyDown);
@@ -346,6 +361,7 @@ export function DesignCanvas({
         </ScrollArea>
 
         <CanvasRowNavigator />
+        <ZoomControls />
         <ShortcutsDialog />
     </div>
   );
