@@ -106,7 +106,10 @@ export function DesignCanvas({
 
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent, pageIndex: number) => {
-      if (isPanning) return; 
+      if (isPanning) return;
+
+      // Focus the container to enable keyboard shortcuts
+      containerRef.current?.focus();
 
       if (activePageIndex !== pageIndex) {
         setActivePage(pageIndex);
@@ -137,80 +140,83 @@ export function DesignCanvas({
     [activeTool, zoom, addElement, clearSelection, setActiveTool, activePageIndex, setActivePage, isPanning, gridSize, snapToGrid]
   );
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-      if (e.key === "Delete" || e.key === "Backspace") {
-        const { deleteSelectedElements } = useCanvasStore.getState();
-        deleteSelectedElements();
-      }
-      if (e.key === "Escape") {
-        clearSelection();
-        setActiveTool("select");
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === "a") {
-        e.preventDefault();
-        const { selectAll } = useCanvasStore.getState();
-        selectAll();
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
-        e.preventDefault();
-        if (e.shiftKey) {
-          const { redo } = useCanvasStore.getState();
-          redo();
-        } else {
-          const { undo } = useCanvasStore.getState();
-          undo();
-        }
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === "d") {
-          e.preventDefault();
-          const selected = useCanvasStore.getState().selectedElementIds;
-          if (selected.length === 1) {
-              useCanvasStore.getState().duplicateElement(selected[0]);
-          }
-      }
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    // Ignore if user is typing in an input or textarea
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      return;
+    }
+    // Ignore if user is editing content (e.g., contentEditable text)
+    if ((e.target as HTMLElement).isContentEditable) {
+      return;
+    }
 
-      // Arrow key movement for selected elements
-      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
-        const { selectedElementIds, elements, updateElement } = useCanvasStore.getState();
+    if (e.key === "Delete" || e.key === "Backspace") {
+      e.preventDefault();
+      const { deleteSelectedElements } = useCanvasStore.getState();
+      deleteSelectedElements();
+    }
+    if (e.key === "Escape") {
+      clearSelection();
+      setActiveTool("select");
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === "a") {
+      e.preventDefault();
+      const { selectAll } = useCanvasStore.getState();
+      selectAll();
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+      e.preventDefault();
+      if (e.shiftKey) {
+        const { redo } = useCanvasStore.getState();
+        redo();
+      } else {
+        const { undo } = useCanvasStore.getState();
+        undo();
+      }
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === "d") {
+      e.preventDefault();
+      const selected = useCanvasStore.getState().selectedElementIds;
+      if (selected.length === 1) {
+        useCanvasStore.getState().duplicateElement(selected[0]);
+      }
+    }
 
-        if (selectedElementIds.length > 0) {
-          e.preventDefault(); // Prevent page scrolling
+    // Arrow key movement for selected elements
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+      const { selectedElementIds, elements, updateElement } = useCanvasStore.getState();
 
-          const step = e.shiftKey ? 10 : 1; // 10px if Shift held, otherwise 1px
+      if (selectedElementIds.length > 0) {
+        e.preventDefault(); // Prevent page scrolling
 
-          selectedElementIds.forEach((id) => {
-            const element = elements.find((el) => el.id === id);
-            if (element && !element.locked) {
-              let newX = element.position.x;
-              let newY = element.position.y;
+        const step = e.shiftKey ? 10 : 1; // 10px if Shift held, otherwise 1px
 
-              switch (e.key) {
-                case "ArrowUp":
-                  newY -= step;
-                  break;
-                case "ArrowDown":
-                  newY += step;
-                  break;
-                case "ArrowLeft":
-                  newX -= step;
-                  break;
-                case "ArrowRight":
-                  newX += step;
-                  break;
-              }
+        selectedElementIds.forEach((id) => {
+          const element = elements.find((el) => el.id === id);
+          if (element && !element.locked) {
+            let newX = element.position.x;
+            let newY = element.position.y;
 
-              updateElement(id, { position: { x: newX, y: newY } });
+            switch (e.key) {
+              case "ArrowUp":
+                newY -= step;
+                break;
+              case "ArrowDown":
+                newY += step;
+                break;
+              case "ArrowLeft":
+                newX -= step;
+                break;
+              case "ArrowRight":
+                newX += step;
+                break;
             }
-          });
-        }
+
+            updateElement(id, { position: { x: newX, y: newY } });
+          }
+        });
       }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    }
   }, [clearSelection, setActiveTool]);
 
   const sortedElements = [...elements].sort((a, b) => a.zIndex - b.zIndex);
@@ -241,7 +247,10 @@ export function DesignCanvas({
         <ScrollArea className={`flex-1 ${isPanning ? 'cursor-grab active:cursor-grabbing' : ''}`}>
         <div
             ref={containerRef}
-            className="flex flex-col items-center p-8 pt-12 pl-12 gap-8 min-h-full"
+            tabIndex={0}
+            onKeyDown={handleKeyDown}
+            onMouseDown={() => containerRef.current?.focus()}
+            className="flex flex-col items-center p-8 pt-12 pl-12 gap-8 min-h-full outline-none"
         >
             {Array.from({ length: pageCount }).map((_, pageIndex) => (
                 <div key={pageIndex} className="relative group">
