@@ -463,6 +463,57 @@ export function CanvasElement({
     e.stopPropagation();
   };
 
+  /**
+   * Check if the element's content contains variable patterns and if they resolve to empty.
+   * Returns ghost mode metadata for styling.
+   */
+  const getGhostModeInfo = () => {
+    const content = element.content || (element.dataBinding ? `{{${element.dataBinding}}}` : "");
+    const variablePattern = /{{(.*?)}}/g;
+    const hasVariables = variablePattern.test(content);
+
+    if (!hasVariables) {
+      return { isGhostMode: false, ghostPlaceholder: null };
+    }
+
+    // Reset regex
+    variablePattern.lastIndex = 0;
+
+    if (excelData && excelData.rows[selectedRowIndex]) {
+      const row = excelData.rows[selectedRowIndex];
+      let allEmpty = true;
+      let anyVariableFound = false;
+      const placeholders: string[] = [];
+
+      content.replace(variablePattern, (match, p1) => {
+        const fieldName = p1.trim();
+        anyVariableFound = true;
+        const value = row[fieldName];
+
+        // Check if value is empty, null, undefined, or just whitespace
+        const isEmpty = value === undefined || value === null || String(value).trim() === '';
+
+        if (isEmpty) {
+          placeholders.push(`{${fieldName}}`);
+        } else {
+          allEmpty = false;
+        }
+
+        return match;
+      });
+
+      // Ghost mode activates when all variables resolve to empty
+      if (anyVariableFound && allEmpty) {
+        return {
+          isGhostMode: true,
+          ghostPlaceholder: placeholders.join(' ') || '{Empty}'
+        };
+      }
+    }
+
+    return { isGhostMode: false, ghostPlaceholder: null };
+  };
+
   const getDisplayContent = () => {
     let content = element.content || (element.dataBinding ? `{{${element.dataBinding}}}` : "");
 
@@ -470,7 +521,7 @@ export function CanvasElement({
         const row = excelData.rows[selectedRowIndex];
         content = content.replace(/{{(.*?)}}/g, (match, p1) => {
             const fieldName = p1.trim();
-            return row[fieldName] !== undefined ? row[fieldName] : match; 
+            return row[fieldName] !== undefined ? row[fieldName] : match;
         });
     }
 
@@ -664,6 +715,10 @@ export function CanvasElement({
         const activeFont = element.textStyle?.fontFamily || (isDataField ? "JetBrains Mono" : "Inter");
         const fontValue = activeFont.includes(" ") ? `"${activeFont}"` : activeFont;
 
+        // Ghost Mode: Check if variables resolved to empty
+        const ghostInfo = getGhostModeInfo();
+        const isGhostMode = ghostInfo.isGhostMode;
+
         return (
           <div
             id={elementScopeId}
@@ -673,23 +728,26 @@ export function CanvasElement({
               display: "flex",
               flexDirection: "column",
               justifyContent: verticalAlignMap[element.textStyle?.verticalAlign || "middle"] as any,
-              fontFamily: fontValue, 
+              fontFamily: fontValue,
               fontSize: (element.textStyle?.fontSize || (isDataField ? 14 : 16)) * zoom,
               fontWeight: element.textStyle?.fontWeight || (isDataField ? 500 : 400),
-              color: element.textStyle?.color || "#000000",
+              color: isGhostMode ? "#94a3b8" : (element.textStyle?.color || "#000000"),
               textAlign: element.textStyle?.textAlign || "left",
               lineHeight: element.textStyle?.lineHeight || (isDataField ? 1.4 : 1.5),
               letterSpacing: `${element.textStyle?.letterSpacing || 0}px`,
-              padding: 0, 
-              borderColor: isDataField ? "#8b5cf6" : "transparent",
+              padding: 0,
+              borderColor: isGhostMode ? "#cbd5e1" : (isDataField ? "#8b5cf6" : "transparent"),
+              borderStyle: isGhostMode ? "dashed" : (isDataField ? "dashed" : "solid"),
               backgroundColor: isDataField ? "transparent" : "rgba(139, 92, 246, 0.05)",
-              whiteSpace: hasHtml ? "normal" : "pre-wrap", 
+              whiteSpace: hasHtml ? "normal" : "pre-wrap",
               wordBreak: "break-word",
               overflowWrap: "anywhere",
+              ...(isGhostMode && { opacity: 0.5 }),
             }}
+            title={isGhostMode ? "Empty variable - will not print" : undefined}
           >
             {overflowReport.count > 0 && !element.locked && (
-              <div 
+              <div
                 className="absolute top-0 left-0 m-1 bg-destructive text-white p-1 rounded-sm shadow-md z-[100] flex items-center gap-1 cursor-pointer animate-in fade-in zoom-in duration-200"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -702,7 +760,12 @@ export function CanvasElement({
               </div>
             )}
 
-            {hasHtml ? (
+            {isGhostMode ? (
+              // Render placeholder for ghost mode
+              <span style={{ fontStyle: "italic" }}>
+                {ghostInfo.ghostPlaceholder}
+              </span>
+            ) : hasHtml ? (
                <div style={{ width: "100%" }}>
                  <style>{`
                   #${elementScopeId} ul { list-style-type: ${hasCustomListStyle ? listStyleProp : 'disc'} !important; }
