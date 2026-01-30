@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useCanvasStore } from "@/stores/canvas-store";
 import { CanvasElement } from "./CanvasElement";
 import { SelectionBox } from "./SelectionBox";
@@ -38,12 +38,13 @@ interface DesignCanvasProps {
   activeGuides?: ActiveGuides;
 }
 
-export function DesignCanvas({ 
-  activeId = null, 
-  activeGuides = { vertical: null, horizontal: null, alignments: [] } 
+export function DesignCanvas({
+  activeId = null,
+  activeGuides = { vertical: null, horizontal: null, alignments: [] }
 }: DesignCanvasProps) {
   const [isPanning, setIsPanning] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const {
     canvasWidth,
@@ -96,12 +97,22 @@ export function DesignCanvas({
   // Global keyboard shortcuts listener
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input, textarea, or editable element
       const target = e.target as HTMLElement;
+
+      // Debug logging to help diagnose focus issues
+      console.log('Key pressed:', e.key, 'Target:', target.tagName, target.id || '(no id)');
+
+      // Ignore if user is typing in an input, textarea, or editable element
+      // BUT allow if the target is body or the canvas container
+      const isCanvasContainer = target.id === 'canvas-main-container';
+      const isBody = target.tagName === 'BODY';
+
       if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
+        !isCanvasContainer &&
+        !isBody &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
       ) {
         return;
       }
@@ -201,6 +212,9 @@ export function DesignCanvas({
     (e: React.MouseEvent, pageIndex: number) => {
       if (isPanning) return;
 
+      // Focus the canvas container to enable keyboard shortcuts
+      containerRef.current?.focus();
+
       if (activePageIndex !== pageIndex) {
         setActivePage(pageIndex);
       }
@@ -233,8 +247,11 @@ export function DesignCanvas({
   const sortedElements = [...elements].sort((a, b) => a.zIndex - b.zIndex);
 
   return (
-    <div 
-        className="flex-1 flex flex-col relative bg-muted/30 overflow-hidden" 
+    <div
+        ref={containerRef}
+        id="canvas-main-container"
+        tabIndex={-1}
+        className="flex-1 flex flex-col relative bg-muted/30 overflow-hidden outline-none"
         onMouseMove={handleMouseMove}
     >
         <div className="absolute top-0 left-6 right-0 h-6 bg-muted border-b z-20 overflow-hidden">
