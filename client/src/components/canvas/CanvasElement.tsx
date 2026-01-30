@@ -704,12 +704,15 @@ export function CanvasElement({
         };
 
         if (element.shapeType === "line") {
+          // Determine if line is vertical (height > width) or horizontal
+          const isVertical = element.dimension.height > element.dimension.width;
+
           return (
             <div className="w-full h-full flex items-center justify-center" aria-hidden="true">
               <div
-                className="w-full"
                 style={{
-                  height: (element.shapeStyle?.strokeWidth || 1) * zoom,
+                  width: isVertical ? (element.shapeStyle?.strokeWidth || 1) * zoom : "100%",
+                  height: isVertical ? "100%" : (element.shapeStyle?.strokeWidth || 1) * zoom,
                   backgroundColor: element.shapeStyle?.stroke || "#9ca3af",
                 }}
               />
