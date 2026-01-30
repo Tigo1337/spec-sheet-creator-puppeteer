@@ -5,6 +5,7 @@ import { SelectionBox } from "./SelectionBox";
 import { AlignmentGuides } from "./AlignmentGuides";
 import { Ruler } from "./Ruler";
 import { FloatingToolbar } from "./FloatingToolbar";
+import { CanvasRowNavigator } from "./CanvasRowNavigator";
 import { ShortcutsDialog } from "@/components/dialogs/ShortcutsDialog";
 import { createTextElement, createShapeElement } from "@/lib/canvas-utils";
 import { type ActiveGuides } from "@/lib/alignment-guides"; 
@@ -344,6 +345,7 @@ export function DesignCanvas({
         <ScrollBar orientation="vertical" />
         </ScrollArea>
 
+        <CanvasRowNavigator />
         <ShortcutsDialog />
     </div>
   );
