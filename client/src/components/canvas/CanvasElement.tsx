@@ -362,9 +362,33 @@ export function CanvasElement({
     validateDataset();
   }, [element.dimension, element.textStyle, element.content, element.dataBinding, element.format, element.tableSettings, excelData, zoom, isEditing]);
 
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // Stop propagation to prevent canvas from clearing selection
+    e.stopPropagation();
+
+    // Select the element
+    onSelect(element.id, e.shiftKey);
+
+    // Prevent the element itself from stealing focus in a way that blocks global keys
+    // unless we are specifically in edit mode. Use requestAnimationFrame to ensure
+    // the focus happens after dnd-kit processes the event
+    if (!isEditing) {
+      requestAnimationFrame(() => {
+        document.getElementById('canvas-main-container')?.focus();
+      });
+    }
+  };
+
   const handleClick = (e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation();
-    onSelect(element.id, e.shiftKey);
+    // For keyboard events (Enter/Space), handle selection here
+    if ('key' in e) {
+      onSelect(element.id, e.shiftKey);
+      if (!isEditing) {
+        document.getElementById('canvas-main-container')?.focus();
+      }
+    }
+    // Mouse selection is handled in onMouseDown
   };
 
   const handleDoubleInteraction = (e: React.MouseEvent | React.KeyboardEvent) => {
@@ -1038,6 +1062,7 @@ export function CanvasElement({
             }),
           }}
           onKeyDown={handleKeyDown}
+          onMouseDown={handleMouseDown}
           onClick={handleClick}
           onDoubleClick={handleDoubleInteraction}
         >
