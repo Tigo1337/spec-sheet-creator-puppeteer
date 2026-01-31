@@ -26,8 +26,7 @@ export function CanvasRowNavigator() {
   };
 
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50">
-      <div className="flex items-center gap-1 px-2 py-1.5 bg-white/80 backdrop-blur-md shadow-lg rounded-full border border-white/20">
+    <div className="flex items-center gap-1 px-3 py-1.5 bg-gray-50 rounded-full border border-gray-200">
         <Button
           size="icon"
           variant="ghost"
@@ -51,7 +50,6 @@ export function CanvasRowNavigator() {
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
-      </div>
     </div>
   );
 }

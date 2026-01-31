@@ -9,10 +9,10 @@ import { CanvasRowNavigator } from "./CanvasRowNavigator";
 import { ZoomControls } from "./ZoomControls";
 import { ShortcutsDialog } from "@/components/dialogs/ShortcutsDialog";
 import { createTextElement, createShapeElement } from "@/lib/canvas-utils";
-import { type ActiveGuides } from "@/lib/alignment-guides"; 
-import { useDroppable } from "@dnd-kit/core"; 
+import { type ActiveGuides } from "@/lib/alignment-guides";
+import { useDroppable } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Grid3X3 } from "lucide-react";
+import { Plus, Trash2, Grid3X3, ChevronLeft, ChevronRight, FilePlus } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 function DroppablePage({ pageIndex, children, style, onClick, activePageIndex }: any) {
@@ -262,106 +262,155 @@ export function DesignCanvas({
 
   const sortedElements = [...elements].sort((a, b) => a.zIndex - b.zIndex);
 
+  const isFirstPage = activePageIndex === 0;
+  const isLastPage = activePageIndex === pageCount - 1;
+
   return (
     <div
         ref={containerRef}
         id="canvas-main-container"
         tabIndex={-1}
-        className="flex-1 flex flex-col relative bg-muted/30 overflow-hidden outline-none"
+        className="flex-1 flex flex-col h-full relative outline-none"
         onMouseMove={handleMouseMove}
     >
-        <div className="absolute top-0 left-6 right-0 h-6 bg-muted border-b z-20 overflow-hidden">
-            <Ruler type="horizontal" zoom={zoom} length={canvasWidth} mousePos={mousePos.x} />
-        </div>
+        {/* 1. Canvas Area (Takes all remaining space) */}
+        <div className="flex-1 relative overflow-hidden bg-muted/30">
+            {/* Rulers */}
+            <div className="absolute top-0 left-6 right-0 h-6 bg-muted border-b z-20 overflow-hidden">
+                <Ruler type="horizontal" zoom={zoom} length={canvasWidth} mousePos={mousePos.x} />
+            </div>
 
-        <div className="absolute top-6 bottom-0 left-0 w-6 bg-muted border-r z-20 overflow-hidden">
-            <Ruler type="vertical" zoom={zoom} length={canvasHeight} mousePos={mousePos.y} />
-        </div>
+            <div className="absolute top-6 bottom-0 left-0 w-6 bg-muted border-r z-20 overflow-hidden">
+                <Ruler type="vertical" zoom={zoom} length={canvasHeight} mousePos={mousePos.y} />
+            </div>
 
-        <div className="absolute top-0 left-0 w-6 h-6 bg-muted z-30 border-r border-b flex items-center justify-center">
-            <button 
-                onClick={toggleGrid} 
-                className={`w-full h-full flex items-center justify-center hover:bg-accent ${showGrid ? 'text-primary' : 'text-muted-foreground'}`}
-                title="Toggle Grid"
-            >
-               <Grid3X3 className="h-3 w-3" />
-            </button>
-        </div>
+            <div className="absolute top-0 left-0 w-6 h-6 bg-muted z-30 border-r border-b flex items-center justify-center">
+                <button
+                    onClick={toggleGrid}
+                    className={`w-full h-full flex items-center justify-center hover:bg-accent ${showGrid ? 'text-primary' : 'text-muted-foreground'}`}
+                    title="Toggle Grid"
+                >
+                   <Grid3X3 className="h-3 w-3" />
+                </button>
+            </div>
 
-        <ScrollArea className={`flex-1 ${isPanning ? 'cursor-grab active:cursor-grabbing' : ''}`}>
-        <div className="flex flex-col items-center p-8 pt-12 pl-12 gap-8 min-h-full">
-            {Array.from({ length: pageCount }).map((_, pageIndex) => (
-                <div key={pageIndex} className="relative group">
-                    <div className="absolute -top-6 left-0 text-xs text-muted-foreground font-medium flex justify-between w-full">
-                        <span>Page {pageIndex + 1}</span>
-                        {pageCount > 1 && (
-                        <button 
-                            onClick={() => removePage(pageIndex)}
-                            className="hover:text-destructive transition-colors"
-                            title="Remove Page"
-                        >
-                            <Trash2 className="h-3 w-3" />
-                        </button>
-                        )}
-                    </div>
+            {/* Scrollable Canvas Content */}
+            <ScrollArea className={`flex-1 h-full ${isPanning ? 'cursor-grab active:cursor-grabbing' : ''}`}>
+                <div className="flex flex-col items-center p-8 pt-12 pl-12 gap-8 min-h-full">
+                    {Array.from({ length: pageCount }).map((_, pageIndex) => (
+                        <div key={pageIndex} className="relative group">
+                            <div className="absolute -top-6 left-0 text-xs text-muted-foreground font-medium flex justify-between w-full">
+                                <span>Page {pageIndex + 1}</span>
+                                {pageCount > 1 && (
+                                <button
+                                    onClick={() => removePage(pageIndex)}
+                                    className="hover:text-destructive transition-colors"
+                                    title="Remove Page"
+                                >
+                                    <Trash2 className="h-3 w-3" />
+                                </button>
+                                )}
+                            </div>
 
-                    <DroppablePage
-                        pageIndex={pageIndex}
-                        activePageIndex={activePageIndex}
-                        onClick={(e: React.MouseEvent) => handleCanvasClick(e, pageIndex)}
-                        style={{
-                            width: canvasWidth * zoom,
-                            height: canvasHeight * zoom,
-                            backgroundColor,
-                            backgroundImage: showGrid
-                                ? `linear-gradient(to right, rgba(0, 0, 0, 0.15) 1px, transparent 1px),
-                                linear-gradient(to bottom, rgba(0, 0, 0, 0.15) 1px, transparent 1px)`
-                                : undefined,
-                            backgroundSize: showGrid ? `${gridSize * zoom}px ${gridSize * zoom}px` : undefined,
-                            cursor: activeTool === "text" ? "text" : activeTool === "shape" ? "crosshair" : "default",
-                        }}
+                            <DroppablePage
+                                pageIndex={pageIndex}
+                                activePageIndex={activePageIndex}
+                                onClick={(e: React.MouseEvent) => handleCanvasClick(e, pageIndex)}
+                                style={{
+                                    width: canvasWidth * zoom,
+                                    height: canvasHeight * zoom,
+                                    backgroundColor,
+                                    backgroundImage: showGrid
+                                        ? `linear-gradient(to right, rgba(0, 0, 0, 0.15) 1px, transparent 1px),
+                                        linear-gradient(to bottom, rgba(0, 0, 0, 0.15) 1px, transparent 1px)`
+                                        : undefined,
+                                    backgroundSize: showGrid ? `${gridSize * zoom}px ${gridSize * zoom}px` : undefined,
+                                    cursor: activeTool === "text" ? "text" : activeTool === "shape" ? "crosshair" : "default",
+                                }}
+                            >
+                                {sortedElements
+                                .filter(el => (el.pageIndex ?? 0) === pageIndex)
+                                .map((element) => (
+                                    <CanvasElement
+                                        key={element.id}
+                                        element={element}
+                                        isSelected={selectedElementIds.includes(element.id)}
+                                        zoom={zoom}
+                                        onSelect={selectElement}
+                                    />
+                                ))}
+
+                                {activeId && activePageIndex === pageIndex && (
+                                   <AlignmentGuides activeId={activeId} activeGuides={activeGuides} zoom={zoom} />
+                                )}
+
+                                {selectedElementIds.length === 1 &&
+                                elements.find(el => el.id === selectedElementIds[0])?.pageIndex === pageIndex && (
+                                    <>
+                                        <SelectionBox elementId={selectedElementIds[0]} zoom={zoom} />
+                                        <FloatingToolbar zoom={zoom} />
+                                    </>
+                                )}
+                            </DroppablePage>
+                        </div>
+                    ))}
+
+                    <Button
+                        variant="outline"
+                        className="w-[200px] border-dashed gap-2"
+                        onClick={addPage}
                     >
-                        {sortedElements
-                        .filter(el => (el.pageIndex ?? 0) === pageIndex)
-                        .map((element) => (
-                            <CanvasElement
-                                key={element.id}
-                                element={element}
-                                isSelected={selectedElementIds.includes(element.id)}
-                                zoom={zoom}
-                                onSelect={selectElement}
-                            />
-                        ))}
-
-                        {activeId && activePageIndex === pageIndex && (
-                           <AlignmentGuides activeId={activeId} activeGuides={activeGuides} zoom={zoom} />
-                        )}
-
-                        {selectedElementIds.length === 1 && 
-                        elements.find(el => el.id === selectedElementIds[0])?.pageIndex === pageIndex && (
-                            <>
-                                <SelectionBox elementId={selectedElementIds[0]} zoom={zoom} />
-                                <FloatingToolbar zoom={zoom} />
-                            </>
-                        )}
-                    </DroppablePage>
+                        <Plus className="h-4 w-4" /> Add Page
+                    </Button>
                 </div>
-            ))}
+                <ScrollBar orientation="horizontal" />
+                <ScrollBar orientation="vertical" />
+            </ScrollArea>
 
-            <Button 
-                variant="outline" 
-                className="w-[200px] border-dashed gap-2"
-                onClick={addPage}
-            >
-                <Plus className="h-4 w-4" /> Add Page
-            </Button>
+            {/* Page Navigation Arrows - Outside TransformWrapper/ScrollArea */}
+            {/* Previous Page Button */}
+            {!isFirstPage && (
+                <button
+                    onClick={() => setActivePage(activePageIndex - 1)}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 z-40 p-2 bg-white/90 shadow-md hover:bg-white rounded-full border border-gray-200 transition-all hover:scale-105"
+                    title="Previous Page"
+                >
+                    <ChevronLeft className="h-5 w-5 text-gray-600" />
+                </button>
+            )}
+
+            {/* Next Page Button - Show only if not on last page */}
+            {!isLastPage && (
+                <button
+                    onClick={() => setActivePage(activePageIndex + 1)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 z-40 p-2 bg-white/90 shadow-md hover:bg-white rounded-full border border-gray-200 transition-all hover:scale-105"
+                    title="Next Page"
+                >
+                    <ChevronRight className="h-5 w-5 text-gray-600" />
+                </button>
+            )}
+
+            {/* Add Page Button - Show only on last page */}
+            {isLastPage && (
+                <button
+                    onClick={addPage}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 z-40 px-3 py-2 bg-white/90 shadow-md hover:bg-white rounded-lg border border-gray-200 transition-all hover:scale-105 flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-800"
+                    title="Add New Page"
+                >
+                    <FilePlus className="h-4 w-4" />
+                    <span>New Page</span>
+                </button>
+            )}
+
+            {/* Zoom Controls - Stay in Canvas Area */}
+            <ZoomControls />
         </div>
-        <ScrollBar orientation="horizontal" />
-        <ScrollBar orientation="vertical" />
-        </ScrollArea>
 
-        <CanvasRowNavigator />
-        <ZoomControls />
+        {/* 2. Footer Area (Static height, distinct block) */}
+        <div className="h-14 border-t bg-white flex items-center justify-center z-10 flex-shrink-0">
+            <CanvasRowNavigator />
+        </div>
+
         <ShortcutsDialog />
     </div>
   );
