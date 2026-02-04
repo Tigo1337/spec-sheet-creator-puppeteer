@@ -26,25 +26,25 @@ export function CanvasRowNavigator() {
   };
 
   return (
-    <div className="flex items-center gap-1 px-3 py-1.5 bg-gray-50 rounded-full border border-gray-200">
+    <div className="flex items-center gap-1">
         <Button
           size="icon"
           variant="ghost"
-          className="h-7 w-7 rounded-full hover:bg-black/5"
+          className="h-8 w-8 rounded-full hover:bg-gray-100"
           onClick={handlePrevRow}
           disabled={selectedRowIndex === 0}
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
 
-        <span className="px-3 text-sm font-medium text-gray-700 select-none whitespace-nowrap">
+        <span className="px-3 text-sm font-medium text-gray-600 select-none whitespace-nowrap">
           Row {currentRow} / {totalRows}
         </span>
 
         <Button
           size="icon"
           variant="ghost"
-          className="h-7 w-7 rounded-full hover:bg-black/5"
+          className="h-8 w-8 rounded-full hover:bg-gray-100"
           onClick={handleNextRow}
           disabled={selectedRowIndex >= totalRows - 1}
         >
