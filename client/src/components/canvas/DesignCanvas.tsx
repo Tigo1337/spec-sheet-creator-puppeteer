@@ -7,12 +7,10 @@ import { Ruler } from "./Ruler";
 import { FloatingToolbar } from "./FloatingToolbar";
 import { CanvasRowNavigator } from "./CanvasRowNavigator";
 import { ZoomControls } from "./ZoomControls";
-import { ShortcutsDialog } from "@/components/dialogs/ShortcutsDialog";
 import { createTextElement, createShapeElement } from "@/lib/canvas-utils";
 import { type ActiveGuides } from "@/lib/alignment-guides";
 import { useDroppable } from "@dnd-kit/core";
-import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Grid3X3, ChevronLeft, ChevronRight, FilePlus } from "lucide-react";
+import { Trash2, Grid3X3, ChevronLeft, ChevronRight, FilePlus } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 function DroppablePage({ pageIndex, children, style, onClick, activePageIndex }: any) {
@@ -274,7 +272,7 @@ export function DesignCanvas({
         onMouseMove={handleMouseMove}
     >
         {/* 1. Canvas Area (Takes all remaining space) */}
-        <div className="flex-1 relative overflow-hidden bg-muted/30">
+        <div id="canvas-viewport" className="flex-1 relative overflow-hidden bg-muted/30">
             {/* Rulers */}
             <div className="absolute top-0 left-6 right-0 h-6 bg-muted border-b z-20 overflow-hidden">
                 <Ruler type="horizontal" zoom={zoom} length={canvasWidth} mousePos={mousePos.x} />
@@ -354,25 +352,17 @@ export function DesignCanvas({
                             </DroppablePage>
                         </div>
                     ))}
-
-                    <Button
-                        variant="outline"
-                        className="w-[200px] border-dashed gap-2"
-                        onClick={addPage}
-                    >
-                        <Plus className="h-4 w-4" /> Add Page
-                    </Button>
                 </div>
                 <ScrollBar orientation="horizontal" />
                 <ScrollBar orientation="vertical" />
             </ScrollArea>
 
-            {/* Page Navigation Arrows - Outside TransformWrapper/ScrollArea */}
+            {/* Page Navigation Arrows - Positioned close to canvas */}
             {/* Previous Page Button */}
             {!isFirstPage && (
                 <button
                     onClick={() => setActivePage(activePageIndex - 1)}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 z-40 p-2 bg-white/90 shadow-md hover:bg-white rounded-full border border-gray-200 transition-all hover:scale-105"
+                    className="absolute left-10 top-1/2 -translate-y-1/2 z-40 p-2 bg-white/90 shadow-md hover:bg-white rounded-full border border-gray-200 transition-all hover:scale-105"
                     title="Previous Page"
                 >
                     <ChevronLeft className="h-5 w-5 text-gray-600" />
@@ -383,7 +373,7 @@ export function DesignCanvas({
             {!isLastPage && (
                 <button
                     onClick={() => setActivePage(activePageIndex + 1)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 z-40 p-2 bg-white/90 shadow-md hover:bg-white rounded-full border border-gray-200 transition-all hover:scale-105"
+                    className="absolute right-16 top-1/2 -translate-y-1/2 z-40 p-2 bg-white/90 shadow-md hover:bg-white rounded-full border border-gray-200 transition-all hover:scale-105"
                     title="Next Page"
                 >
                     <ChevronRight className="h-5 w-5 text-gray-600" />
@@ -394,7 +384,7 @@ export function DesignCanvas({
             {isLastPage && (
                 <button
                     onClick={addPage}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 z-40 px-3 py-2 bg-white/90 shadow-md hover:bg-white rounded-lg border border-gray-200 transition-all hover:scale-105 flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-800"
+                    className="absolute right-16 top-1/2 -translate-y-1/2 z-40 px-3 py-2 bg-white/90 shadow-md hover:bg-white rounded-lg border border-gray-200 transition-all hover:scale-105 flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-800"
                     title="Add New Page"
                 >
                     <FilePlus className="h-4 w-4" />
@@ -410,8 +400,6 @@ export function DesignCanvas({
         <div className="h-14 border-t bg-white flex items-center justify-center z-10 flex-shrink-0">
             <CanvasRowNavigator />
         </div>
-
-        <ShortcutsDialog />
     </div>
   );
 }

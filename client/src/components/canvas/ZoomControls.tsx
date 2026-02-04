@@ -1,6 +1,13 @@
 import { useCanvasStore } from "@/stores/canvas-store";
-import { Plus, Minus, Maximize } from "lucide-react";
-import { useCallback, useRef, useEffect } from "react";
+import { Plus, Minus, Maximize, Keyboard } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 const ZOOM_STEP = 0.25;
 const MIN_ZOOM = 0.25;
@@ -28,8 +35,8 @@ export function ZoomControls() {
   }, [zoom, setZoom]);
 
   const handleFitToScreen = useCallback(() => {
-    // Get the canvas container dimensions
-    const canvasContainer = document.querySelector('.flex-1.flex.flex-col.relative.bg-muted\\/30');
+    // Get the canvas viewport dimensions
+    const canvasContainer = document.getElementById('canvas-viewport');
     if (!canvasContainer) return;
 
     const containerRect = canvasContainer.getBoundingClientRect();
@@ -86,39 +93,82 @@ export function ZoomControls() {
     e.stopPropagation();
   }, []);
 
+  const shortcuts = [
+    { key: "V", desc: "Select Tool" },
+    { key: "T", desc: "Text Tool" },
+    { key: "S", desc: "Shape Tool" },
+    { key: "I", desc: "Image Tool" },
+    { key: "Delete", desc: "Delete Selection" },
+    { key: "Ctrl + D", desc: "Duplicate" },
+    { key: "Ctrl + Z", desc: "Undo" },
+    { key: "Ctrl + Shift + Z", desc: "Redo" },
+    { key: "Ctrl + A", desc: "Select All" },
+    { key: "Arrows", desc: "Nudge Position" },
+    { key: "Shift + Click", desc: "Multi-select" },
+    { key: "Space", desc: "Hold to Pan" },
+  ];
+
   return (
     <div
       ref={containerRef}
-      className="absolute bottom-6 right-6 z-50 flex flex-col gap-1 rounded-lg bg-black/50 backdrop-blur-sm p-1.5"
+      className="absolute bottom-6 right-6 z-50 flex flex-col gap-2"
       onKeyDown={handleKeyDown}
     >
-      <button
-        onClick={handleZoomIn}
-        disabled={zoom >= MAX_ZOOM}
-        className="flex h-8 w-8 items-center justify-center rounded-md text-white hover:bg-white/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        title="Zoom In (Ctrl + =)"
-      >
-        <Plus className="h-4 w-4" />
-      </button>
+      {/* Keyboard Shortcuts Button */}
+      <Dialog>
+        <DialogTrigger asChild>
+          <button
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-black/50 backdrop-blur-sm text-white hover:bg-black/60 transition-colors"
+            title="Keyboard Shortcuts"
+          >
+            <Keyboard className="h-4 w-4" />
+          </button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Keyboard Shortcuts</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4">
+            {shortcuts.map(s => (
+              <div key={s.key} className="flex justify-between border-b pb-2">
+                <span className="font-semibold text-sm bg-muted px-2 py-0.5 rounded">{s.key}</span>
+                <span className="text-sm text-muted-foreground">{s.desc}</span>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
-      <button
-        onClick={handleZoomOut}
-        disabled={zoom <= MIN_ZOOM}
-        className="flex h-8 w-8 items-center justify-center rounded-md text-white hover:bg-white/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        title="Zoom Out (Ctrl + -)"
-      >
-        <Minus className="h-4 w-4" />
-      </button>
+      {/* Zoom Controls */}
+      <div className="flex flex-col gap-1 rounded-lg bg-black/50 backdrop-blur-sm p-1.5">
+        <button
+          onClick={handleZoomIn}
+          disabled={zoom >= MAX_ZOOM}
+          className="flex h-8 w-8 items-center justify-center rounded-md text-white hover:bg-white/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Zoom In (Ctrl + =)"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
 
-      <div className="h-px bg-white/20 mx-1" />
+        <button
+          onClick={handleZoomOut}
+          disabled={zoom <= MIN_ZOOM}
+          className="flex h-8 w-8 items-center justify-center rounded-md text-white hover:bg-white/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Zoom Out (Ctrl + -)"
+        >
+          <Minus className="h-4 w-4" />
+        </button>
 
-      <button
-        onClick={handleFitToScreen}
-        className="flex h-8 w-8 items-center justify-center rounded-md text-white hover:bg-white/20 transition-colors"
-        title="Fit to Screen"
-      >
-        <Maximize className="h-4 w-4" />
-      </button>
+        <div className="h-px bg-white/20 mx-1" />
+
+        <button
+          onClick={handleFitToScreen}
+          className="flex h-8 w-8 items-center justify-center rounded-md text-white hover:bg-white/20 transition-colors"
+          title="Fit to Screen"
+        >
+          <Maximize className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   );
 }
