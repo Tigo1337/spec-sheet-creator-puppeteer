@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useCanvasStore } from "@/stores/canvas-store";
 import {
   Dialog,
@@ -10,6 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Trash2, Plus, Check } from "lucide-react";
+import type { CanvasElement as CanvasElementType } from "@shared/schema";
+import { formatContent } from "@/lib/formatter";
 
 interface PagePreviewPanelProps {
   isOpen: boolean;
@@ -24,12 +26,406 @@ interface PageThumbnailProps {
   canDelete: boolean;
 }
 
+/**
+ * Renders a single element in the thumbnail preview
+ */
+function ThumbnailElement({
+  element,
+  scale,
+  excelData,
+  selectedRowIndex
+}: {
+  element: CanvasElementType;
+  scale: number;
+  excelData: { rows: Record<string, string>[] } | null;
+  selectedRowIndex: number;
+}) {
+  const left = element.position.x * scale;
+  const top = element.position.y * scale;
+  const width = element.dimension.width * scale;
+  const height = element.dimension.height * scale;
+
+  // Helper to substitute variables with Excel data
+  const substituteVariables = (content: string): string => {
+    if (!content) return "";
+    if (excelData && excelData.rows[selectedRowIndex]) {
+      const row = excelData.rows[selectedRowIndex];
+      return content.replace(/{{(.*?)}}/g, (match, p1) => {
+        const fieldName = p1.trim();
+        return row[fieldName] !== undefined ? row[fieldName] : match;
+      });
+    }
+    return content;
+  };
+
+  // Get image URL with variable substitution
+  const getImageUrl = (): string | null => {
+    if (element.dataBinding && excelData && excelData.rows[selectedRowIndex]) {
+      return excelData.rows[selectedRowIndex][element.dataBinding] || element.imageSrc || null;
+    }
+    if (element.imageSrc && excelData && excelData.rows[selectedRowIndex]) {
+      return substituteVariables(element.imageSrc);
+    }
+    return element.imageSrc || null;
+  };
+
+  // Common positioning styles
+  const positionStyle: React.CSSProperties = {
+    position: 'absolute',
+    left,
+    top,
+    width,
+    height,
+    overflow: 'hidden',
+  };
+
+  switch (element.type) {
+    case 'image': {
+      const imageUrl = getImageUrl();
+      return (
+        <div style={{ ...positionStyle, backgroundColor: '#f3f4f6' }}>
+          {imageUrl && (
+            <img
+              src={imageUrl}
+              alt=""
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                opacity: element.shapeStyle?.opacity ?? 1,
+              }}
+              loading="lazy"
+            />
+          )}
+        </div>
+      );
+    }
+
+    case 'text':
+    case 'dataField': {
+      const rawContent = element.content || (element.dataBinding ? `{{${element.dataBinding}}}` : "");
+      const substitutedContent = substituteVariables(rawContent);
+      const displayContent = formatContent(substitutedContent, element.format);
+      const isDataField = element.type === 'dataField';
+      const fontSize = Math.max(3, (element.textStyle?.fontSize || (isDataField ? 14 : 16)) * scale);
+
+      const verticalAlignMap: Record<string, string> = {
+        top: 'flex-start',
+        middle: 'center',
+        bottom: 'flex-end',
+      };
+
+      return (
+        <div
+          style={{
+            ...positionStyle,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: verticalAlignMap[element.textStyle?.verticalAlign || 'middle'],
+            fontSize,
+            fontFamily: element.textStyle?.fontFamily || 'Inter',
+            fontWeight: element.textStyle?.fontWeight || 400,
+            color: element.textStyle?.color || '#000000',
+            textAlign: element.textStyle?.textAlign || 'left',
+            lineHeight: element.textStyle?.lineHeight || 1.5,
+            wordBreak: 'break-word',
+            ...(isDataField && {
+              border: `${Math.max(1, scale)}px dashed #8b5cf6`,
+              borderRadius: 2 * scale,
+            }),
+          }}
+        >
+          <span style={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: '-webkit-box',
+            WebkitLineClamp: Math.max(1, Math.floor(height / fontSize / 1.5)),
+            WebkitBoxOrient: 'vertical' as const,
+          }}>
+            {displayContent}
+          </span>
+        </div>
+      );
+    }
+
+    case 'shape': {
+      if (element.shapeType === 'line') {
+        const isVertical = element.dimension.height > element.dimension.width;
+        return (
+          <div style={{ ...positionStyle, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div
+              style={{
+                width: isVertical ? Math.max(1, (element.shapeStyle?.strokeWidth || 1) * scale) : '100%',
+                height: isVertical ? '100%' : Math.max(1, (element.shapeStyle?.strokeWidth || 1) * scale),
+                backgroundColor: element.shapeStyle?.stroke || '#9ca3af',
+              }}
+            />
+          </div>
+        );
+      }
+
+      return (
+        <div
+          style={{
+            ...positionStyle,
+            backgroundColor: element.shapeStyle?.fill || '#e5e7eb',
+            border: `${Math.max(1, (element.shapeStyle?.strokeWidth || 1) * scale)}px solid ${element.shapeStyle?.stroke || '#9ca3af'}`,
+            borderRadius: element.shapeType === 'circle' ? '50%' : (element.shapeStyle?.borderRadius || 0) * scale,
+            opacity: element.shapeStyle?.opacity ?? 1,
+          }}
+        />
+      );
+    }
+
+    case 'table': {
+      const settings = element.tableSettings;
+      if (!settings) {
+        return <div style={{ ...positionStyle, backgroundColor: '#f3f4f6', border: '1px solid #d1d5db' }} />;
+      }
+
+      // Get display rows
+      let displayRows: Record<string, string>[] = [];
+      const isPropertiesTable = settings.variant === 'properties';
+
+      if (isPropertiesTable && settings.staticData) {
+        const currentRow = excelData?.rows[selectedRowIndex];
+        const valueColHeader = settings.columns[1]?.header || 'Value';
+
+        displayRows = settings.staticData
+          .map(row => {
+            const processedRow: Record<string, string> = {};
+            let valueHadVariable = false;
+            let resolvedValueIsEmpty = false;
+
+            for (const [key, val] of Object.entries(row)) {
+              let processedVal = val || '';
+              const hasVariable = /{{.*?}}/.test(processedVal);
+              if (key === valueColHeader && hasVariable) valueHadVariable = true;
+
+              if (currentRow && hasVariable) {
+                processedVal = processedVal.replace(/{{(.*?)}}/g, (_, p1) => {
+                  return currentRow[p1.trim()] !== undefined ? currentRow[p1.trim()] : '';
+                });
+              }
+
+              if (key === valueColHeader && valueHadVariable) {
+                resolvedValueIsEmpty = processedVal.trim() === '';
+              }
+              processedRow[key] = processedVal;
+            }
+            return { ...processedRow, _hideRow: valueHadVariable && resolvedValueIsEmpty };
+          })
+          .filter(row => !row._hideRow)
+          .map(({ _hideRow, ...rest }) => rest);
+      } else if (excelData && excelData.rows.length > 0) {
+        if (settings.groupByField && selectedRowIndex !== undefined) {
+          const currentRow = excelData.rows[selectedRowIndex];
+          const groupValue = currentRow[settings.groupByField];
+          displayRows = groupValue
+            ? excelData.rows.filter(r => r[settings.groupByField!] === groupValue)
+            : [currentRow];
+        } else {
+          displayRows = excelData.rows.slice(0, 3);
+        }
+      }
+
+      const headerHeight = Math.max(8, 16 * scale);
+      const rowHeight = Math.max(6, 14 * scale);
+      const borderWidth = Math.max(0.5, settings.borderWidth * scale);
+
+      return (
+        <div
+          style={{
+            ...positionStyle,
+            display: 'flex',
+            flexDirection: 'column',
+            backgroundColor: '#fff',
+            border: `${borderWidth}px solid ${settings.borderColor || '#e5e7eb'}`,
+          }}
+        >
+          {/* Header */}
+          <div
+            style={{
+              display: 'flex',
+              backgroundColor: settings.headerBackgroundColor || '#f3f4f6',
+              height: headerHeight,
+              borderBottom: `${borderWidth}px solid ${settings.borderColor || '#e5e7eb'}`,
+              flexShrink: 0,
+            }}
+          >
+            {settings.columns.map((col, idx) => (
+              <div
+                key={col.id}
+                style={{
+                  flex: 1,
+                  fontSize: Math.max(3, (settings.headerStyle?.fontSize || 12) * scale),
+                  fontWeight: 600,
+                  padding: `0 ${scale}px`,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  borderRight: idx < settings.columns.length - 1 ? `${borderWidth}px solid ${settings.borderColor || '#e5e7eb'}` : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                {col.header}
+              </div>
+            ))}
+          </div>
+          {/* Rows */}
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            {displayRows.slice(0, Math.floor((height - headerHeight) / rowHeight)).map((row, rIdx) => (
+              <div
+                key={rIdx}
+                style={{
+                  display: 'flex',
+                  height: rowHeight,
+                  backgroundColor: settings.alternateRowColors && rIdx % 2 === 1
+                    ? (settings.alternateRowColor || '#f9fafb')
+                    : (settings.rowBackgroundColor || '#fff'),
+                  borderTop: rIdx > 0 ? `${borderWidth}px solid ${settings.borderColor || '#e5e7eb'}` : 'none',
+                }}
+              >
+                {settings.columns.map((col, cIdx) => (
+                  <div
+                    key={col.id}
+                    style={{
+                      flex: 1,
+                      fontSize: Math.max(2, (settings.rowStyle?.fontSize || 10) * scale),
+                      padding: `0 ${scale}px`,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      borderRight: cIdx < settings.columns.length - 1 ? `${borderWidth}px solid ${settings.borderColor || '#e5e7eb'}` : 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                  >
+                    {isPropertiesTable ? (row[col.header] || '-') : (row[col.dataField || ''] || '-')}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    case 'qrcode': {
+      // Render a simple QR code representation
+      const qrSize = Math.min(width, height);
+      const cellSize = qrSize / 7;
+
+      return (
+        <div
+          style={{
+            ...positionStyle,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div
+            style={{
+              width: qrSize,
+              height: qrSize,
+              display: 'grid',
+              gridTemplateColumns: `repeat(7, ${cellSize}px)`,
+              gridTemplateRows: `repeat(7, ${cellSize}px)`,
+              backgroundColor: '#fff',
+            }}
+          >
+            {/* Simple QR pattern */}
+            {[
+              1,1,1,0,1,1,1,
+              1,0,1,0,1,0,1,
+              1,1,1,0,1,1,1,
+              0,0,0,0,0,0,0,
+              1,1,1,0,1,0,1,
+              1,0,1,0,0,1,0,
+              1,1,1,0,1,0,1,
+            ].map((filled, i) => (
+              <div
+                key={i}
+                style={{
+                  backgroundColor: filled ? (element.textStyle?.color || '#000') : '#fff',
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    case 'toc-list': {
+      const settings = element.tocSettings || { title: 'Table of Contents', showTitle: true };
+      const titleFontSize = Math.max(4, (settings.titleStyle?.fontSize || 24) * scale);
+      const itemFontSize = Math.max(3, (element.textStyle?.fontSize || 14) * scale);
+
+      return (
+        <div
+          style={{
+            ...positionStyle,
+            backgroundColor: '#fff',
+            border: `${Math.max(0.5, scale)}px dashed #d1d5db`,
+            padding: 4 * scale,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          {settings.showTitle && (
+            <div
+              style={{
+                fontSize: titleFontSize,
+                fontWeight: settings.titleStyle?.fontWeight || 700,
+                color: settings.titleStyle?.color || '#000',
+                marginBottom: 4 * scale,
+              }}
+            >
+              {settings.title}
+            </div>
+          )}
+          {/* Sample TOC items */}
+          {[1, 2, 3].slice(0, Math.floor((height - (settings.showTitle ? titleFontSize + 8 * scale : 0)) / (itemFontSize * 1.5))).map((i) => (
+            <div
+              key={i}
+              style={{
+                fontSize: itemFontSize,
+                color: element.textStyle?.color || '#000',
+                display: 'flex',
+                justifyContent: 'space-between',
+              }}
+            >
+              <span>Item {i}</span>
+              <span>{i + 1}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    default:
+      return (
+        <div
+          style={{
+            ...positionStyle,
+            backgroundColor: '#e5e7eb',
+            border: '1px dashed #9ca3af',
+          }}
+        />
+      );
+  }
+}
+
 function PageThumbnail({ pageIndex, isActive, onSelect, onDelete, canDelete }: PageThumbnailProps) {
   const {
     canvasWidth,
     canvasHeight,
     backgroundColor,
     elements,
+    excelData,
+    selectedRowIndex,
   } = useCanvasStore();
 
   // Calculate thumbnail dimensions (maintain aspect ratio, max 150px width)
@@ -38,8 +434,12 @@ function PageThumbnail({ pageIndex, isActive, onSelect, onDelete, canDelete }: P
   const thumbnailWidth = canvasWidth * scale;
   const thumbnailHeight = canvasHeight * scale;
 
-  // Filter elements for this page
-  const pageElements = elements.filter(el => (el.pageIndex ?? 0) === pageIndex);
+  // Filter and sort elements for this page by zIndex
+  const pageElements = useMemo(() => {
+    return elements
+      .filter(el => (el.pageIndex ?? 0) === pageIndex)
+      .sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
+  }, [elements, pageIndex]);
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -61,121 +461,20 @@ function PageThumbnail({ pageIndex, isActive, onSelect, onDelete, canDelete }: P
           }}
           className="shadow-sm border border-gray-200"
         >
-          {/* Render simplified element representations */}
-          {pageElements.map((element) => {
-            const left = element.position.x * scale;
-            const top = element.position.y * scale;
-            const width = element.dimension.width * scale;
-            const height = element.dimension.height * scale;
-
-            // Render different element types
-            if (element.type === 'image') {
-              return (
-                <div
-                  key={element.id}
-                  style={{
-                    position: 'absolute',
-                    left,
-                    top,
-                    width,
-                    height,
-                    backgroundColor: '#e5e7eb',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {element.imageUrl && (
-                    <img
-                      src={element.imageUrl}
-                      alt=""
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: element.imageFit || 'cover',
-                      }}
-                    />
-                  )}
-                </div>
-              );
-            }
-
-            if (element.type === 'text') {
-              return (
-                <div
-                  key={element.id}
-                  style={{
-                    position: 'absolute',
-                    left,
-                    top,
-                    width,
-                    height,
-                    fontSize: Math.max(4, (element.textStyle?.fontSize || 12) * scale),
-                    color: element.textStyle?.color || '#000',
-                    overflow: 'hidden',
-                    lineHeight: 1.2,
-                  }}
-                  className="truncate"
-                >
-                  {element.content?.substring(0, 20)}
-                </div>
-              );
-            }
-
-            if (element.type === 'shape') {
-              return (
-                <div
-                  key={element.id}
-                  style={{
-                    position: 'absolute',
-                    left,
-                    top,
-                    width,
-                    height,
-                    backgroundColor: element.shapeStyle?.fill || '#3b82f6',
-                    borderRadius: element.shapeStyle?.shapeType === 'ellipse' ? '50%' :
-                                  element.shapeStyle?.borderRadius ? element.shapeStyle.borderRadius * scale : 0,
-                    opacity: element.shapeStyle?.opacity ?? 1,
-                  }}
-                />
-              );
-            }
-
-            if (element.type === 'table') {
-              return (
-                <div
-                  key={element.id}
-                  style={{
-                    position: 'absolute',
-                    left,
-                    top,
-                    width,
-                    height,
-                    backgroundColor: '#f3f4f6',
-                    border: '1px solid #d1d5db',
-                  }}
-                />
-              );
-            }
-
-            // Default placeholder for other types
-            return (
-              <div
-                key={element.id}
-                style={{
-                  position: 'absolute',
-                  left,
-                  top,
-                  width,
-                  height,
-                  backgroundColor: '#e5e7eb',
-                  border: '1px dashed #9ca3af',
-                }}
-              />
-            );
-          })}
+          {/* Render element previews */}
+          {pageElements.map((element) => (
+            <ThumbnailElement
+              key={element.id}
+              element={element}
+              scale={scale}
+              excelData={excelData}
+              selectedRowIndex={selectedRowIndex}
+            />
+          ))}
 
           {/* Active indicator */}
           {isActive && (
-            <div className="absolute top-1 right-1 bg-primary text-white rounded-full p-0.5">
+            <div className="absolute top-1 right-1 bg-primary text-white rounded-full p-0.5 z-10">
               <Check className="h-3 w-3" />
             </div>
           )}
@@ -188,7 +487,7 @@ function PageThumbnail({ pageIndex, isActive, onSelect, onDelete, canDelete }: P
               e.stopPropagation();
               onDelete();
             }}
-            className="absolute top-1 left-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+            className="absolute top-1 left-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
             title="Delete page"
           >
             <Trash2 className="h-3 w-3" />
