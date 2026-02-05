@@ -118,7 +118,7 @@ export function ZoomControls() {
       <Dialog>
         <DialogTrigger asChild>
           <button
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-black/50 backdrop-blur-sm text-white hover:bg-black/60 transition-colors"
+            className="flex h-11 w-11 items-center justify-center rounded-lg bg-black/50 backdrop-blur-sm text-white hover:bg-black/60 transition-colors"
             title="Keyboard Shortcuts"
           >
             <Keyboard className="h-4 w-4" />
