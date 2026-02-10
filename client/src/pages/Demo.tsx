@@ -163,7 +163,7 @@ export default function Demo() {
 
                 {/* Cal.com Embed */}
                 <Cal
-                  calLink="olivier-lepage-dumont-t3mei5/doculoom-demo-30min"
+                  calLink="doculoom-t3mei5/doculoom-demo-30min"
                   style={{ width: "100%", height: "100%", minHeight: "550px" }}
                   config={{ layout: 'month_view' }}
                 />
