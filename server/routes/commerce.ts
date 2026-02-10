@@ -9,6 +9,7 @@ import { storage } from "../storage";
 import { stripeService } from "../stripeService";
 import { getStripePublishableKey } from "../stripeClient";
 import { normalizeEmail } from "../utils/helpers";
+import { logger } from "../utils/logger";
 
 const router = Router();
 
@@ -132,7 +133,7 @@ router.post("/users/sync", async (req, res) => {
       const stripeCustomer = await stripeService.findCustomerByEmail(email);
 
       if (existingNormalized || existingFingerprint || stripeCustomer) {
-        console.warn(`Potential trial abuse detected for ${email}. Setting 0 initial credits.`);
+        logger.warn({ email }, 'Potential trial abuse detected, setting 0 initial credits');
         initialCredits = 0;
       }
     }

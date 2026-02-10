@@ -93,11 +93,14 @@ declare module "http" {
 }
 
 async function initStripe() {
-  if (!process.env.STRIPE_SECRET_KEY) {
-    logger.info('STRIPE_SECRET_KEY not set, skipping Stripe initialization');
+  const hasStripeKey = isDevelopment
+    ? (process.env.STRIPE_SECRET_KEY_DEV || process.env.STRIPE_SECRET_KEY)
+    : process.env.STRIPE_SECRET_KEY;
+
+  if (!hasStripeKey) {
+    logger.info('Stripe secret key not set, skipping Stripe initialization');
     return;
   }
-  logger.info('Stripe configured with manual API keys');
 }
 
 // === SMOKE TESTS ===

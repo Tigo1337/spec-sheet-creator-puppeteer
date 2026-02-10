@@ -1,34 +1,56 @@
 import Stripe from 'stripe';
+import { logger } from './utils/logger';
 
-// 1. Validate Keys exist
-if (!process.env.STRIPE_SECRET_KEY) {
-  // If this error triggers, check your Replit Secrets!
-  throw new Error("Missing STRIPE_SECRET_KEY in environment variables");
+const isDevelopment = process.env.NODE_ENV !== 'production';
+
+const stripeSecretKey = isDevelopment
+  ? (process.env.STRIPE_SECRET_KEY_DEV || process.env.STRIPE_SECRET_KEY)
+  : process.env.STRIPE_SECRET_KEY;
+
+if (!stripeSecretKey) {
+  const envType = isDevelopment ? 'development' : 'production';
+  throw new Error(`Missing Stripe Secret Key for ${envType} environment. Please set ${isDevelopment ? 'STRIPE_SECRET_KEY_DEV' : 'STRIPE_SECRET_KEY'} in your environment.`);
 }
 
-// 2. Export the Stripe instance directly
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+logger.info(`Stripe configured for ${isDevelopment ? 'development (sandbox)' : 'production (live)'} mode`);
+
+export const stripe = new Stripe(stripeSecretKey, {
   apiVersion: '2025-08-27.basil', 
   typescript: true,
 });
 
-// 3. Helper to get the client (matches your old signature to prevent breaking other files)
 export async function getUncachableStripeClient() {
   return stripe;
 }
 
-// 4. Helper to get keys
 export async function getStripePublishableKey() {
-  const key = process.env.VITE_STRIPE_PUBLISHABLE_KEY;
-  if (!key) throw new Error("Missing VITE_STRIPE_PUBLISHABLE_KEY");
+  const key = isDevelopment
+    ? (process.env.VITE_STRIPE_PUBLISHABLE_KEY_DEV || process.env.VITE_STRIPE_PUBLISHABLE_KEY)
+    : process.env.VITE_STRIPE_PUBLISHABLE_KEY;
+
+  if (!key) {
+    const envType = isDevelopment ? 'development' : 'production';
+    throw new Error(`Missing Stripe Publishable Key for ${envType} environment.`);
+  }
   return key;
 }
 
 export async function getStripeSecretKey() {
-  return process.env.STRIPE_SECRET_KEY!;
+  return stripeSecretKey;
 }
 
-// 5. Stripe Sync Helper (keeps your DB in sync)
+export function getStripeWebhookSecret(): string {
+  const secret = isDevelopment
+    ? (process.env.STRIPE_WEBHOOK_SECRET_DEV || process.env.STRIPE_WEBHOOK_SECRET)
+    : process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!secret) {
+    const envType = isDevelopment ? 'development' : 'production';
+    throw new Error(`Missing Stripe Webhook Secret for ${envType} environment.`);
+  }
+  return secret;
+}
+
 let stripeSync: any = null;
 
 export async function getStripeSync() {
@@ -40,7 +62,7 @@ export async function getStripeSync() {
         connectionString: process.env.DATABASE_URL!,
         max: 2,
       },
-      stripeSecretKey: process.env.STRIPE_SECRET_KEY!,
+      stripeSecretKey: stripeSecretKey!,
     });
   }
   return stripeSync;
