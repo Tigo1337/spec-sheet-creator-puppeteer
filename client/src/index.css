@@ -299,6 +299,15 @@
     background-color: #f8fafc; /* slate-50 */
   }
 
+  /* Hide scrollbar on Cal.com embed container */
+  .hide-scrollbar {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+
   /* Technical Badge Footer for Cards */
   .tech-footer {
     font-family: var(--font-sans);

@@ -29,7 +29,7 @@ export default function Demo() {
       cal("ui", {
         theme: "light",
         styles: { branding: { brandColor: "#2A9D90" } },
-        hideEventTypeDetails: false,
+        hideEventTypeDetails: true,
         layout: "month_view"
       });
     })();
@@ -156,7 +156,7 @@ export default function Demo() {
                   </span>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden min-h-[600px] flex flex-col">
+                <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden min-h-[600px] flex flex-col hide-scrollbar">
                   <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between pt-6">
                     <span className="text-sm text-slate-600 font-medium">Select a time below</span>
                     <span className="font-sans text-xs text-slate-400">30 MIN</span>
@@ -165,7 +165,7 @@ export default function Demo() {
                   {/* Cal.com Embed */}
                   <Cal
                     calLink="doculoom-t3mei5/doculoom-demo-30min"
-                    style={{ width: "100%", height: "100%", minHeight: "550px" }}
+                    style={{ width: "100%", height: "100%", minHeight: "480px" }}
                     config={{ layout: 'month_view' }}
                   />
 
