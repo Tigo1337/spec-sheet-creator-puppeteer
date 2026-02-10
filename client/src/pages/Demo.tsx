@@ -29,7 +29,7 @@ export default function Demo() {
       cal("ui", {
         theme: "light",
         styles: { branding: { brandColor: "#2A9D90" } },
-        hideEventTypeDetails: false,
+        hideEventTypeDetails: true,
         layout: "month_view"
       });
     })();
