@@ -147,31 +147,33 @@ export default function Demo() {
               </div>
 
               {/* Right Column: Cal.com Embed */}
-              <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden min-h-[600px] flex flex-col relative">
-                {/* Header Tab */}
-                <div className="absolute -top-3 left-6 bg-[#2A9D90] border border-[#2A9D90] border-b-0 rounded-t px-4 py-1.5">
+              <div className="relative mt-3">
+                {/* Header Tab - outside overflow-hidden so it doesn't get clipped */}
+                <div className="absolute -top-3 left-6 z-10 bg-[#2A9D90] border border-[#2A9D90] border-b-0 rounded-t px-4 py-1.5">
                   <span className="font-sans text-[10px] font-bold uppercase text-white tracking-wider flex items-center gap-2">
                     <Calendar size={12} />
                     Schedule
                   </span>
                 </div>
 
-                <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between pt-6">
-                  <span className="text-sm text-slate-600 font-medium">Select a time below</span>
-                  <span className="font-sans text-xs text-slate-400">30 MIN</span>
-                </div>
+                <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden min-h-[600px] flex flex-col">
+                  <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between pt-6">
+                    <span className="text-sm text-slate-600 font-medium">Select a time below</span>
+                    <span className="font-sans text-xs text-slate-400">30 MIN</span>
+                  </div>
 
-                {/* Cal.com Embed */}
-                <Cal
-                  calLink="doculoom-t3mei5/doculoom-demo-30min"
-                  style={{ width: "100%", height: "100%", minHeight: "550px" }}
-                  config={{ layout: 'month_view' }}
-                />
+                  {/* Cal.com Embed */}
+                  <Cal
+                    calLink="doculoom-t3mei5/doculoom-demo-30min"
+                    style={{ width: "100%", height: "100%", minHeight: "550px" }}
+                    config={{ layout: 'month_view' }}
+                  />
 
-                {/* Technical Footer */}
-                <div className="tech-footer px-4 py-3 border-t border-slate-100 bg-white">
-                  <span>REF: DEMO-001</span>
-                  <span>&#x231F;</span>
+                  {/* Technical Footer */}
+                  <div className="tech-footer px-4 py-3 border-t border-slate-100 bg-white">
+                    <span>REF: DEMO-001</span>
+                    <span>&#x231F;</span>
+                  </div>
                 </div>
               </div>
 
