@@ -133,11 +133,27 @@ The application runs on port 5000.
 
 ### Environment Variables
 - `DATABASE_URL` - Neon PostgreSQL connection string (required for persistence)
-- `CLERK_SECRET_KEY` - Clerk authentication secret key
-- `VITE_CLERK_PUBLISHABLE_KEY` - Clerk frontend publishable key
 - `PUBLIC_OBJECT_SEARCH_PATHS` - Comma-separated paths for public assets
 - `PRIVATE_OBJECT_DIR` - Directory for private uploads
 - `DEFAULT_OBJECT_STORAGE_BUCKET_ID` - Object storage bucket ID
+
+#### Environment-Aware Keys (Dev/Prod Pattern)
+Both Clerk and Stripe use environment-aware key selection. In development (`NODE_ENV=development`), `_DEV` keys are preferred with fallback to production keys. In production, only the base keys are used.
+
+**Clerk:**
+- `CLERK_SECRET_KEY` / `CLERK_SECRET_KEY_DEV` - Backend secret key
+- `VITE_CLERK_PUBLISHABLE_KEY` / `VITE_CLERK_PUBLISHABLE_KEY_DEV` - Frontend publishable key
+
+**Stripe:**
+- `STRIPE_SECRET_KEY` / `STRIPE_SECRET_KEY_DEV` - Backend secret key (live / sandbox)
+- `VITE_STRIPE_PUBLISHABLE_KEY` / `VITE_STRIPE_PUBLISHABLE_KEY_DEV` - Frontend publishable key (live / sandbox)
+- `STRIPE_WEBHOOK_SECRET` / `STRIPE_WEBHOOK_SECRET_DEV` - Webhook signing secret (live / sandbox)
+
+### Logging
+Server-side logging uses Pino (`server/utils/logger.ts`) with:
+- Structured JSON logs with colorized pretty-printing
+- `sanitizeData()` utility to truncate long strings (Base64) in API response logs
+- All server files import `logger` from `./utils/logger` instead of using `console.log`
 
 ### Database Schema
 The application uses Drizzle ORM with Neon PostgreSQL. Tables are defined in `shared/schema.ts`:
@@ -169,13 +185,29 @@ Run `npm run db:push` to sync schema changes to the database.
   - Users table with Stripe subscription tracking fields
   - Webhook handlers for subscription lifecycle events (checkout, updates, cancellations)
   - Customer portal for subscription management
+- Pino structured logging and Stripe live mode setup (Feb 10, 2026)
+  - Replaced console.log with Pino logger across all server files
+  - Added sanitizeData() to truncate Base64 strings in API response logs
+  - Environment-aware Stripe key selection (sandbox _DEV keys for development, live keys for production)
+  - Cookie banner no longer refreshes page on accept/decline
+  - Fixed duplicate Sentry initialization crash
 
 ## Stripe Integration
 
-### Products & Prices
-Products are seeded using `scripts/seed-stripe-products.ts`:
-- Pro Monthly: $19.99/month (price_1SZtioEFufdmlbEL2SX2yEof)
-- Pro Annual: $159.90/year (price_1SZtioEFufdmlbELICbVr7lk)
+### Environment-Aware Configuration
+Stripe uses dev/prod key selection matching the Clerk pattern (see Environment Variables above). Key files:
+- `server/stripeClient.ts` - Stripe client with environment-aware key selection and webhook secret helper
+- `server/stripeService.ts` - Stripe service methods (checkout, customer management, pricing)
+- `server/webhookHandlers.ts` - Webhook event handlers with Pino logging
+- `client/src/pages/Checkout.tsx` - Checkout page
+- `client/src/pages/CheckoutSuccess.tsx` - Success page
+
+### Live Products & Prices
+Products configured in Stripe live mode:
+- Pro Monthly: $39.99/month (prod_pro_monthly)
+- Pro Annual: $399.99/year (prod_pro_annual)
+- Scale Monthly: $69.99-$179.99/month with tiered AI credits (prod_scale_monthly)
+- Scale Annual: $699.99-$1,799.99/year with tiered AI credits (prod_scale_annual)
 
 ### Checkout Flow (Register-First)
 1. User selects plan on /pricing page
@@ -186,15 +218,10 @@ Products are seeded using `scripts/seed-stripe-products.ts`:
 6. Webhook updates user's plan status in database
 
 ### API Endpoints (Stripe)
-- `GET /api/stripe/config` - Get Stripe publishable key
+- `GET /api/stripe/config` - Get Stripe publishable key (environment-aware)
+- `GET /api/plans` - Get active pricing plans from Stripe
 - `POST /api/users/sync` - Sync user from Clerk to database
 - `GET /api/subscription` - Get current user's subscription status
 - `POST /api/checkout` - Create Stripe checkout session
 - `POST /api/customer-portal` - Create Stripe customer portal session
-
-### Key Files
-- `server/stripeClient.ts` - Stripe client using Replit connection
-- `server/stripeService.ts` - Stripe service methods
-- `server/webhookHandlers.ts` - Webhook event handlers
-- `client/src/pages/Checkout.tsx` - Checkout page
-- `client/src/pages/CheckoutSuccess.tsx` - Success page
+- `POST /api/stripe/webhook` - Stripe webhook endpoint

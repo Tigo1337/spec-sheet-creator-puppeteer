@@ -14,19 +14,21 @@ import { HelmetProvider } from "react-helmet-async";
 // In development mode (Vite dev server), use DEV keys if available
 // In production builds, always use production keys
 const isDevelopment = import.meta.env.DEV;
-const consent = localStorage.getItem('doculoom_cookie_consent');
 
-if (consent === 'accepted') {
-  Sentry.init({
-    dsn: import.meta.env.VITE_SENTRY_DSN || "",
-    integrations: [
-      Sentry.browserTracingIntegration(),
-      Sentry.replayIntegration(),
-    ],
-    tracesSampleRate: 1.0,
-    replaysSessionSampleRate: 0.1,
-    replaysOnErrorSampleRate: 1.0,
-  });
+if (typeof window !== 'undefined') {
+  const consent = localStorage.getItem('doculoom_cookie_consent');
+  if (consent === 'accepted') {
+    Sentry.init({
+      dsn: import.meta.env.VITE_SENTRY_DSN || "",
+      integrations: [
+        Sentry.browserTracingIntegration(),
+        Sentry.replayIntegration(),
+      ],
+      tracesSampleRate: 1.0,
+      replaysSessionSampleRate: 0.1,
+      replaysOnErrorSampleRate: 1.0,
+    });
+  }
 }
 
 const PUBLISHABLE_KEY = isDevelopment 
