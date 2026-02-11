@@ -1,7 +1,7 @@
-# SpecSheet Builder - Data-Driven Spec Sheet Builder SaaS
+# Doculoom by Livessa - Data-Driven Spec Sheet Builder SaaS
 
 ## Overview
-SpecSheet Builder is a web-based SaaS application that allows users to create professional spec sheets by combining custom designs with data from Excel files. It's a simpler alternative to InDesign for creating data-driven documents.
+Doculoom is a web-based SaaS application, owned and operated by Livessa (Quebec, Canada), that allows users to create professional spec sheets by combining custom designs with data from Excel files. It's a simpler alternative to InDesign for creating data-driven documents.
 
 ## Tech Stack
 - **Frontend**: React with TypeScript, Vite, Tailwind CSS
