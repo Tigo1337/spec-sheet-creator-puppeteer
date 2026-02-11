@@ -121,7 +121,7 @@ router.post("/users/sync", async (req, res) => {
     const normalized = normalizeEmail(email);
 
     // WHITELIST: Allow specific accounts to bypass trial abuse checks
-    const isWhitelisted = email.includes("tigolivier1337");
+    const isWhitelisted = email === process.env.ADMIN_EMAIL;
     let initialCredits = 5000;
 
     if (!isWhitelisted) {

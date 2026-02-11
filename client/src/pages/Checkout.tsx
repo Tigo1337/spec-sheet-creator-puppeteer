@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { useAuth } from "@clerk/clerk-react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -112,6 +113,11 @@ export default function Checkout() {
   if (!isLoaded || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
+        <Helmet>
+          <title>Checkout | Doculoom</title>
+          <meta name="description" content="Complete your Doculoom subscription checkout securely via Stripe." />
+          <meta name="robots" content="noindex, nofollow" />
+        </Helmet>
         <div className="max-w-md text-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
           <h2 className="text-xl font-semibold">

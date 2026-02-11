@@ -1,4 +1,5 @@
 import React from "react";
+import { Helmet } from "react-helmet-async";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { PublicHeader } from "@/components/layout/PublicHeader";
@@ -23,6 +24,11 @@ export default function TemplateLibrary() {
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#2A9D90]/20">
+      <Helmet>
+        <title>Template Library - Ready-Made Spec Sheet Templates | Doculoom</title>
+        <meta name="description" content="Browse professional spec sheet and catalog templates. Start with a pre-built layout and customize it for your products." />
+        <link rel="canonical" href="https://doculoom.io/templates" />
+      </Helmet>
       <PublicHeader />
 
       {/* Hero Section */}

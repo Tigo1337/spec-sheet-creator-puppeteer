@@ -4,6 +4,7 @@
  */
 
 import { useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import { Header } from "@/components/layout/Header";
 import { LeftPanel } from "@/components/panels/LeftPanel";
 import { RightPanel } from "@/components/panels/RightPanel";
@@ -119,6 +120,10 @@ export default function Editor() {
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
+      <Helmet>
+        <title>Editor | Doculoom</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
