@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Loader2 } from "lucide-react";
@@ -24,6 +25,11 @@ export default function CheckoutSuccess() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
+      <Helmet>
+        <title>Checkout Success | Doculoom</title>
+        <meta name="description" content="Your Doculoom Pro subscription is now active." />
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
       <div className="max-w-md text-center space-y-6">
         <div className="mx-auto h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
           <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400" />

@@ -1,8 +1,13 @@
 import { SignIn } from "@clerk/clerk-react";
+import { Helmet } from "react-helmet-async";
 
 export default function Login() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
+      <Helmet>
+        <title>Sign In | Doculoom</title>
+        <meta name="description" content="Sign in to your Doculoom account to create and manage spec sheets, catalogs, and product documents." />
+      </Helmet>
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <img 
