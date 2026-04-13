@@ -1,6 +1,7 @@
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { useUser } from "@clerk/clerk-react"; // Import useUser
+import { useUser } from "@clerk/clerk-react";
+import { BRAND } from "@/config/brand";
 
 export function PublicHeader() {
   const [location] = useLocation();
@@ -19,9 +20,9 @@ export function PublicHeader() {
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
         {/* ... rest of your code remains the same ... */}
         <a href="/" className="flex items-center gap-2">
-          <img 
-            src="https://res.cloudinary.com/olilepage/image/upload/t_transparent_background/v1767054291/doculoom/logos/doculoom-io-wordmark-logo-cropped.png" 
-            alt="Doculoom" 
+          <img
+            src={BRAND.logoUrl}
+            alt={BRAND.name}
             className="h-8"
           />
         </a>

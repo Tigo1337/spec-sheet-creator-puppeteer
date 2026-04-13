@@ -47,6 +47,7 @@ import { format } from "date-fns";
 import { importPdf } from "@/lib/pdf-importer"; // Import the utility
 import { useToast } from "@/hooks/use-toast"; // Import toast for feedback
 import type { CanvasElement } from "@shared/schema";
+import { BRAND } from "@/config/brand";
 
 export function Header() {
   const { user } = useUser();
@@ -320,14 +321,14 @@ export function Header() {
       {/* Left Section */}
       <div className="flex items-center gap-3 min-w-0">
         <div className="flex items-center gap-2">
-          <img 
-            src="https://res.cloudinary.com/olilepage/image/upload/t_transparent_background/v1767054291/doculoom/logos/doculoom-io-wordmark-logo-cropped.png" 
-            alt="Doculoom" 
+          <img
+            src={BRAND.logoUrl}
+            alt={BRAND.name}
             className="h-8 hidden sm:block"
           />
-          <img 
-            src="https://res.cloudinary.com/olilepage/image/upload/t_transparent_background/v1767054291/doculoom/logos/doculoom-io-wordmark-logo-cropped.png" 
-            alt="Doculoom" 
+          <img
+            src={BRAND.iconUrl}
+            alt={BRAND.name}
             className="h-6 sm:hidden"
           />
         </div>

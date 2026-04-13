@@ -1,6 +1,7 @@
 import { SignUp } from "@clerk/clerk-react";
 import { Helmet } from "react-helmet-async";
 import { useEffect } from "react";
+import { BRAND } from "@/config/brand";
 
 export default function Registration() {
   const plan = sessionStorage.getItem("checkoutPlan");
@@ -22,9 +23,9 @@ export default function Registration() {
       </Helmet>
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <img 
-            src="https://res.cloudinary.com/olilepage/image/upload/t_transparent_background/v1767054291/doculoom/logos/doculoom-io-wordmark-logo-cropped.png" 
-            alt="Doculoom" 
+          <img
+            src={BRAND.logoUrl}
+            alt={BRAND.name}
             className="h-10 mx-auto mb-4"
           />
           <p className="text-muted-foreground mt-2">Create your account</p>

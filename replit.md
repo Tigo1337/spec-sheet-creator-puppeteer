@@ -19,6 +19,10 @@ Doculoom is a web-based SaaS application, owned and operated by Livessa (Quebec,
 ```
 ├── client/
 │   ├── src/
+│   │   ├── config/
+│   │   │   ├── brand.ts                # Centralized brand config (logoUrl, iconUrl, name)
+│   │   │   ├── support-data.ts         # Support widget content
+│   │   │   └── tour-steps.tsx          # Onboarding tour steps
 │   │   ├── components/
 │   │   │   ├── canvas/
 │   │   │   │   ├── DesignCanvas.tsx    # Main canvas component

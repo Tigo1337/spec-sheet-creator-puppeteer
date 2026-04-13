@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageCircle, X, ChevronLeft, ExternalLink, Mail, RotateCcw } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { SUPPORT_DATA, SupportOption } from "@/config/support-data";
+import { BRAND } from "@/config/brand";
 
 const SUPPORT_BUTTON_CLASS = "justify-start text-left h-auto py-2.5 px-4 whitespace-normal hover:bg-slate-50 w-full transition-colors flex items-center gap-2 font-medium";
 
@@ -91,10 +92,10 @@ export function SupportWidget() {
             <Card className="w-[400px] h-[750px] max-h-[85vh] shadow-xl border-primary/20 flex flex-col overflow-hidden bg-background">
               {/* Header */}
               <div className="p-4 bg-white border-b flex justify-between items-center">
-                <img 
-                  src="https://res.cloudinary.com/olilepage/image/upload/t_transparent_background/v1767054291/doculoom/logos/doculoom-io-wordmark-logo-cropped.png" 
-                  alt="Doculoom" 
-                  className="h-6" 
+                <img
+                  src={BRAND.logoUrl}
+                  alt={BRAND.name}
+                  className="h-6"
                 />
                 <Button 
                   variant="ghost" 
