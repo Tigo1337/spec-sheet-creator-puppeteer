@@ -189,7 +189,7 @@ export function LeftPanel() {
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Font</Label>
               <Select
-                value={selectedElement.textStyle?.fontFamily || "Inter"}
+                value={selectedElement.textStyle?.fontFamily || "Barlow"}
                 onValueChange={(value) => {
                   if (selectedElement.textStyle) {
                     updateElement(selectedElement.id, {

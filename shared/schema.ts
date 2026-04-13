@@ -19,7 +19,7 @@ export const dimensionSchema = z.object({
 
 // Text styling
 export const textStyleSchema = z.object({
-  fontFamily: z.string().default("Inter"),
+  fontFamily: z.string().default("Barlow"),
   fontSize: z.number().default(16),
   fontWeight: z.number().default(400),
   color: z.string().default("#000000"),
@@ -88,7 +88,7 @@ export const tableSettingsSchema = z.object({
 
   // Styles
   headerStyle: textStyleSchema.default({
-    fontFamily: "Inter",
+    fontFamily: "Barlow",
     fontSize: 14,
     fontWeight: 700,
     color: "#000000",
@@ -98,7 +98,7 @@ export const tableSettingsSchema = z.object({
     letterSpacing: 0,
   }),
   rowStyle: textStyleSchema.default({
-    fontFamily: "Inter",
+    fontFamily: "Barlow",
     fontSize: 12,
     fontWeight: 400,
     color: "#000000",
@@ -125,7 +125,7 @@ export const tocSettingsSchema = z.object({
   title: z.string().default("Table of Contents"),
   showTitle: z.boolean().default(true),
   titleStyle: textStyleSchema.default({
-    fontFamily: "Inter",
+    fontFamily: "Barlow",
     fontSize: 24,
     fontWeight: 700,
     color: "#000000",
@@ -139,7 +139,7 @@ export const tocSettingsSchema = z.object({
   groupByField: z.string().optional(),
   chapterCoversEnabled: z.boolean().default(false),
   chapterStyle: textStyleSchema.default({
-    fontFamily: "Inter",
+    fontFamily: "Barlow",
     fontSize: 18,
     fontWeight: 600,
     color: "#333333",
@@ -282,6 +282,8 @@ export type InsertSavedDesign = z.infer<typeof insertSavedDesignSchema>;
 
 // UPDATED: Expanded Google Fonts List
 export const availableFonts = [
+  "Barlow",
+  "Barlow Condensed",
   "Inter",
   "Arial", 
   "Roboto", 
@@ -300,7 +302,6 @@ export const availableFonts = [
   "Kanit", 
   "Fira Sans", 
   "Quicksand",
-  "Barlow",
   "Inconsolata",
   "Titillium Web",
   "PT Sans",

@@ -98,7 +98,7 @@ export function TocProperties({ element, updateElement }: TocPropertiesProps) {
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Font</Label>
               <Select
-                value={tocSettings.titleStyle?.fontFamily || "Inter"}
+                value={tocSettings.titleStyle?.fontFamily || "Barlow"}
                 onValueChange={(val) => handleTocSettingChange("titleStyle", "fontFamily", val)}
               >
                 <SelectTrigger className="h-7 text-xs">
@@ -195,7 +195,7 @@ export function TocProperties({ element, updateElement }: TocPropertiesProps) {
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">Font</Label>
           <Select
-            value={tocSettings.chapterStyle?.fontFamily || "Inter"}
+            value={tocSettings.chapterStyle?.fontFamily || "Barlow"}
             onValueChange={(val) => handleTocSettingChange("chapterStyle", "fontFamily", val)}
           >
             <SelectTrigger className="h-7 text-xs">

@@ -371,7 +371,7 @@ export function SavedDesignsTab() {
 
       if (element.type === "text" || element.type === "dataField") {
         const textStyle = element.textStyle || {};
-        const rawFont = textStyle.fontFamily || "Inter";
+        const rawFont = textStyle.fontFamily || "Barlow";
         const mappedFont = openSourceFontMap[rawFont] || rawFont;
         elementDiv.style.fontFamily = `"${mappedFont}", sans-serif`;
 

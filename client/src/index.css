@@ -45,9 +45,9 @@
   --chart-3: 347 60% 39%; /* Brand Highlight / Crimson */
   --chart-4: 43 74% 66%;  /* Gold/Yellow accent */
   --chart-5: 27 87% 67%;  /* Orange accent */
-  --font-sans: Inter, sans-serif;
-  --font-serif: Georgia, serif;
-  --font-mono: Inter, sans-serif;
+  --font-sans: 'Barlow', 'Inter', sans-serif;
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
   --radius: .5rem;
   --shadow-2xs: 0px 2px 0px 0px hsl(217 91% 60% / 0.00);
   --shadow-xs: 0px 2px 0px 0px hsl(217 91% 60% / 0.00);

@@ -167,7 +167,8 @@ The application uses Drizzle ORM with Neon PostgreSQL. Tables are defined in `sh
 Run `npm run db:push` to sync schema changes to the database.
 
 ## User Preferences
-- Default font: Inter
+- Default font: Barlow (closest free match to Interstate, the brand font from the PDF)
+- Serif accent font: Playfair Display (for italic hero headings)
 - Monospace font: JetBrains Mono
 - Grid size: 10px
 - Default canvas size: Letter (8.5" x 11" at 96dpi)
@@ -189,6 +190,12 @@ Run `npm run db:push` to sync schema changes to the database.
   - Users table with Stripe subscription tracking fields
   - Webhook handlers for subscription lifecycle events (checkout, updates, cancellations)
   - Customer portal for subscription management
+- Brand typography applied (Apr 13, 2026)
+  - Barlow + Barlow Condensed set as default UI and canvas fonts (closest free match to Interstate from brand PDF)
+  - Playfair Display used as `font-serif` for italic hero accent words
+  - JetBrains Mono set as `font-mono` for code/data fields
+  - All canvas element defaults (text, table, TOC) changed from Inter → Barlow
+  - Barlow Condensed added to editor font picker, sorted to top of list
 - Pino structured logging and Stripe live mode setup (Feb 10, 2026)
   - Replaced console.log with Pino logger across all server files
   - Added sanitizeData() to truncate Base64 strings in API response logs

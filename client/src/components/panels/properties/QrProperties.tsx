@@ -33,7 +33,7 @@ export function QrProperties({
 }: QrPropertiesProps) {
   const handleColorChange = (color: string) => {
     const currentStyle = element.textStyle || {
-      fontFamily: "Inter",
+      fontFamily: "Barlow",
       fontSize: 16,
       fontWeight: 400,
       color: "#000000",

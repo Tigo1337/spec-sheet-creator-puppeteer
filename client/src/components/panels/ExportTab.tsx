@@ -362,7 +362,7 @@ export function ExportTab() {
          elementDiv.id = elementId;
 
          const textStyle = element.textStyle || {};
-         const rawFont = textStyle.fontFamily || "Inter";
+         const rawFont = textStyle.fontFamily || "Barlow";
          const mappedFont = openSourceFontMap[rawFont] || rawFont;
          elementDiv.style.fontFamily = `"${mappedFont}", sans-serif`;
 
@@ -557,7 +557,7 @@ export function ExportTab() {
              const headerRow = document.createElement("tr");
              headerRow.style.backgroundColor = tableSettings.headerBackgroundColor || "#f3f4f6";
 
-             const hRaw = tableSettings.headerStyle?.fontFamily || "Inter";
+             const hRaw = tableSettings.headerStyle?.fontFamily || "Barlow";
              const hMapped = openSourceFontMap[hRaw] || hRaw;
              const hFont = `"${hMapped}", sans-serif`;
              const totalWidth = tableSettings.columns.reduce((acc, c) => acc + (c.width || 100), 0);
@@ -596,7 +596,7 @@ export function ExportTab() {
 
              // --- TBODY (BODY) ---
              const tbody = document.createElement("tbody");
-             const rRaw = tableSettings.rowStyle?.fontFamily || "Inter";
+             const rRaw = tableSettings.rowStyle?.fontFamily || "Barlow";
              const rMapped = openSourceFontMap[rRaw] || rRaw;
              const rFont = `"${rMapped}", sans-serif`;
 
@@ -656,7 +656,7 @@ export function ExportTab() {
          if (settings.showTitle && (!isPaged || (element as any)._isFirstPage)) {
              const titleDiv = document.createElement("div");
              titleDiv.textContent = settings.title;
-             const tRaw = settings.titleStyle?.fontFamily || "Inter";
+             const tRaw = settings.titleStyle?.fontFamily || "Barlow";
              const tMapped = openSourceFontMap[tRaw] || tRaw;
              titleDiv.style.fontFamily = `"${tMapped}", sans-serif`;
              titleDiv.style.fontSize = `${settings.titleStyle?.fontSize}px`;
@@ -672,7 +672,7 @@ export function ExportTab() {
          const listDiv = document.createElement("div");
          listDiv.style.flex = "1";
          listDiv.style.overflow = "hidden";
-         const bRaw = element.textStyle?.fontFamily || "Inter";
+         const bRaw = element.textStyle?.fontFamily || "Barlow";
          const bMapped = openSourceFontMap[bRaw] || bRaw;
          listDiv.style.fontFamily = `"${bMapped}", sans-serif`;
          listDiv.style.fontSize = `${element.textStyle?.fontSize || 14}px`;
@@ -746,7 +746,7 @@ export function ExportTab() {
   const createTocHeaderDiv = (text: string, settings: any) => {
       const div = document.createElement("div");
       div.textContent = text;
-      const cRaw = settings.chapterStyle?.fontFamily || "Inter";
+      const cRaw = settings.chapterStyle?.fontFamily || "Barlow";
       const cMapped = openSourceFontMap[cRaw] || cRaw;
       div.style.fontFamily = `"${cMapped}", sans-serif`;
       div.style.fontSize = `${settings.chapterStyle?.fontSize || 18}px`; 
@@ -767,7 +767,7 @@ export function ExportTab() {
       div.style.alignItems = "baseline";
       div.style.marginBottom = "0px"; 
       div.style.paddingBottom = "2px"; 
-      const raw = style.fontFamily || "Inter";
+      const raw = style.fontFamily || "Barlow";
       const mapped = openSourceFontMap[raw] || raw;
       div.style.fontFamily = `"${mapped}", sans-serif`;
       div.style.fontSize = `${style.fontSize || 14}px`;

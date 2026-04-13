@@ -537,7 +537,7 @@ export function TableProperties({
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Font</Label>
               <Select
-                value={tableSettings.headerStyle?.fontFamily || "Inter"}
+                value={tableSettings.headerStyle?.fontFamily || "Barlow"}
                 onValueChange={(val) => handleTableStyleChange("headerStyle", "fontFamily", val)}
               >
                 <SelectTrigger className="h-7 text-xs">
@@ -635,7 +635,7 @@ export function TableProperties({
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Font</Label>
               <Select
-                value={tableSettings.rowStyle?.fontFamily || "Inter"}
+                value={tableSettings.rowStyle?.fontFamily || "Barlow"}
                 onValueChange={(val) => handleTableStyleChange("rowStyle", "fontFamily", val)}
               >
                 <SelectTrigger className="h-7 text-xs">

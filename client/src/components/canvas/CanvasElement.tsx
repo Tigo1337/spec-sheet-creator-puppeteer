@@ -203,7 +203,7 @@ export function CanvasElement({
         const isDataField = element.type === "dataField";
         const listStyleProp = element.format?.listStyle;
         const hasCustomListStyle = listStyleProp && listStyleProp !== 'none';
-        const activeFont = element.textStyle?.fontFamily || (isDataField ? "JetBrains Mono" : "Inter");
+        const activeFont = element.textStyle?.fontFamily || (isDataField ? "JetBrains Mono" : "Barlow");
         const fontValue = activeFont.includes(" ") ? `"${activeFont}"` : activeFont;
 
         const verticalAlignMap = {
@@ -672,7 +672,7 @@ export function CanvasElement({
 
   const renderContent = () => {
     if (isEditing) {
-      const activeFont = element.textStyle?.fontFamily || "Inter";
+      const activeFont = element.textStyle?.fontFamily || "Barlow";
       const fontValue = activeFont.includes(" ") ? `"${activeFont}"` : activeFont;
       return (
         <textarea
@@ -712,7 +712,7 @@ export function CanvasElement({
         const displayContent = formatContent(rawTextContent, element.format);
         const hasHtml = isHtmlContent(displayContent);
 
-        const activeFont = element.textStyle?.fontFamily || (isDataField ? "JetBrains Mono" : "Inter");
+        const activeFont = element.textStyle?.fontFamily || (isDataField ? "JetBrains Mono" : "Barlow");
         const fontValue = activeFont.includes(" ") ? `"${activeFont}"` : activeFont;
 
         // Ghost Mode: Check if variables resolved to empty
@@ -965,7 +965,7 @@ export function CanvasElement({
                         borderRightWidth: idx === tableSettings.columns.length - 1 ? 0 : tableSettings.borderWidth * zoom,
                         borderStyle: "solid",
                         borderColor: tableSettings.borderColor,
-                        fontFamily: tableSettings.headerStyle?.fontFamily || "Inter",
+                        fontFamily: tableSettings.headerStyle?.fontFamily || "Barlow",
                         fontSize: (tableSettings.headerStyle?.fontSize || 14) * zoom,
                         padding: `2px ${4 * zoom}px`, 
                     }}>
@@ -988,7 +988,7 @@ export function CanvasElement({
                                 borderRightWidth: cIdx === tableSettings.columns.length - 1 ? 0 : tableSettings.borderWidth * zoom,
                                 borderStyle: "solid",
                                 borderColor: tableSettings.borderColor,
-                                fontFamily: tableSettings.rowStyle?.fontFamily || "Inter",
+                                fontFamily: tableSettings.rowStyle?.fontFamily || "Barlow",
                                 fontSize: (tableSettings.rowStyle?.fontSize || 12) * zoom,
                                 padding: `0 ${4 * zoom}px`,
                             }}>
@@ -1014,11 +1014,11 @@ export function CanvasElement({
         const isMultiPage = (tocData?.length || 0) > 1;
         const isFirstPage = previewPage === 0;
 
-        const titleFont = settings.titleStyle?.fontFamily || "Inter";
+        const titleFont = settings.titleStyle?.fontFamily || "Barlow";
         const titleFontValue = titleFont.includes(" ") ? `"${titleFont}"` : titleFont;
-        const chapterFont = settings.chapterStyle?.fontFamily || "Inter";
+        const chapterFont = settings.chapterStyle?.fontFamily || "Barlow";
         const chapterFontValue = chapterFont.includes(" ") ? `"${chapterFont}"` : chapterFont;
-        const itemFont = element.textStyle?.fontFamily || "Inter";
+        const itemFont = element.textStyle?.fontFamily || "Barlow";
         const itemFontValue = itemFont.includes(" ") ? `"${itemFont}"` : itemFont;
 
         return (

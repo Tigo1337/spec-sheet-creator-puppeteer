@@ -123,7 +123,7 @@ function ThumbnailElement({
             flexDirection: 'column',
             justifyContent: verticalAlignMap[element.textStyle?.verticalAlign || 'middle'],
             fontSize,
-            fontFamily: element.textStyle?.fontFamily || 'Inter',
+            fontFamily: element.textStyle?.fontFamily || 'Barlow',
             fontWeight: element.textStyle?.fontWeight || 400,
             color: element.textStyle?.color || '#000000',
             textAlign: element.textStyle?.textAlign || 'left',

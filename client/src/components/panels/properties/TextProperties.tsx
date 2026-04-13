@@ -98,7 +98,7 @@ export function TextProperties({
     }
 
     const currentStyle = element.textStyle || {
-      fontFamily: "Inter",
+      fontFamily: "Barlow",
       fontSize: 16,
       fontWeight: 400,
       color: "#000000",
@@ -261,7 +261,7 @@ export function TextProperties({
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Font Family</Label>
             <Select
-              value={element.textStyle?.fontFamily || "Inter"}
+              value={element.textStyle?.fontFamily || "Barlow"}
               onValueChange={(value) => handleTextStyleChange("fontFamily", value)}
             >
               <SelectTrigger data-testid="select-font">
