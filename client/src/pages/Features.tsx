@@ -35,7 +35,7 @@ export default function Features() {
   };
 
   return (
-    <div className="min-h-screen bg-matte text-slate-900 font-sans selection:bg-[#2A9D90]/20">
+    <div className="min-h-screen bg-matte text-slate-900 font-sans selection:bg-[#2b9a8b]/20">
       <Helmet>
         <title>Features - Excel to PDF Automation | Doculoom</title>
         <meta name="description" content="Explore Doculoom features: Drag-and-drop canvas, Excel/CSV integration, AI Product Memory, and professional high-resolution exports." />
@@ -60,7 +60,7 @@ export default function Features() {
               <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">Core Capabilities</span>
 
               <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-slate-900">
-                Built for <span className="font-serif italic text-[#2A9D90]">High-Volume</span> Production
+                Built for <span className="font-serif italic text-[#2b9a8b]">High-Volume</span> Production
               </h1>
 
               <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
@@ -71,7 +71,7 @@ export default function Features() {
                 <Button
                   size="lg"
                   onClick={handleFreeSignup}
-                  className="h-14 px-8 text-lg bg-[#2A9D90] hover:bg-[#2A9D90]/90 text-white shadow-xl shadow-[#2A9D90]/20 hover:shadow-2xl transition-all border-0"
+                  className="h-14 px-8 text-lg bg-[#2b9a8b] hover:bg-[#2b9a8b]/90 text-white shadow-xl shadow-[#2b9a8b]/20 hover:shadow-2xl transition-all border-0"
                 >
                   Get Started Free
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -110,20 +110,20 @@ export default function Features() {
                     <div className="w-6 h-6 bg-slate-700 rounded"></div>
                     <div className="w-6 h-6 bg-slate-700 rounded"></div>
                     <div className="w-px bg-slate-600 mx-1"></div>
-                    <div className="w-6 h-6 bg-[#2A9D90]/30 rounded border border-[#2A9D90]"></div>
+                    <div className="w-6 h-6 bg-[#2b9a8b]/30 rounded border border-[#2b9a8b]"></div>
                   </div>
                   {/* Canvas area */}
                   <div className="flex-1 border-2 border-dashed border-slate-600 rounded flex items-center justify-center relative h-32">
                     {/* Selection box */}
-                    <div className="w-20 h-20 border-2 border-[#2A9D90] bg-[#2A9D90]/10 relative">
+                    <div className="w-20 h-20 border-2 border-[#2b9a8b] bg-[#2b9a8b]/10 relative">
                       {/* Resize handles */}
-                      <div className="absolute -top-1 -left-1 w-2 h-2 bg-[#2A9D90] rounded-full"></div>
-                      <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#2A9D90] rounded-full"></div>
-                      <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-[#2A9D90] rounded-full"></div>
-                      <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-[#2A9D90] rounded-full"></div>
+                      <div className="absolute -top-1 -left-1 w-2 h-2 bg-[#2b9a8b] rounded-full"></div>
+                      <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#2b9a8b] rounded-full"></div>
+                      <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-[#2b9a8b] rounded-full"></div>
+                      <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-[#2b9a8b] rounded-full"></div>
                     </div>
                     {/* Alignment guide */}
-                    <div className="absolute top-1/2 left-0 right-0 h-px bg-[#2A9D90] opacity-50"></div>
+                    <div className="absolute top-1/2 left-0 right-0 h-px bg-[#2b9a8b] opacity-50"></div>
                   </div>
                   {/* Corner Mark */}
                   <div className="absolute bottom-2 right-2 text-slate-600 font-sans text-xs">&#x231F;</div>
@@ -133,7 +133,7 @@ export default function Features() {
               {/* Content */}
               <div>
                 <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-2 block">Design System</span>
-                <div className="inline-flex items-center rounded-full bg-[#2A9D90]/10 px-3 py-1 text-sm font-medium text-[#2A9D90] mb-6">
+                <div className="inline-flex items-center rounded-full bg-[#2b9a8b]/10 px-3 py-1 text-sm font-medium text-[#2b9a8b] mb-6">
                   <Palette className="h-4 w-4 mr-2" />
                   The Canvas
                 </div>
@@ -148,7 +148,7 @@ export default function Features() {
                     { icon: <Type size={18} />, text: 'Custom font support (Inter, Roboto, etc.)' }
                   ].map((item, i) => (
                     <li key={i} className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-[#2A9D90]/10 flex items-center justify-center text-[#2A9D90]">
+                      <div className="w-8 h-8 rounded-lg bg-[#2b9a8b]/10 flex items-center justify-center text-[#2b9a8b]">
                         {item.icon}
                       </div>
                       <span className="text-slate-700">{item.text}</span>
@@ -163,7 +163,7 @@ export default function Features() {
               {/* Content */}
               <div className="order-2 lg:order-1">
                 <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-2 block">Intelligence</span>
-                <div className="inline-flex items-center rounded-full bg-[#2A9D90]/10 px-3 py-1 text-sm font-medium text-[#2A9D90] mb-6">
+                <div className="inline-flex items-center rounded-full bg-[#2b9a8b]/10 px-3 py-1 text-sm font-medium text-[#2b9a8b] mb-6">
                   <Sparkles className="h-4 w-4 mr-2" />
                   AI Engine
                 </div>
@@ -178,7 +178,7 @@ export default function Features() {
                     { icon: <Sparkles size={18} />, text: 'Bulk marketing copy enrichment' }
                   ].map((item, i) => (
                     <li key={i} className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-[#2A9D90]/10 flex items-center justify-center text-[#2A9D90]">
+                      <div className="w-8 h-8 rounded-lg bg-[#2b9a8b]/10 flex items-center justify-center text-[#2b9a8b]">
                         {item.icon}
                       </div>
                       <span className="text-slate-700">{item.text}</span>
@@ -206,20 +206,20 @@ export default function Features() {
                     </div>
                   </div>
                   <div className="flex justify-center">
-                    <div className="w-px h-6 bg-[#2A9D90]"></div>
+                    <div className="w-px h-6 bg-[#2b9a8b]"></div>
                   </div>
-                  <div className="p-4 bg-[#2A9D90]/20 rounded-lg border border-[#2A9D90]/40 flex items-center gap-4">
-                    <div className="h-10 w-10 rounded bg-[#2A9D90]/30 flex items-center justify-center">
-                      <Sparkles size={20} className="text-[#2A9D90]" />
+                  <div className="p-4 bg-[#2b9a8b]/20 rounded-lg border border-[#2b9a8b]/40 flex items-center gap-4">
+                    <div className="h-10 w-10 rounded bg-[#2b9a8b]/30 flex items-center justify-center">
+                      <Sparkles size={20} className="text-[#2b9a8b]" />
                     </div>
                     <div className="flex-1">
-                      <div className="h-2 w-full bg-[#2A9D90]/40 rounded mb-2"></div>
-                      <div className="h-2 w-3/4 bg-[#2A9D90]/40 rounded"></div>
+                      <div className="h-2 w-full bg-[#2b9a8b]/40 rounded mb-2"></div>
+                      <div className="h-2 w-3/4 bg-[#2b9a8b]/40 rounded"></div>
                     </div>
-                    <span className="font-sans text-xs text-[#2A9D90]">PROCESSING</span>
+                    <span className="font-sans text-xs text-[#2b9a8b]">PROCESSING</span>
                   </div>
                   <div className="flex justify-center">
-                    <div className="w-px h-6 bg-[#2A9D90]"></div>
+                    <div className="w-px h-6 bg-[#2b9a8b]"></div>
                   </div>
                   <div className="p-4 bg-slate-800 rounded-lg border border-green-500/40 flex items-center gap-4">
                     <div className="h-10 w-10 rounded bg-green-500/20 flex items-center justify-center">
@@ -249,8 +249,8 @@ export default function Features() {
 
                 <div className="text-center">
                   <div className="flex justify-center gap-4 mb-8">
-                    <div className="w-16 h-20 border-2 border-[#2A9D90] bg-[#2A9D90]/10 rounded flex flex-col items-center justify-center">
-                      <span className="text-[#2A9D90] font-bold text-xs">PDF</span>
+                    <div className="w-16 h-20 border-2 border-[#2b9a8b] bg-[#2b9a8b]/10 rounded flex flex-col items-center justify-center">
+                      <span className="text-[#2b9a8b] font-bold text-xs">PDF</span>
                       <span className="text-[8px] text-slate-400 mt-1">DIGITAL</span>
                     </div>
                     <div className="w-16 h-20 border-2 border-slate-500 bg-slate-800 rounded flex flex-col items-center justify-center">
@@ -264,7 +264,7 @@ export default function Features() {
                       <span className="font-sans text-xs text-green-400">ACTIVE</span>
                     </div>
                     <div className="space-y-2">
-                      <div className="h-2 bg-[#2A9D90] rounded-full w-full"></div>
+                      <div className="h-2 bg-[#2b9a8b] rounded-full w-full"></div>
                       <div className="h-2 bg-slate-700 rounded-full w-3/4"></div>
                       <div className="h-2 bg-slate-700 rounded-full w-1/2"></div>
                     </div>
@@ -280,7 +280,7 @@ export default function Features() {
               {/* Content */}
               <div>
                 <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-2 block">Output</span>
-                <div className="inline-flex items-center rounded-full bg-[#2A9D90]/10 px-3 py-1 text-sm font-medium text-[#2A9D90] mb-6">
+                <div className="inline-flex items-center rounded-full bg-[#2b9a8b]/10 px-3 py-1 text-sm font-medium text-[#2b9a8b] mb-6">
                   <Printer className="h-4 w-4 mr-2" />
                   Export Engine
                 </div>
@@ -295,7 +295,7 @@ export default function Features() {
                     { icon: <Download size={18} />, text: 'Bleed and crop mark support' }
                   ].map((item, i) => (
                     <li key={i} className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-[#2A9D90]/10 flex items-center justify-center text-[#2A9D90]">
+                      <div className="w-8 h-8 rounded-lg bg-[#2b9a8b]/10 flex items-center justify-center text-[#2b9a8b]">
                         {item.icon}
                       </div>
                       <span className="text-slate-700">{item.text}</span>
@@ -321,42 +321,42 @@ export default function Features() {
 
             <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-6">
               <FeatureCard
-                icon={<FileSpreadsheet className="text-[#2A9D90]" size={20} />}
+                icon={<FileSpreadsheet className="text-[#2b9a8b]" size={20} />}
                 title="Excel & CSV Import"
                 description="Upload your data files with automatic header detection and field mapping."
               />
               <FeatureCard
-                icon={<QrCode className="text-[#2A9D90]" size={20} />}
+                icon={<QrCode className="text-[#2b9a8b]" size={20} />}
                 title="Dynamic QR Codes"
                 description="Generate trackable QR codes that can be updated even after printing."
               />
               <FeatureCard
-                icon={<Files className="text-[#2A9D90]" size={20} />}
+                icon={<Files className="text-[#2b9a8b]" size={20} />}
                 title="Multi-Page Templates"
                 description="Create brochures, catalogs, and multi-page documents with ease."
               />
               <FeatureCard
-                icon={<Table2 className="text-[#2A9D90]" size={20} />}
+                icon={<Table2 className="text-[#2b9a8b]" size={20} />}
                 title="Dynamic Tables"
                 description="Auto-populate tables from your data with flexible column configurations."
               />
               <FeatureCard
-                icon={<Image className="text-[#2A9D90]" size={20} />}
+                icon={<Image className="text-[#2b9a8b]" size={20} />}
                 title="Image Matching"
                 description="Automatically match product images by SKU or filename patterns."
               />
               <FeatureCard
-                icon={<Cpu className="text-[#2A9D90]" size={20} />}
+                icon={<Cpu className="text-[#2b9a8b]" size={20} />}
                 title="Batch Processing"
                 description="Generate hundreds of unique documents in a single operation."
               />
               <FeatureCard
-                icon={<Shield className="text-[#2A9D90]" size={20} />}
+                icon={<Shield className="text-[#2b9a8b]" size={20} />}
                 title="Version Control"
                 description="Track changes and maintain history of all your template revisions."
               />
               <FeatureCard
-                icon={<Cloud className="text-[#2A9D90]" size={20} />}
+                icon={<Cloud className="text-[#2b9a8b]" size={20} />}
                 title="Cloud Storage"
                 description="All your projects and exports are securely stored in the cloud."
               />
@@ -375,7 +375,7 @@ export default function Features() {
               <Button
                 size="lg"
                 onClick={handleFreeSignup}
-                className="h-14 px-8 text-lg bg-[#2A9D90] hover:bg-[#2A9D90]/90 text-white shadow-lg"
+                className="h-14 px-8 text-lg bg-[#2b9a8b] hover:bg-[#2b9a8b]/90 text-white shadow-lg"
               >
                 Get Started Free
               </Button>

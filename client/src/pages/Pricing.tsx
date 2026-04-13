@@ -107,13 +107,13 @@ export default function Pricing() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-matte flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[#2A9D90]" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#2b9a8b]" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-matte text-slate-900 font-sans selection:bg-[#2A9D90]/20">
+    <div className="min-h-screen bg-matte text-slate-900 font-sans selection:bg-[#2b9a8b]/20">
       <Helmet>
         <title>Pricing - Start for Free | Doculoom</title>
         <meta name="description" content="Simple pricing for automation. Start for free. Upgrade to Pro for unlimited professional exports." />
@@ -138,7 +138,7 @@ export default function Pricing() {
               <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">Pricing</span>
 
               <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-slate-900">
-                Simple, <span className="font-serif italic text-[#2A9D90]">Predictable</span> Pricing
+                Simple, <span className="font-serif italic text-[#2b9a8b]">Predictable</span> Pricing
               </h1>
 
               <p className="text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
@@ -156,14 +156,14 @@ export default function Pricing() {
                 <Switch
                   checked={isAnnual}
                   onCheckedChange={setIsAnnual}
-                  className="data-[state=checked]:bg-[#2A9D90] bg-slate-200 border-slate-200"
+                  className="data-[state=checked]:bg-[#2b9a8b] bg-slate-200 border-slate-200"
                 />
                 <Label
                   className={`text-sm cursor-pointer flex items-center gap-2 ${isAnnual ? "font-bold text-slate-900" : "text-slate-500"}`}
                   onClick={() => setIsAnnual(true)}
                 >
                   Annual
-                  <span className="bg-[#2A9D90]/10 text-[#2A9D90] text-xs px-2 py-0.5 rounded-full font-medium border border-[#2A9D90]/20">
+                  <span className="bg-[#2b9a8b]/10 text-[#2b9a8b] text-xs px-2 py-0.5 rounded-full font-medium border border-[#2b9a8b]/20">
                     Get 2 months on us
                   </span>
                 </Label>
@@ -288,7 +288,7 @@ export default function Pricing() {
                         <span className="font-sans text-xs uppercase tracking-wider text-slate-400">Features</span>
                       </th>
                       <th className="py-4 px-6 text-sm font-semibold text-slate-900 text-center w-1/6">Starter</th>
-                      <th className="py-4 px-6 text-sm font-semibold text-[#2A9D90] text-center w-1/6 bg-[#2A9D90]/5">Pro</th>
+                      <th className="py-4 px-6 text-sm font-semibold text-[#2b9a8b] text-center w-1/6 bg-[#2b9a8b]/5">Pro</th>
                       <th className="py-4 px-6 text-sm font-semibold text-slate-900 text-center w-1/6">Scale</th>
                     </tr>
                   </thead>
@@ -371,7 +371,7 @@ export default function Pricing() {
               <Button
                 size="lg"
                 onClick={handleFreeSignup}
-                className="h-14 px-8 text-lg bg-[#2A9D90] hover:bg-[#2A9D90]/90 text-white shadow-lg"
+                className="h-14 px-8 text-lg bg-[#2b9a8b] hover:bg-[#2b9a8b]/90 text-white shadow-lg"
               >
                 Get Started Free
                 <ArrowRight className="ml-2 h-5 w-5" />
@@ -423,11 +423,11 @@ function SpecPricingCard({
   return (
     <div className={`p-8 relative rounded-xl bg-white flex flex-col h-full ${
       highlighted
-        ? 'border-t-4 border-t-[#2A9D90] border-x border-b border-slate-200 shadow-xl scale-105 z-10'
+        ? 'border-t-4 border-t-[#2b9a8b] border-x border-b border-slate-200 shadow-xl scale-105 z-10'
         : 'border-t-4 border-t-slate-900 border-x border-b border-slate-200'
     }`}>
       {highlighted && (
-        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2A9D90] text-white hover:bg-[#2A9D90] font-sans text-[10px] uppercase tracking-wider">
+        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2b9a8b] text-white hover:bg-[#2b9a8b] font-sans text-[10px] uppercase tracking-wider">
           Most Popular
         </Badge>
       )}
@@ -451,7 +451,7 @@ function SpecPricingCard({
         onClick={onAction}
         className={`w-full mb-8 h-12 text-lg ${
           ctaVariant === 'teal'
-            ? 'bg-[#2A9D90] hover:bg-[#2A9D90]/90 text-white'
+            ? 'bg-[#2b9a8b] hover:bg-[#2b9a8b]/90 text-white'
             : 'bg-slate-900 hover:bg-slate-800 text-white'
         }`}
       >
@@ -465,8 +465,8 @@ function SpecPricingCard({
             {typeof feature === 'string' ? (
               <>
                 <div className="mt-0.5 flex-shrink-0">
-                  <div className="w-5 h-5 rounded-full bg-[#2A9D90]/10 flex items-center justify-center">
-                    <Check className="h-3 w-3 text-[#2A9D90]" />
+                  <div className="w-5 h-5 rounded-full bg-[#2b9a8b]/10 flex items-center justify-center">
+                    <Check className="h-3 w-3 text-[#2b9a8b]" />
                   </div>
                 </div>
                 <span className="text-slate-600 text-sm">{feature}</span>
@@ -504,10 +504,10 @@ function TableRow({
   const renderCell = (value: string | boolean, isPro = false) => {
     if (typeof value === 'boolean') {
       return value
-        ? <Check className={`h-5 w-5 mx-auto ${isPro ? "text-[#2A9D90]" : "text-slate-600"}`} />
+        ? <Check className={`h-5 w-5 mx-auto ${isPro ? "text-[#2b9a8b]" : "text-slate-600"}`} />
         : <Minus className="h-4 w-4 mx-auto text-slate-300" />;
     }
-    return <span className={isPro ? "font-semibold text-[#2A9D90]" : ""}>{value}</span>;
+    return <span className={isPro ? "font-semibold text-[#2b9a8b]" : ""}>{value}</span>;
   };
 
   return (
@@ -528,7 +528,7 @@ function TableRow({
         )}
       </td>
       <td className="py-4 px-6 text-center">{renderCell(starter)}</td>
-      <td className="py-4 px-6 text-center bg-[#2A9D90]/5">{renderCell(pro, true)}</td>
+      <td className="py-4 px-6 text-center bg-[#2b9a8b]/5">{renderCell(pro, true)}</td>
       <td className="py-4 px-6 text-center">{renderCell(scale)}</td>
     </tr>
   );

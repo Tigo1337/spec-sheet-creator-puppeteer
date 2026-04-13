@@ -59,7 +59,7 @@ export function UpgradeDialog({ open, onOpenChange }: UpgradeDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden gap-0">
-        <div className="bg-[#2A9D90] p-6 text-white text-center">
+        <div className="bg-[#2b9a8b] p-6 text-white text-center">
           <div className="mx-auto bg-white/20 w-12 h-12 rounded-full flex items-center justify-center mb-4">
             <Sparkles className="h-6 w-6 text-white" />
           </div>
@@ -72,7 +72,7 @@ export function UpgradeDialog({ open, onOpenChange }: UpgradeDialogProps) {
         <div className="p-6 space-y-6">
           <div className="grid md:grid-cols-2 gap-4">
             {/* Monthly Plan */}
-            <div className="border rounded-xl p-4 space-y-4 hover:border-[#2A9D90] transition-colors relative">
+            <div className="border rounded-xl p-4 space-y-4 hover:border-[#2b9a8b] transition-colors relative">
               <div>
                 <h3 className="font-semibold text-lg">Monthly</h3>
                 <div className="flex items-baseline gap-1">
@@ -92,8 +92,8 @@ export function UpgradeDialog({ open, onOpenChange }: UpgradeDialogProps) {
             </div>
 
             {/* Annual Plan */}
-            <div className="border-2 border-[#2A9D90] rounded-xl p-4 space-y-4 bg-[#2A9D90]/5 relative">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2A9D90] text-white px-3 py-0.5 rounded-full text-xs font-bold uppercase">
+            <div className="border-2 border-[#2b9a8b] rounded-xl p-4 space-y-4 bg-[#2b9a8b]/5 relative">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2b9a8b] text-white px-3 py-0.5 rounded-full text-xs font-bold uppercase">
                 Best Value
               </div>
               <div>
@@ -102,10 +102,10 @@ export function UpgradeDialog({ open, onOpenChange }: UpgradeDialogProps) {
                   <span className="text-3xl font-bold">$159</span>
                   <span className="text-muted-foreground">/yr</span>
                 </div>
-                <p className="text-xs text-[#2A9D90] font-medium mt-1">Save ~50% per year</p>
+                <p className="text-xs text-[#2b9a8b] font-medium mt-1">Save ~50% per year</p>
               </div>
               <Button 
-                className="w-full bg-[#2A9D90] hover:bg-[#2A9D90]/90"
+                className="w-full bg-[#2b9a8b] hover:bg-[#2b9a8b]/90"
                 onClick={() => handleUpgrade(PRICE_IDS.proAnnual, "annual")}
                 disabled={!!isLoading}
               >
@@ -127,7 +127,7 @@ export function UpgradeDialog({ open, onOpenChange }: UpgradeDialogProps) {
                 "Manageable QR Codes"
               ].map((feat, i) => (
                 <div key={i} className="flex items-start gap-2 text-sm text-slate-600">
-                  <Check className="h-4 w-4 text-[#2A9D90] shrink-0 mt-0.5" />
+                  <Check className="h-4 w-4 text-[#2b9a8b] shrink-0 mt-0.5" />
                   <span>{feat}</span>
                 </div>
               ))}

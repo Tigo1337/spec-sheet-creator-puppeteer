@@ -26,7 +26,7 @@ export default function Privacy() {
             <ul className="text-sm mt-2 font-medium">
               <li>Name: The Privacy Officer</li>
               <li>Title: Chief Executive Officer & Privacy Officer</li>
-              <li>Contact: <a href="mailto:privacy@doculoom.io" className="text-[#2A9D90]">privacy@doculoom.io</a></li>
+              <li>Contact: <a href="mailto:privacy@doculoom.io" className="text-[#2b9a8b]">privacy@doculoom.io</a></li>
             </ul>
           </section>
 
@@ -90,7 +90,7 @@ export default function Privacy() {
           <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">7. Contact</h3>
           <p>
             To exercise your rights, file a complaint, or inquire about our privacy practices, please contact our Privacy Officer
-            at <a href="mailto:privacy@doculoom.io" className="text-[#2A9D90]">privacy@doculoom.io</a>. We will respond to all requests within 30 days.
+            at <a href="mailto:privacy@doculoom.io" className="text-[#2b9a8b]">privacy@doculoom.io</a>. We will respond to all requests within 30 days.
             If you are not satisfied with our response, you may also file a complaint with the Commission d'accès à l'information du Québec (CAI)
             or, where applicable, your local data protection authority.
           </p>

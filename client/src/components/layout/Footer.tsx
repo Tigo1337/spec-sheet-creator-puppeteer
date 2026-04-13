@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { BRAND } from "@/config/brand";
 
 export function Footer() {
-  const linkClass = "hover:text-[#2A9D90] transition-colors";
+  const linkClass = "hover:text-[#2b9a8b] transition-colors";
 
   return (
     <footer className="bg-white border-t border-slate-200 py-12 font-sans">

@@ -15,34 +15,36 @@
   --card: 0 0% 98%;
   --card-foreground: 0 0% 9%;
   --card-border: 0 0% 94%;
-  --sidebar: 180 20% 97%;
+  --sidebar: 204 30% 97%;
   --sidebar-foreground: 0 0% 9%;
-  --sidebar-border: 0 0% 92%;
-  --sidebar-primary: 173 58% 39%;
+  --sidebar-border: 204 25% 91%;
+  --sidebar-primary: 172 56% 39%;
   --sidebar-primary-foreground: 0 0% 98%;
-  --sidebar-accent: 220 13% 91%;
+  --sidebar-accent: 204 20% 91%;
   --sidebar-accent-foreground: 0 0% 9%;
-  --sidebar-ring: 217 91% 60%;
+  --sidebar-ring: 172 56% 39%;
   --popover: 0 0% 95%;
   --popover-foreground: 0 0% 9%;
   --popover-border: 0 0% 91%;
-  --primary: 173 58% 39%;
+  --primary: 172 56% 39%;
   --primary-foreground: 0 0% 98%;
-  --secondary: 220 13% 91%;
+  --secondary: 204 20% 91%;
   --secondary-foreground: 0 0% 9%;
-  --muted: 220 13% 93%;
+  --muted: 204 20% 93%;
   --muted-foreground: 0 0% 40%;
-  --accent: 217 18% 94%;
+  --accent: 204 18% 94%;
   --accent-foreground: 0 0% 9%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
   --input: 0 0% 82%;
-  --ring: 217 91% 60%;
-  --chart-1: 173 58% 39%; /* Teal */
-  --chart-2: 197 37% 24%; /* Dark Slate */
-  --chart-3: 43 74% 66%;  /* Gold/Yellow accent */
-  --chart-4: 27 87% 67%;  /* Orange accent */
-  --chart-5: 217 91% 60%; /* Blue accent */
+  --ring: 172 56% 39%;
+  --brand-dark: 204 83% 9%;
+  --brand-highlight: 347 60% 39%;
+  --chart-1: 172 56% 39%; /* Brand Secondary / Teal */
+  --chart-2: 204 83% 9%;  /* Brand Primary / Navy */
+  --chart-3: 347 60% 39%; /* Brand Highlight / Crimson */
+  --chart-4: 43 74% 66%;  /* Gold/Yellow accent */
+  --chart-5: 27 87% 67%;  /* Orange accent */
   --font-sans: Inter, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Inter, sans-serif;
@@ -93,40 +95,42 @@
   --opaque-button-border-intensity: 9;
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
-  --background: 0 0% 9%;
+  --background: 204 30% 8%;
   --foreground: 0 0% 98%;
-  --border: 0 0% 18%;
-  --card: 0 0% 11%;
+  --border: 204 20% 18%;
+  --card: 204 25% 10%;
   --card-foreground: 0 0% 98%;
-  --card-border: 0 0% 14%;
-  --sidebar: 0 0% 13%;
+  --card-border: 204 20% 14%;
+  --sidebar: 204 30% 11%;
   --sidebar-foreground: 0 0% 98%;
-  --sidebar-border: 0 0% 16%;
-  --sidebar-primary: 173 58% 45%;
+  --sidebar-border: 204 20% 16%;
+  --sidebar-primary: 172 56% 45%;
   --sidebar-primary-foreground: 0 0% 98%;
-  --sidebar-accent: 220 13% 16%;
+  --sidebar-accent: 204 20% 16%;
   --sidebar-accent-foreground: 0 0% 98%;
-  --sidebar-ring: 217 91% 60%;
-  --popover: 0 0% 15%;
+  --sidebar-ring: 172 56% 45%;
+  --popover: 204 25% 13%;
   --popover-foreground: 0 0% 98%;
-  --popover-border: 0 0% 18%;
-  --primary: 173 58% 45%;
+  --popover-border: 204 20% 18%;
+  --primary: 172 56% 45%;
   --primary-foreground: 0 0% 98%;
-  --secondary: 220 13% 18%;
+  --secondary: 204 20% 18%;
   --secondary-foreground: 0 0% 98%;
-  --muted: 220 13% 17%;
+  --muted: 204 20% 17%;
   --muted-foreground: 0 0% 65%;
-  --accent: 217 18% 16%;
+  --accent: 204 18% 16%;
   --accent-foreground: 0 0% 98%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
-  --input: 0 0% 28%;
-  --ring: 173 58% 45%;
-  --chart-1: 173 58% 39%; /* Teal */
-  --chart-2: 197 37% 24%; /* Dark Slate */
-  --chart-3: 43 74% 66%;  /* Gold/Yellow accent */
-  --chart-4: 27 87% 67%;  /* Orange accent */
-  --chart-5: 217 91% 60%; /* Blue accent */
+  --input: 204 20% 26%;
+  --ring: 172 56% 45%;
+  --brand-dark: 204 83% 9%;
+  --brand-highlight: 347 60% 45%;
+  --chart-1: 172 56% 45%; /* Brand Secondary / Teal */
+  --chart-2: 204 83% 25%; /* Brand Primary / Navy (lightened for visibility) */
+  --chart-3: 347 60% 55%; /* Brand Highlight / Crimson (lightened) */
+  --chart-4: 43 74% 66%;  /* Gold/Yellow accent */
+  --chart-5: 27 87% 67%;  /* Orange accent */
   --shadow-2xs: 0px 2px 0px 0px hsl(217 91% 60% / 0.00);
   --shadow-xs: 0px 2px 0px 0px hsl(217 91% 60% / 0.00);
   --shadow-sm: 0px 2px 0px 0px hsl(217 91% 60% / 0.00), 0px 1px 2px -1px hsl(217 91% 60% / 0.00);
@@ -296,7 +300,7 @@
 
   /* "Matte Paper" Texture */
   .bg-matte {
-    background-color: #f8fafc; /* slate-50 */
+    background-color: #f4f8fa; /* slight brand-navy tint */
   }
 
   /* Hide scrollbar on Cal.com embed container */

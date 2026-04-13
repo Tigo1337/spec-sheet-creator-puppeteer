@@ -442,7 +442,7 @@ export function Header() {
         {!isPro && (
           <Button 
             size="sm" 
-            className="gap-1.5 bg-amber-500 hover:bg-amber-600 text-white border-amber-600 shadow-sm"
+            className="gap-1.5 bg-[#9f2842] text-white shadow-sm"
             onClick={() => setShowUpgradeDialog(true)}
           >
             <Crown className="h-4 w-4 fill-current" />

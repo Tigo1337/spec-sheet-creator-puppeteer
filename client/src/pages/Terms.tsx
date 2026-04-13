@@ -98,7 +98,7 @@ export default function Terms() {
 
           <h3 className="text-xl font-bold text-slate-900 mt-8 mb-4">11. Contact</h3>
           <p>
-            Questions about these Terms should be sent to: <a href="mailto:privacy@doculoom.io" className="text-[#2A9D90]">privacy@doculoom.io</a>
+            Questions about these Terms should be sent to: <a href="mailto:privacy@doculoom.io" className="text-[#2b9a8b]">privacy@doculoom.io</a>
           </p>
         </div>
       </main>

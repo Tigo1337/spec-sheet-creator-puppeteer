@@ -31,7 +31,7 @@ export default function Solutions() {
   };
 
   return (
-    <div className="min-h-screen bg-matte text-slate-900 font-sans selection:bg-[#2A9D90]/20">
+    <div className="min-h-screen bg-matte text-slate-900 font-sans selection:bg-[#2b9a8b]/20">
       <Helmet>
         <title>Solutions - For Agencies & Manufacturers | Doculoom</title>
         <meta name="description" content="Streamline document generation for retail, manufacturing, and agencies. Create data-driven spec sheets at scale." />
@@ -56,7 +56,7 @@ export default function Solutions() {
               <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">Industry Solutions</span>
 
               <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-slate-900">
-                Tailored for <span className="font-serif italic text-[#2A9D90]">Your</span> Industry
+                Tailored for <span className="font-serif italic text-[#2b9a8b]">Your</span> Industry
               </h1>
 
               <p className="text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
@@ -67,7 +67,7 @@ export default function Solutions() {
                 <Button
                   size="lg"
                   onClick={handleFreeSignup}
-                  className="h-14 px-8 text-lg bg-[#2A9D90] hover:bg-[#2A9D90]/90 text-white shadow-xl shadow-[#2A9D90]/20 hover:shadow-2xl transition-all border-0"
+                  className="h-14 px-8 text-lg bg-[#2b9a8b] hover:bg-[#2b9a8b]/90 text-white shadow-xl shadow-[#2b9a8b]/20 hover:shadow-2xl transition-all border-0"
                 >
                   Get Started Free
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -92,7 +92,7 @@ export default function Solutions() {
 
               {/* Manufacturers Card */}
               <SolutionCard
-                icon={<Factory className="text-[#2A9D90]" size={24} />}
+                icon={<Factory className="text-[#2b9a8b]" size={24} />}
                 title="For Manufacturers"
                 description="Transform your product database into professional spec sheets automatically."
                 features={[
@@ -108,7 +108,7 @@ export default function Solutions() {
 
               {/* Agencies Card */}
               <SolutionCard
-                icon={<Briefcase className="text-[#2A9D90]" size={24} />}
+                icon={<Briefcase className="text-[#2b9a8b]" size={24} />}
                 title="For Agencies"
                 highlighted
                 description="Design once, generate for every client. Scale your production without scaling your team."
@@ -125,7 +125,7 @@ export default function Solutions() {
 
               {/* Enterprises Card */}
               <SolutionCard
-                icon={<Building2 className="text-[#2A9D90]" size={24} />}
+                icon={<Building2 className="text-[#2b9a8b]" size={24} />}
                 title="For Enterprises"
                 description="Streamline document generation across your entire organization with enterprise-grade features."
                 features={[
@@ -156,22 +156,22 @@ export default function Solutions() {
 
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
               <IndustryCard
-                icon={<ShoppingBag className="text-[#2A9D90]" size={20} />}
+                icon={<ShoppingBag className="text-[#2b9a8b]" size={20} />}
                 title="Retail & Wholesale"
                 description="Generate shelf tags, price lists, and product catalogs from your inventory system."
               />
               <IndustryCard
-                icon={<Stethoscope className="text-[#2A9D90]" size={20} />}
+                icon={<Stethoscope className="text-[#2b9a8b]" size={20} />}
                 title="Healthcare"
                 description="Create compliant medical device documentation and patient information sheets."
               />
               <IndustryCard
-                icon={<Utensils className="text-[#2A9D90]" size={20} />}
+                icon={<Utensils className="text-[#2b9a8b]" size={20} />}
                 title="Food & Beverage"
                 description="Produce nutrition labels, ingredient lists, and menu boards at scale."
               />
               <IndustryCard
-                icon={<Users className="text-[#2A9D90]" size={20} />}
+                icon={<Users className="text-[#2b9a8b]" size={20} />}
                 title="Events & Conferences"
                 description="Print personalized badges, schedules, and certificates for every attendee."
               />
@@ -193,7 +193,7 @@ export default function Solutions() {
                 <div>
                   <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">Integration</span>
                   <h2 className="text-3xl lg:text-4xl font-bold tracking-tight text-white mb-6">
-                    Fits Into Your <span className="font-serif italic text-[#2A9D90]">Existing</span> Workflow
+                    Fits Into Your <span className="font-serif italic text-[#2b9a8b]">Existing</span> Workflow
                   </h2>
                   <p className="text-lg text-slate-300 leading-relaxed mb-8">
                     Doculoom works with the tools you already use. Export from your ERP, PIM, or database and generate professional documents without changing your process.
@@ -220,9 +220,9 @@ export default function Solutions() {
                       <span className="font-sans text-sm text-slate-300">products.xlsx</span>
                       <ArrowRight className="text-slate-500 ml-auto" size={16} />
                     </div>
-                    <div className="flex items-center gap-3 p-3 bg-[#2A9D90]/20 rounded border border-[#2A9D90]/40">
-                      <LayoutTemplate className="text-[#2A9D90]" size={20} />
-                      <span className="font-sans text-sm text-[#2A9D90]">Doculoom Processing...</span>
+                    <div className="flex items-center gap-3 p-3 bg-[#2b9a8b]/20 rounded border border-[#2b9a8b]/40">
+                      <LayoutTemplate className="text-[#2b9a8b]" size={20} />
+                      <span className="font-sans text-sm text-[#2b9a8b]">Doculoom Processing...</span>
                     </div>
                     <div className="flex items-center gap-3 p-3 bg-slate-700/50 rounded border border-slate-600">
                       <Printer className="text-slate-400" size={20} />
@@ -262,7 +262,7 @@ export default function Solutions() {
               <Button
                 size="lg"
                 onClick={handleFreeSignup}
-                className="h-14 px-8 text-lg bg-[#2A9D90] hover:bg-[#2A9D90]/90 text-white shadow-lg"
+                className="h-14 px-8 text-lg bg-[#2b9a8b] hover:bg-[#2b9a8b]/90 text-white shadow-lg"
               >
                 Get Started Free
               </Button>
@@ -306,11 +306,11 @@ function SolutionCard({
   return (
     <div className={`p-8 rounded-xl bg-white flex flex-col h-full relative ${
       highlighted
-        ? 'border-t-4 border-t-[#2A9D90] border-x border-b border-slate-200 shadow-xl scale-105 z-10'
+        ? 'border-t-4 border-t-[#2b9a8b] border-x border-b border-slate-200 shadow-xl scale-105 z-10'
         : 'border-t-4 border-t-slate-900 border-x border-b border-slate-200 hover:shadow-lg transition-shadow'
     }`}>
       {highlighted && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2A9D90] text-white px-3 py-1 rounded-full text-[10px] font-sans uppercase tracking-wider">
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2b9a8b] text-white px-3 py-1 rounded-full text-[10px] font-sans uppercase tracking-wider">
           Most Popular
         </div>
       )}
@@ -327,8 +327,8 @@ function SolutionCard({
         <span className="font-sans text-xs uppercase tracking-wider text-slate-400 block">Key Features</span>
         {features.map((feature, i) => (
           <div key={i} className="flex items-center gap-3">
-            <div className="w-5 h-5 rounded-full bg-[#2A9D90]/10 flex items-center justify-center flex-shrink-0">
-              <CheckCircle2 className="h-3 w-3 text-[#2A9D90]" />
+            <div className="w-5 h-5 rounded-full bg-[#2b9a8b]/10 flex items-center justify-center flex-shrink-0">
+              <CheckCircle2 className="h-3 w-3 text-[#2b9a8b]" />
             </div>
             <span className="text-slate-600 text-sm">{feature}</span>
           </div>
@@ -382,7 +382,7 @@ function IndustryCard({
 function StatCard({ value, label, subtext }: { value: string; label: string; subtext: string }) {
   return (
     <div className="space-y-2">
-      <div className="text-5xl font-bold font-sans text-[#2A9D90]">{value}</div>
+      <div className="text-5xl font-bold font-sans text-[#2b9a8b]">{value}</div>
       <div className="text-xl font-bold text-slate-900">{label}</div>
       <div className="text-sm text-slate-500 font-sans uppercase tracking-wider">{subtext}</div>
     </div>
@@ -393,7 +393,7 @@ function StatCard({ value, label, subtext }: { value: string; label: string; sub
 function IntegrationFeature({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (
     <div className="flex items-center gap-3 p-3 bg-slate-800 rounded-lg border border-slate-700">
-      <div className="text-[#2A9D90]">{icon}</div>
+      <div className="text-[#2b9a8b]">{icon}</div>
       <span className="text-sm text-slate-300">{text}</span>
     </div>
   );

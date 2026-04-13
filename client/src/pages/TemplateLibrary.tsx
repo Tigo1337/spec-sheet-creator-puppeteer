@@ -23,7 +23,7 @@ export default function TemplateLibrary() {
   });
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#2A9D90]/20">
+    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#2b9a8b]/20">
       <Helmet>
         <title>Template Library - Ready-Made Spec Sheet Templates | Doculoom</title>
         <meta name="description" content="Browse professional spec sheet and catalog templates. Start with a pre-built layout and customize it for your products." />
@@ -35,7 +35,7 @@ export default function TemplateLibrary() {
       <section className="pt-32 pb-12 px-4 bg-slate-50 border-b border-slate-200">
         <div className="max-w-7xl mx-auto text-center space-y-6">
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900">
-            Template <span className="text-[#2A9D90]">Library</span>
+            Template <span className="text-[#2b9a8b]">Library</span>
           </h1>
           <p className="text-xl text-slate-600 max-w-2xl mx-auto">
             Browse our collection of professional, print-ready templates designed for variable data automation.
@@ -48,7 +48,7 @@ export default function TemplateLibrary() {
         <div className="max-w-7xl mx-auto">
           {isLoading ? (
             <div className="flex justify-center items-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin text-[#2A9D90]" />
+              <Loader2 className="h-8 w-8 animate-spin text-[#2b9a8b]" />
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -101,7 +101,7 @@ export default function TemplateLibrary() {
                   <CardFooter className="pt-0">
                     <Button 
                       variant="ghost" 
-                      className="w-full justify-between text-[#2A9D90] hover:text-[#238b80] hover:bg-[#2A9D90]/5 group/btn"
+                      className="w-full justify-between text-[#2b9a8b] hover:text-[#22857a] hover:bg-[#2b9a8b]/5 group/btn"
                       onClick={() => setLocation("/registration")}
                     >
                       Use Template

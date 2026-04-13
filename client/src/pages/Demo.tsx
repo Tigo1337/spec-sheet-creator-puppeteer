@@ -28,7 +28,7 @@ export default function Demo() {
       const cal = await getCalApi();
       cal("ui", {
         theme: "light",
-        styles: { branding: { brandColor: "#2A9D90" } },
+        styles: { branding: { brandColor: "#2b9a8b" } },
         hideEventTypeDetails: true,
         layout: "month_view"
       });
@@ -42,7 +42,7 @@ export default function Demo() {
   };
 
   return (
-    <div className="min-h-screen bg-matte text-slate-900 font-sans selection:bg-[#2A9D90]/20">
+    <div className="min-h-screen bg-matte text-slate-900 font-sans selection:bg-[#2b9a8b]/20">
       <Helmet>
         <title>Book a Demo | Doculoom</title>
         <meta name="description" content="Schedule a personalized demo of Doculoom's spec sheet automation platform." />
@@ -70,7 +70,7 @@ export default function Demo() {
                 <div>
                   <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">Book a Demo</span>
                   <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900 mb-6">
-                    See Doculoom <span className="font-serif italic text-[#2A9D90]">in Action</span>
+                    See Doculoom <span className="font-serif italic text-[#2b9a8b]">in Action</span>
                   </h1>
                   <p className="text-xl text-slate-600 leading-relaxed">
                     Book a personalized demo with our product experts. We'll show you how to automate your specific catalog workflow.
@@ -109,13 +109,13 @@ export default function Demo() {
                 {/* Social Proof Box */}
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative">
                   <div className="flex items-start gap-4">
-                    <div className="h-12 w-12 bg-[#2A9D90]/10 rounded-full flex items-center justify-center font-bold text-[#2A9D90] flex-shrink-0">
+                    <div className="h-12 w-12 bg-[#2b9a8b]/10 rounded-full flex items-center justify-center font-bold text-[#2b9a8b] flex-shrink-0">
                       JD
                     </div>
                     <div>
                       <div className="flex gap-1 mb-2">
                         {[...Array(5)].map((_, i) => (
-                          <Star key={i} size={14} className="fill-[#2A9D90] text-[#2A9D90]" />
+                          <Star key={i} size={14} className="fill-[#2b9a8b] text-[#2b9a8b]" />
                         ))}
                       </div>
                       <p className="text-sm font-medium text-slate-900 mb-2">
@@ -149,7 +149,7 @@ export default function Demo() {
               {/* Right Column: Cal.com Embed */}
               <div className="relative mt-3">
                 {/* Header Tab - outside overflow-hidden so it doesn't get clipped */}
-                <div className="absolute -top-3 left-6 z-10 bg-[#2A9D90] border border-[#2A9D90] border-b-0 rounded-t px-4 py-1.5">
+                <div className="absolute -top-3 left-6 z-10 bg-[#2b9a8b] border border-[#2b9a8b] border-b-0 rounded-t px-4 py-1.5">
                   <span className="font-sans text-[10px] font-bold uppercase text-white tracking-wider flex items-center gap-2">
                     <Calendar size={12} />
                     Schedule
@@ -247,7 +247,7 @@ export default function Demo() {
               <Button
                 size="lg"
                 onClick={handleFreeSignup}
-                className="h-14 px-8 text-lg bg-[#2A9D90] hover:bg-[#2A9D90]/90 text-white shadow-lg"
+                className="h-14 px-8 text-lg bg-[#2b9a8b] hover:bg-[#2b9a8b]/90 text-white shadow-lg"
               >
                 Try Free Instead
               </Button>
@@ -274,7 +274,7 @@ export default function Demo() {
 function DemoFeatureRow({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="w-8 h-8 rounded-lg bg-[#2A9D90]/10 flex items-center justify-center text-[#2A9D90]">
+      <div className="w-8 h-8 rounded-lg bg-[#2b9a8b]/10 flex items-center justify-center text-[#2b9a8b]">
         {icon}
       </div>
       <span className="text-slate-700 font-medium">{text}</span>
@@ -286,7 +286,7 @@ function DemoFeatureRow({ icon, text }: { icon: React.ReactNode; text: string })
 function DemoDetailCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="p-4 rounded-lg border border-slate-200 bg-white text-center">
-      <div className="flex justify-center mb-2 text-[#2A9D90]">{icon}</div>
+      <div className="flex justify-center mb-2 text-[#2b9a8b]">{icon}</div>
       <div className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-1">{label}</div>
       <div className="font-bold text-slate-900">{value}</div>
     </div>
@@ -297,7 +297,7 @@ function DemoDetailCard({ icon, label, value }: { icon: React.ReactNode; label: 
 function ProcessCard({ step, title, description }: { step: string; title: string; description: string }) {
   return (
     <div className="p-6 rounded-xl border border-slate-200 bg-white relative">
-      <div className="font-sans text-4xl font-bold text-[#2A9D90]/20 mb-4">{step}</div>
+      <div className="font-sans text-4xl font-bold text-[#2b9a8b]/20 mb-4">{step}</div>
       <h3 className="font-bold tracking-tight text-slate-900 mb-2">{title}</h3>
       <p className="text-slate-600 text-sm leading-relaxed">{description}</p>
       {/* Corner Mark */}
@@ -322,7 +322,7 @@ function TestimonialCard({
     <div className="p-6 rounded-xl border border-slate-200 bg-slate-50 relative">
       <div className="flex gap-1 mb-4">
         {[...Array(5)].map((_, i) => (
-          <Star key={i} size={14} className="fill-[#2A9D90] text-[#2A9D90]" />
+          <Star key={i} size={14} className="fill-[#2b9a8b] text-[#2b9a8b]" />
         ))}
       </div>
       <p className="text-slate-700 mb-4 leading-relaxed">"{quote}"</p>

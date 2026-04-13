@@ -52,6 +52,8 @@ export default {
           border: "var(--destructive-border)",
         },
         ring: "hsl(var(--ring) / <alpha-value>)",
+        "brand-dark": "hsl(var(--brand-dark) / <alpha-value>)",
+        "brand-highlight": "hsl(var(--brand-highlight) / <alpha-value>)",
         chart: {
           "1": "hsl(var(--chart-1) / <alpha-value>)",
           "2": "hsl(var(--chart-2) / <alpha-value>)",

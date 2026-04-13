@@ -98,8 +98,8 @@ export default function Homepage() {
     }).format(amount);
   };
 
-  const accentColor = "text-[#2A9D90]";
-  const accentBg = "bg-[#2A9D90]";
+  const accentColor = "text-[#2b9a8b]";
+  const accentBg = "bg-[#2b9a8b]";
 
   const handlePlanSelect = (plan: string, planIdMetadata: string) => {
     if (plan === "scale_custom") {
@@ -140,7 +140,7 @@ export default function Homepage() {
   };
 
   return (
-    <div className="min-h-screen bg-matte text-slate-900 font-sans selection:bg-[#2A9D90]/20">
+    <div className="min-h-screen bg-matte text-slate-900 font-sans selection:bg-[#2b9a8b]/20">
       <Helmet>
         <title>Doculoom | Spec Sheet & Catalog Maker</title>
         <meta name="description" content="Generate data-driven PDF catalogs, price lists, and spec sheets from Excel. Professional high-resolution export supported. Try for free." />
@@ -167,13 +167,13 @@ export default function Homepage() {
             <div className="text-center space-y-6 max-w-4xl mx-auto">
               {/* System Notification Badge */}
               <div className="inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 shadow-sm mb-4">
-                <Sparkles className="h-4 w-4 text-[#2A9D90] mr-2" />
+                <Sparkles className="h-4 w-4 text-[#2b9a8b] mr-2" />
                 New: AI Data Enrichment and Standardization
               </div>
 
               <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-slate-900">
                 Data-Driven Design for <br className="hidden md:block" />
-                <span className="font-serif italic text-[#2A9D90]">Professional</span> Spec Sheets
+                <span className="font-serif italic text-[#2b9a8b]">Professional</span> Spec Sheets
               </h1>
 
               <p className="text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
@@ -185,7 +185,7 @@ export default function Homepage() {
                   size="lg"
                   data-testid="btn-cta-signup"
                   onClick={handleFreeSignup}
-                  className={`h-14 px-8 text-lg ${accentBg} hover:bg-[#2A9D90]/90 text-white shadow-xl shadow-[#2A9D90]/20 hover:shadow-2xl transition-all border-0`}
+                  className={`h-14 px-8 text-lg ${accentBg} hover:bg-[#2b9a8b]/90 text-white shadow-xl shadow-[#2b9a8b]/20 hover:shadow-2xl transition-all border-0`}
                 >
                   Get Started Free
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -214,9 +214,9 @@ export default function Homepage() {
                       <h2 className="text-3xl font-bold tracking-tight text-slate-900">From messy data to <br/>polished design.</h2>
                       <p className="text-slate-600 leading-relaxed">Stop fighting with manual copy-pasting. Doculoom bridges the gap between your product database and professional PDF output.</p>
                       <ul className="space-y-3">
-                         <li className="flex items-center gap-2 text-sm font-medium text-slate-700"><Check className="h-4 w-4 text-[#2A9D90]" /> No more formatting errors</li>
-                         <li className="flex items-center gap-2 text-sm font-medium text-slate-700"><Check className="h-4 w-4 text-[#2A9D90]" /> Instant multi-page generation</li>
-                         <li className="flex items-center gap-2 text-sm font-medium text-slate-700"><Check className="h-4 w-4 text-[#2A9D90]" /> Professional 300 DPI exports</li>
+                         <li className="flex items-center gap-2 text-sm font-medium text-slate-700"><Check className="h-4 w-4 text-[#2b9a8b]" /> No more formatting errors</li>
+                         <li className="flex items-center gap-2 text-sm font-medium text-slate-700"><Check className="h-4 w-4 text-[#2b9a8b]" /> Instant multi-page generation</li>
+                         <li className="flex items-center gap-2 text-sm font-medium text-slate-700"><Check className="h-4 w-4 text-[#2b9a8b]" /> Professional 300 DPI exports</li>
                       </ul>
                    </div>
                    <div className="lg:col-span-3 flex flex-col md:flex-row gap-4 items-center justify-center relative">
@@ -246,17 +246,17 @@ export default function Homepage() {
                       {/* Technical Line Connector with Diamond */}
                       <div className="hidden md:flex items-center gap-0">
                          <div className="w-8 h-[1px] bg-slate-300"></div>
-                         <Diamond className="w-3 h-3 text-[#2A9D90] fill-[#2A9D90]" />
+                         <Diamond className="w-3 h-3 text-[#2b9a8b] fill-[#2b9a8b]" />
                          <div className="w-8 h-[1px] bg-slate-300"></div>
                       </div>
 
                       {/* After: Polished Spec Sheet Card - Blueprint Style */}
                       <div className="w-full md:w-72 bg-white border border-slate-200 rounded-lg shadow-sm p-4 rotate-[2deg] z-10 relative overflow-hidden">
                          {/* Folder Tab Effect */}
-                         <div className="absolute -top-3 left-4 bg-[#2A9D90] border border-[#2A9D90] border-b-0 rounded-t px-3 py-1">
+                         <div className="absolute -top-3 left-4 bg-[#2b9a8b] border border-[#2b9a8b] border-b-0 rounded-t px-3 py-1">
                             <span className="font-sans text-[9px] font-bold uppercase text-white tracking-wider">Output</span>
                          </div>
-                         <div className="absolute top-0 right-0 bg-[#2A9D90] text-white text-[8px] px-2 py-0.5 font-bold uppercase tracking-widest">PDF Export</div>
+                         <div className="absolute top-0 right-0 bg-[#2b9a8b] text-white text-[8px] px-2 py-0.5 font-bold uppercase tracking-widest">PDF Export</div>
                          <div className="aspect-[3/4] flex flex-col pt-2">
                             <div className="h-32 bg-slate-100 rounded mb-3 overflow-hidden">
                                <img
@@ -296,7 +296,7 @@ export default function Homepage() {
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
 
               {/* Visual Container - CAD Wireframe Style */}
-              <div className="w-full h-[515px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative bg-slate-900">
+              <div className="w-full h-[515px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative bg-[#041c2c]">
                 {/* Grid overlay */}
                 <div className="absolute inset-0 opacity-20" style={{
                   backgroundSize: '20px 20px',
@@ -313,9 +313,9 @@ export default function Homepage() {
                   <div className="flex-1 overflow-hidden flex flex-col gap-2 relative [mask-image:linear-gradient(to_bottom,black_90%,transparent)]">
                     {[...Array(11)].map((_, i) => (
                       <div key={i} className="h-8 w-full bg-slate-800 border border-slate-700 rounded grid grid-cols-4 items-center px-3 gap-2 shrink-0">
-                        <div className="h-1.5 w-8 bg-[#2A9D90] opacity-80 rounded"></div>
-                        <div className="h-1.5 w-8 bg-[#2A9D90] opacity-50 rounded"></div>
-                        <div className="h-1.5 w-8 bg-[#2A9D90] opacity-20 rounded"></div>
+                        <div className="h-1.5 w-8 bg-[#2b9a8b] opacity-80 rounded"></div>
+                        <div className="h-1.5 w-8 bg-[#2b9a8b] opacity-50 rounded"></div>
+                        <div className="h-1.5 w-8 bg-[#2b9a8b] opacity-20 rounded"></div>
                         <div className="h-1.5 w-8 bg-slate-700 rounded"></div>
                       </div>
                     ))}
@@ -328,7 +328,7 @@ export default function Homepage() {
               {/* Content */}
               <div>
                 <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-2 block">Step 1</span>
-                <div className={`inline-flex items-center rounded-full bg-[#2A9D90]/10 px-3 py-1 text-sm font-medium ${accentColor} mb-6`}>
+                <div className={`inline-flex items-center rounded-full bg-[#2b9a8b]/10 px-3 py-1 text-sm font-medium ${accentColor} mb-6`}>
                   <FileSpreadsheet className="h-4 w-4 mr-2" />
                   Import
                 </div>
@@ -352,7 +352,7 @@ export default function Homepage() {
               {/* Content */}
               <div className="order-2 lg:order-1">
                 <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-2 block">Step 2</span>
-                <div className={`inline-flex items-center rounded-full bg-[#2A9D90]/10 px-3 py-1 text-sm font-medium ${accentColor} mb-6`}>
+                <div className={`inline-flex items-center rounded-full bg-[#2b9a8b]/10 px-3 py-1 text-sm font-medium ${accentColor} mb-6`}>
                   <Palette className="h-4 w-4 mr-2" />
                   Design
                 </div>
@@ -371,7 +371,7 @@ export default function Homepage() {
               </div>
 
               {/* Visual Container - CAD Wireframe Style */}
-              <div className="w-full h-[515px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative order-1 lg:order-2 bg-slate-900">
+              <div className="w-full h-[515px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative order-1 lg:order-2 bg-[#041c2c]">
                 {/* Grid overlay */}
                 <div className="absolute inset-0 opacity-20" style={{
                   backgroundSize: '20px 20px',
@@ -380,18 +380,18 @@ export default function Homepage() {
 
                  <div className="bg-slate-800 border border-slate-700 rounded w-3/4 aspect-[3/4] p-4 relative flex flex-col">
                     <div className="flex justify-between mb-3">
-                      <div className="h-2 w-8 bg-[#2A9D90] opacity-80 rounded"></div>
-                      <div className="h-2 w-8 bg-[#2A9D90] opacity-80 rounded"></div>
+                      <div className="h-2 w-8 bg-[#2b9a8b] opacity-80 rounded"></div>
+                      <div className="h-2 w-8 bg-[#2b9a8b] opacity-80 rounded"></div>
                     </div>
                     <div className="h-32 bg-slate-700 rounded mb-3 flex items-center justify-center border-2 border-dashed border-slate-600 shrink-0">
                       <div className="text-slate-500 text-[10px] font-sans">Product Image</div>
                     </div>
                     <div className="flex flex-col gap-2">
-                      <div className="h-2 w-full bg-[#2A9D90] opacity-20 rounded"></div>
-                      <div className="h-2 w-full bg-[#2A9D90] opacity-20 rounded"></div>
-                      <div className="h-2 w-full bg-[#2A9D90] opacity-20 rounded"></div>
-                      <div className="h-2 w-full bg-[#2A9D90] opacity-20 rounded"></div>
-                      <div className="h-2 w-2/3 bg-[#2A9D90] opacity-20 rounded"></div>
+                      <div className="h-2 w-full bg-[#2b9a8b] opacity-20 rounded"></div>
+                      <div className="h-2 w-full bg-[#2b9a8b] opacity-20 rounded"></div>
+                      <div className="h-2 w-full bg-[#2b9a8b] opacity-20 rounded"></div>
+                      <div className="h-2 w-full bg-[#2b9a8b] opacity-20 rounded"></div>
+                      <div className="h-2 w-2/3 bg-[#2b9a8b] opacity-20 rounded"></div>
                     </div>
                     <div className="absolute bottom-4 right-4">
                       <QrCode className="w-8 h-8 text-slate-600 opacity-90" />
@@ -406,7 +406,7 @@ export default function Homepage() {
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
 
               {/* Visual Container - CAD Wireframe Style */}
-              <div className="w-full h-[515px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative bg-slate-900">
+              <div className="w-full h-[515px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative bg-[#041c2c]">
                 {/* Grid overlay */}
                 <div className="absolute inset-0 opacity-20" style={{
                   backgroundSize: '20px 20px',
@@ -415,8 +415,8 @@ export default function Homepage() {
 
                  <div className="bg-slate-800 border border-slate-700 rounded w-3/4 aspect-[3/4] p-4 relative flex flex-col">
                     <div className="flex justify-between mb-3 items-end shrink-0">
-                      <span className="text-[10px] font-bold text-[#2A9D90] opacity-80 font-sans">FLOATING VANITY</span>
-                      <span className="text-[10px] font-bold text-[#2A9D90] opacity-80 font-sans">FLT-VAN-WNT</span>
+                      <span className="text-[10px] font-bold text-[#2b9a8b] opacity-80 font-sans">FLOATING VANITY</span>
+                      <span className="text-[10px] font-bold text-[#2b9a8b] opacity-80 font-sans">FLT-VAN-WNT</span>
                     </div>
                     <div className="aspect-video w-full bg-slate-700 rounded-sm mb-3 border border-slate-600 overflow-hidden shrink-0">
                         <img
@@ -441,7 +441,7 @@ export default function Homepage() {
               {/* Content */}
               <div>
                 <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-2 block">Step 3</span>
-                <div className={`inline-flex items-center rounded-full bg-[#2A9D90]/10 px-3 py-1 text-sm font-medium ${accentColor} mb-6`}>
+                <div className={`inline-flex items-center rounded-full bg-[#2b9a8b]/10 px-3 py-1 text-sm font-medium ${accentColor} mb-6`}>
                   <FileText className="h-4 w-4 mr-2" />
                   Export
                 </div>
@@ -560,10 +560,10 @@ export default function Homepage() {
                     {/* Corner Mark */}
                     <div className="absolute bottom-3 right-3 text-slate-300 font-sans text-sm">&#x231F;</div>
                  </div>
-                 <div className="p-8 bg-slate-900 text-white rounded-xl space-y-4 shadow-2xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 bg-[#2A9D90] px-3 py-1 text-[10px] font-bold uppercase font-sans tracking-wider">The Advantage</div>
-                    <div className={`w-10 h-10 rounded-lg bg-[#2A9D90] bg-opacity-20 flex items-center justify-center`}>
-                       <Zap className="text-[#2A9D90]" size={20} />
+                 <div className="p-8 bg-[#041c2c] text-white rounded-xl space-y-4 shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 bg-[#2b9a8b] px-3 py-1 text-[10px] font-bold uppercase font-sans tracking-wider">The Advantage</div>
+                    <div className={`w-10 h-10 rounded-lg bg-[#2b9a8b] bg-opacity-20 flex items-center justify-center`}>
+                       <Zap className="text-[#2b9a8b]" size={20} />
                     </div>
                     <h3 className="font-bold text-lg tracking-tight">Production-Grade Speed</h3>
                     <p className="text-sm text-slate-300 leading-relaxed">
@@ -592,7 +592,7 @@ export default function Homepage() {
                 <div className="mt-8">
                   <Button
                     variant="outline"
-                    className="gap-2 hover:text-[#2A9D90] hover:bg-[#2A9D90]/5 border-slate-200"
+                    className="gap-2 hover:text-[#2b9a8b] hover:bg-[#2b9a8b]/5 border-slate-200"
                     onClick={() => setLocation("/templates")}
                   >
                     See template library <ChevronRight size={16} />
@@ -604,7 +604,7 @@ export default function Homepage() {
                  <div className={`absolute bottom-0 left-0 w-64 h-64 ${accentBg} rounded-full blur-3xl opacity-20 -translate-x-1/2 translate-y-1/2`}></div>
                  <div className="bg-white shadow-2xl rounded-lg w-[300px] h-[420px] p-6 relative z-10 rotate-3 transition-transform hover:rotate-0 duration-500 border border-slate-200">
                     <div className="flex justify-between items-start mb-4">
-                      <div className="w-12 h-12 bg-slate-900 rounded"></div>
+                      <div className="w-12 h-12 bg-[#041c2c] rounded"></div>
                       <div className="text-right">
                         <div className="h-4 w-24 bg-slate-200 rounded mb-1"></div>
                         <div className="h-3 w-16 bg-slate-100 rounded ml-auto"></div>
@@ -652,14 +652,14 @@ export default function Homepage() {
                 <Switch
                   checked={isAnnual}
                   onCheckedChange={setIsAnnual}
-                  className="data-[state=checked]:bg-[#2A9D90] bg-slate-200 border-slate-200"
+                  className="data-[state=checked]:bg-[#2b9a8b] bg-slate-200 border-slate-200"
                 />
                 <Label
                   className={`text-sm cursor-pointer flex items-center gap-2 ${isAnnual ? "font-bold text-slate-900" : "text-slate-500"}`}
                   onClick={() => setIsAnnual(true)}
                 >
                   Annual
-                  <span className="bg-[#2A9D90]/10 text-[#2A9D90] text-xs px-2 py-0.5 rounded-full font-medium border border-[#2A9D90]/20">
+                  <span className="bg-[#2b9a8b]/10 text-[#2b9a8b] text-xs px-2 py-0.5 rounded-full font-medium border border-[#2b9a8b]/20">
                     Get 2 months on us when you pay annually.
                   </span>
                 </Label>
@@ -765,7 +765,7 @@ export default function Homepage() {
                <Button
                  size="lg"
                  onClick={handleFreeSignup}
-                 className={`h-14 px-8 text-lg ${accentBg} hover:bg-[#2A9D90]/90 text-white shadow-lg`}
+                 className={`h-14 px-8 text-lg ${accentBg} hover:bg-[#2b9a8b]/90 text-white shadow-lg`}
                >
                  Get Started Free
                </Button>
@@ -804,8 +804,8 @@ function UseCaseItem({ title, desc, accentColor }: { title: string, desc: string
   return (
     <div className="flex gap-4">
       <div className="mt-1">
-        <div className="w-6 h-6 bg-[#2A9D90]/10 rounded-full flex items-center justify-center">
-          <CheckCircle2 size={14} className={accentColor.replace('text-', '')} color="#2A9D90" />
+        <div className="w-6 h-6 bg-[#2b9a8b]/10 rounded-full flex items-center justify-center">
+          <CheckCircle2 size={14} className={accentColor.replace('text-', '')} color="#2b9a8b" />
         </div>
       </div>
       <div>
@@ -832,11 +832,11 @@ function SpecPricingCard({ name, price, period, description, subtext, features, 
   return (
     <div className={`p-8 relative rounded-xl bg-white flex flex-col h-full ${
       highlighted
-        ? 'border-t-4 border-t-[#2A9D90] border-x border-b border-slate-200 shadow-xl scale-105 z-10'
+        ? 'border-t-4 border-t-[#2b9a8b] border-x border-b border-slate-200 shadow-xl scale-105 z-10'
         : 'border-t-4 border-t-slate-900 border-x border-b border-slate-200'
     }`}>
       {highlighted && (
-        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2A9D90] text-white hover:bg-[#2A9D90] font-sans text-[10px] uppercase tracking-wider">Most Popular</Badge>
+        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2b9a8b] text-white hover:bg-[#2b9a8b] font-sans text-[10px] uppercase tracking-wider">Most Popular</Badge>
       )}
       <div className="mb-6">
         <span className="font-sans text-xs uppercase tracking-wider text-slate-400 block mb-1">Plan</span>
@@ -851,7 +851,7 @@ function SpecPricingCard({ name, price, period, description, subtext, features, 
         </div>
         {subtext && (<span className="font-sans text-xs text-slate-500 mt-1 block">{subtext}</span>)}
       </div>
-      <Button onClick={onAction} className={`w-full mb-8 h-12 text-lg ${ctaVariant === 'teal' ? 'bg-[#2A9D90] hover:bg-[#2A9D90]/90 text-white' : 'bg-slate-900 hover:bg-slate-800 text-white'}`}>
+      <Button onClick={onAction} className={`w-full mb-8 h-12 text-lg ${ctaVariant === 'teal' ? 'bg-[#2b9a8b] hover:bg-[#2b9a8b]/90 text-white' : 'bg-[#041c2c] hover:bg-[#07253e] text-white'}`}>
         {cta}
       </Button>
       <div className="space-y-4 flex-1">
@@ -859,7 +859,7 @@ function SpecPricingCard({ name, price, period, description, subtext, features, 
         {features.map((feature, i) => (
           <div key={i} className="flex items-start gap-3">
              {typeof feature === 'string' ? (
-              <><div className="mt-0.5 flex-shrink-0"><div className="w-5 h-5 rounded-full bg-[#2A9D90]/10 flex items-center justify-center"><Check className="h-3 w-3 text-[#2A9D90]" /></div></div><span className="text-slate-600 text-sm">{feature}</span></>
+              <><div className="mt-0.5 flex-shrink-0"><div className="w-5 h-5 rounded-full bg-[#2b9a8b]/10 flex items-center justify-center"><Check className="h-3 w-3 text-[#2b9a8b]" /></div></div><span className="text-slate-600 text-sm">{feature}</span></>
             ) : (<div className="w-full">{feature}</div>)}
           </div>
         ))}
