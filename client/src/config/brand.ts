@@ -2,9 +2,9 @@ export const BRAND = {
   name: "Doculoom",
   tagline: "Data-Driven Spec Sheet Builder",
   logoUrl:
-    "https://res.cloudinary.com/olilepage/image/upload/t_transparent_background/v1767054291/doculoom/logos/doculoom-io-wordmark-logo-cropped.png",
+    "https://res.cloudinary.com/olilepage/image/upload/v1774710289/doculoom/logos/primary-branding/wordmark-2c.svg",
   iconUrl:
-    "https://res.cloudinary.com/olilepage/image/upload/t_transparent_background/v1767054291/doculoom/logos/doculoom-io-icon-logo.png",
+    "https://res.cloudinary.com/olilepage/image/upload/v1774710287/doculoom/logos/primary-branding/primary-2c.svg",
   colors: {
     primary: "#041c2c",
     secondary: "#2b9a8b",
