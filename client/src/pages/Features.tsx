@@ -71,7 +71,7 @@ export default function Features() {
                 <Button
                   size="lg"
                   onClick={handleFreeSignup}
-                  className="h-14 px-8 text-lg bg-[#2b9a8b] hover:bg-[#2b9a8b]/90 text-white shadow-xl shadow-[#2b9a8b]/20 hover:shadow-2xl transition-all border-0"
+                  className="h-14 px-8 text-lg bg-[#9f2842] hover:bg-[#9f2842]/90 text-white shadow-xl shadow-[#9f2842]/20 hover:shadow-2xl transition-all border-0"
                 >
                   Get Started Free
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -375,7 +375,7 @@ export default function Features() {
               <Button
                 size="lg"
                 onClick={handleFreeSignup}
-                className="h-14 px-8 text-lg bg-[#2b9a8b] hover:bg-[#2b9a8b]/90 text-white shadow-lg"
+                className="h-14 px-8 text-lg bg-[#9f2842] hover:bg-[#9f2842]/90 text-white shadow-lg border-0"
               >
                 Get Started Free
               </Button>

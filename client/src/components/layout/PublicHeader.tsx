@@ -56,7 +56,7 @@ export function PublicHeader() {
                 <Button variant="ghost" size="sm">Sign In</Button>
               </a>
               <a href="/registration">
-                <Button size="sm">Sign Up</Button>
+                <Button size="sm" className="bg-[#9f2842] hover:bg-[#9f2842]/90 text-white border-0">Sign Up</Button>
               </a>
             </>
           )}

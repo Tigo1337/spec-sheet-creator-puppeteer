@@ -185,7 +185,7 @@ export default function Homepage() {
                   size="lg"
                   data-testid="btn-cta-signup"
                   onClick={handleFreeSignup}
-                  className={`h-14 px-8 text-lg ${accentBg} hover:bg-[#2b9a8b]/90 text-white shadow-xl shadow-[#2b9a8b]/20 hover:shadow-2xl transition-all border-0`}
+                  className="h-14 px-8 text-lg bg-[#9f2842] hover:bg-[#9f2842]/90 text-white shadow-xl shadow-[#9f2842]/20 hover:shadow-2xl transition-all border-0"
                 >
                   Get Started Free
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -561,9 +561,9 @@ export default function Homepage() {
                     <div className="absolute bottom-3 right-3 text-slate-300 font-sans text-sm">&#x231F;</div>
                  </div>
                  <div className="p-8 bg-[#041c2c] text-white rounded-xl space-y-4 shadow-2xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 bg-[#2b9a8b] px-3 py-1 text-[10px] font-bold uppercase font-sans tracking-wider">The Advantage</div>
-                    <div className={`w-10 h-10 rounded-lg bg-[#2b9a8b] bg-opacity-20 flex items-center justify-center`}>
-                       <Zap className="text-[#2b9a8b]" size={20} />
+                    <div className="absolute top-0 right-0 bg-[#9f2842] px-3 py-1 text-[10px] font-bold uppercase font-sans tracking-wider">The Advantage</div>
+                    <div className={`w-10 h-10 rounded-lg bg-[#9f2842]/20 flex items-center justify-center`}>
+                       <Zap className="text-[#9f2842]" size={20} />
                     </div>
                     <h3 className="font-bold text-lg tracking-tight">Production-Grade Speed</h3>
                     <p className="text-sm text-slate-300 leading-relaxed">
@@ -705,7 +705,7 @@ export default function Homepage() {
                   'Priority Rendering Queue',
                 ]}
                 cta={isAnnual ? "Start Pro Annual" : "Start Pro Monthly"}
-                ctaVariant="teal"
+                ctaVariant="crimson"
                 onAction={() => handlePlanSelect(
                   isAnnual ? "pro_annual" : "pro_monthly",
                   isAnnual ? "prod_pro_annual" : "prod_pro_monthly"
@@ -765,7 +765,7 @@ export default function Homepage() {
                <Button
                  size="lg"
                  onClick={handleFreeSignup}
-                 className={`h-14 px-8 text-lg ${accentBg} hover:bg-[#2b9a8b]/90 text-white shadow-lg`}
+                 className="h-14 px-8 text-lg bg-[#9f2842] hover:bg-[#9f2842]/90 text-white shadow-lg border-0"
                >
                  Get Started Free
                </Button>
@@ -825,18 +825,18 @@ function SpecPricingCard({ name, price, period, description, subtext, features, 
   subtext?: string,
   features: (string | React.ReactNode)[],
   cta: string,
-  ctaVariant: 'teal' | 'dark',
+  ctaVariant: 'teal' | 'dark' | 'crimson',
   highlighted?: boolean,
   onAction?: () => void
 }) {
   return (
     <div className={`p-8 relative rounded-xl bg-white flex flex-col h-full ${
       highlighted
-        ? 'border-t-4 border-t-[#2b9a8b] border-x border-b border-slate-200 shadow-xl scale-105 z-10'
+        ? 'border-t-4 border-t-[#9f2842] border-x border-b border-slate-200 shadow-xl scale-105 z-10'
         : 'border-t-4 border-t-slate-900 border-x border-b border-slate-200'
     }`}>
       {highlighted && (
-        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2b9a8b] text-white hover:bg-[#2b9a8b] font-sans text-[10px] uppercase tracking-wider">Most Popular</Badge>
+        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#9f2842] text-white hover:bg-[#9f2842] font-sans text-[10px] uppercase tracking-wider">Most Popular</Badge>
       )}
       <div className="mb-6">
         <span className="font-sans text-xs uppercase tracking-wider text-slate-400 block mb-1">Plan</span>
@@ -851,7 +851,7 @@ function SpecPricingCard({ name, price, period, description, subtext, features, 
         </div>
         {subtext && (<span className="font-sans text-xs text-slate-500 mt-1 block">{subtext}</span>)}
       </div>
-      <Button onClick={onAction} className={`w-full mb-8 h-12 text-lg ${ctaVariant === 'teal' ? 'bg-[#2b9a8b] hover:bg-[#2b9a8b]/90 text-white' : 'bg-[#041c2c] hover:bg-[#07253e] text-white'}`}>
+      <Button onClick={onAction} className={`w-full mb-8 h-12 text-lg ${ctaVariant === 'crimson' ? 'bg-[#9f2842] hover:bg-[#9f2842]/90 text-white border-0' : ctaVariant === 'teal' ? 'bg-[#2b9a8b] hover:bg-[#2b9a8b]/90 text-white' : 'bg-[#041c2c] hover:bg-[#07253e] text-white'}`}>
         {cta}
       </Button>
       <div className="space-y-4 flex-1">

@@ -67,7 +67,7 @@ export default function Solutions() {
                 <Button
                   size="lg"
                   onClick={handleFreeSignup}
-                  className="h-14 px-8 text-lg bg-[#2b9a8b] hover:bg-[#2b9a8b]/90 text-white shadow-xl shadow-[#2b9a8b]/20 hover:shadow-2xl transition-all border-0"
+                  className="h-14 px-8 text-lg bg-[#9f2842] hover:bg-[#9f2842]/90 text-white shadow-xl shadow-[#9f2842]/20 hover:shadow-2xl transition-all border-0"
                 >
                   Get Started Free
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -262,7 +262,7 @@ export default function Solutions() {
               <Button
                 size="lg"
                 onClick={handleFreeSignup}
-                className="h-14 px-8 text-lg bg-[#2b9a8b] hover:bg-[#2b9a8b]/90 text-white shadow-lg"
+                className="h-14 px-8 text-lg bg-[#9f2842] hover:bg-[#9f2842]/90 text-white shadow-lg border-0"
               >
                 Get Started Free
               </Button>
@@ -306,11 +306,11 @@ function SolutionCard({
   return (
     <div className={`p-8 rounded-xl bg-white flex flex-col h-full relative ${
       highlighted
-        ? 'border-t-4 border-t-[#2b9a8b] border-x border-b border-slate-200 shadow-xl scale-105 z-10'
+        ? 'border-t-4 border-t-[#9f2842] border-x border-b border-slate-200 shadow-xl scale-105 z-10'
         : 'border-t-4 border-t-slate-900 border-x border-b border-slate-200 hover:shadow-lg transition-shadow'
     }`}>
       {highlighted && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2b9a8b] text-white px-3 py-1 rounded-full text-[10px] font-sans uppercase tracking-wider">
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#9f2842] text-white px-3 py-1 rounded-full text-[10px] font-sans uppercase tracking-wider">
           Most Popular
         </div>
       )}

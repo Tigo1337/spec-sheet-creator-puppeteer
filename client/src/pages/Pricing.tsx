@@ -216,7 +216,7 @@ export default function Pricing() {
                   'Priority Rendering Queue',
                 ]}
                 cta={isAnnual ? "Start Pro Annual" : "Start Pro Monthly"}
-                ctaVariant="teal"
+                ctaVariant="crimson"
                 onAction={() => handlePlanSelect(
                   isAnnual ? "pro_annual" : "pro_monthly",
                   isAnnual ? "prod_pro_annual" : "prod_pro_monthly"
@@ -371,7 +371,7 @@ export default function Pricing() {
               <Button
                 size="lg"
                 onClick={handleFreeSignup}
-                className="h-14 px-8 text-lg bg-[#2b9a8b] hover:bg-[#2b9a8b]/90 text-white shadow-lg"
+                className="h-14 px-8 text-lg bg-[#9f2842] hover:bg-[#9f2842]/90 text-white shadow-lg border-0"
               >
                 Get Started Free
                 <ArrowRight className="ml-2 h-5 w-5" />
@@ -416,18 +416,18 @@ function SpecPricingCard({
   subtext?: string;
   features: (string | React.ReactNode)[];
   cta: string;
-  ctaVariant: 'teal' | 'dark';
+  ctaVariant: 'teal' | 'dark' | 'crimson';
   highlighted?: boolean;
   onAction?: () => void;
 }) {
   return (
     <div className={`p-8 relative rounded-xl bg-white flex flex-col h-full ${
       highlighted
-        ? 'border-t-4 border-t-[#2b9a8b] border-x border-b border-slate-200 shadow-xl scale-105 z-10'
+        ? 'border-t-4 border-t-[#9f2842] border-x border-b border-slate-200 shadow-xl scale-105 z-10'
         : 'border-t-4 border-t-slate-900 border-x border-b border-slate-200'
     }`}>
       {highlighted && (
-        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2b9a8b] text-white hover:bg-[#2b9a8b] font-sans text-[10px] uppercase tracking-wider">
+        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#9f2842] text-white hover:bg-[#9f2842] font-sans text-[10px] uppercase tracking-wider">
           Most Popular
         </Badge>
       )}
@@ -450,7 +450,9 @@ function SpecPricingCard({
       <Button
         onClick={onAction}
         className={`w-full mb-8 h-12 text-lg ${
-          ctaVariant === 'teal'
+          ctaVariant === 'crimson'
+            ? 'bg-[#9f2842] hover:bg-[#9f2842]/90 text-white border-0'
+            : ctaVariant === 'teal'
             ? 'bg-[#2b9a8b] hover:bg-[#2b9a8b]/90 text-white'
             : 'bg-slate-900 hover:bg-slate-800 text-white'
         }`}
