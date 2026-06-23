@@ -3,9 +3,7 @@ import { logger } from './utils/logger';
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
-const stripeSecretKey = isDevelopment
-  ? (process.env.STRIPE_SECRET_KEY_DEV || process.env.STRIPE_SECRET_KEY)
-  : process.env.STRIPE_SECRET_KEY;
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
 let stripe: Stripe | null = null;
 
@@ -33,9 +31,7 @@ export async function getUncachableStripeClient() {
 }
 
 export async function getStripePublishableKey() {
-  const key = isDevelopment
-    ? (process.env.VITE_STRIPE_PUBLISHABLE_KEY_DEV || process.env.VITE_STRIPE_PUBLISHABLE_KEY)
-    : process.env.VITE_STRIPE_PUBLISHABLE_KEY;
+  const key = process.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
   if (!key) {
     throw new Error('Missing Stripe Publishable Key.');
@@ -51,9 +47,7 @@ export async function getStripeSecretKey() {
 }
 
 export function getStripeWebhookSecret(): string {
-  const secret = isDevelopment
-    ? (process.env.STRIPE_WEBHOOK_SECRET_DEV || process.env.STRIPE_WEBHOOK_SECRET)
-    : process.env.STRIPE_WEBHOOK_SECRET;
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
 
   if (!secret) {
     throw new Error('Missing Stripe Webhook Secret.');
