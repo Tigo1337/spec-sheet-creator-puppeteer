@@ -1281,27 +1281,30 @@ export function ExportTab() {
           </h3>
 
           <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Page Size</Label>
-              <Select value={exportSettings.pageSize} onValueChange={(value) => setExportSettings({ pageSize: value as typeof exportSettings.pageSize })}>
-                <SelectTrigger data-testid="select-export-page-size"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="letter">US Letter (8.5" x 11")</SelectItem>
-                  <SelectItem value="a4">A4 (210mm x 297mm)</SelectItem>
-                  <SelectItem value="legal">US Legal (8.5" x 14")</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Page size + orientation sit side-by-side to keep the form dense */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Page Size</Label>
+                <Select value={exportSettings.pageSize} onValueChange={(value) => setExportSettings({ pageSize: value as typeof exportSettings.pageSize })}>
+                  <SelectTrigger data-testid="select-export-page-size"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="letter">US Letter (8.5" x 11")</SelectItem>
+                    <SelectItem value="a4">A4 (210mm x 297mm)</SelectItem>
+                    <SelectItem value="legal">US Legal (8.5" x 14")</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Orientation</Label>
-              <Select value={exportSettings.orientation} onValueChange={(value) => setExportSettings({ orientation: value as typeof exportSettings.orientation })}>
-                <SelectTrigger data-testid="select-export-orientation"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="portrait">Portrait</SelectItem>
-                  <SelectItem value="landscape">Landscape</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Orientation</Label>
+                <Select value={exportSettings.orientation} onValueChange={(value) => setExportSettings({ orientation: value as typeof exportSettings.orientation })}>
+                  <SelectTrigger data-testid="select-export-orientation"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="portrait">Portrait</SelectItem>
+                    <SelectItem value="landscape">Landscape</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-2 pt-2">
@@ -1434,8 +1437,8 @@ export function ExportTab() {
 
         {/* UPDATED: Free Plan Info Footer - Only show if NOT loading and NOT pro */}
         {!isPro && !isLoading && (
-            <div 
-              className="text-xs text-center p-2 bg-blue-50 text-blue-700 rounded border border-blue-100 flex flex-col gap-1 cursor-pointer hover:bg-blue-100 transition-colors"
+            <div
+              className="text-xs text-center p-2 bg-brand-secondary/10 text-brand-white rounded-sm border border-brand-secondary/30 flex flex-col gap-1 cursor-pointer hover:bg-brand-secondary/20 transition-colors"
               onClick={() => setShowUpgradeDialog(true)}
               title="Click to upgrade"
             >
@@ -1471,13 +1474,13 @@ export function ExportTab() {
                 )}
 
                 {history.map((job) => (
-                    <div key={job.id} className="flex items-center justify-between p-2.5 border rounded-lg bg-white/50 hover:bg-white transition-colors">
+                    <div key={job.id} className="flex items-center justify-between p-2.5 border rounded-sm bg-white/5 hover:bg-white/10 transition-colors">
                         <div className="flex flex-col">
                             {/* UPDATED: Show Project Name if available, else show Type */}
                             <span className="font-medium text-xs truncate max-w-[150px]" title={job.projectName || job.fileName}>
                                 {job.projectName || (job.type === 'pdf_catalog' ? '📚 Full Catalog' : '📄 Single Export')}
                             </span>
-                            <span className="text-[10px] text-gray-400">
+                            <span className="text-[10px] text-muted-foreground">
                                 {new Date(job.createdAt).toLocaleString()}
                             </span>
                         </div>

@@ -30,21 +30,21 @@ export function CanvasRowNavigator() {
         <Button
           size="icon"
           variant="ghost"
-          className="h-8 w-8 rounded-full hover:bg-gray-100"
+          className="h-8 w-8 rounded-full hover:bg-white/10"
           onClick={handlePrevRow}
           disabled={selectedRowIndex === 0}
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
 
-        <span className="px-3 text-sm font-medium text-gray-600 select-none whitespace-nowrap">
+        <span className="px-3 text-sm font-medium text-brand-white/70 select-none whitespace-nowrap">
           Row {currentRow} / {totalRows}
         </span>
 
         <Button
           size="icon"
           variant="ghost"
-          className="h-8 w-8 rounded-full hover:bg-gray-100"
+          className="h-8 w-8 rounded-full hover:bg-white/10"
           onClick={handleNextRow}
           disabled={selectedRowIndex >= totalRows - 1}
         >

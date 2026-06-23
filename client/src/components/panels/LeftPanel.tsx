@@ -151,7 +151,7 @@ export function LeftPanel() {
   ];
 
   return (
-    <div className="w-64 border-r bg-sidebar flex flex-col h-full">
+    <div className="w-64 border-r border-white/10 bg-brand-primary-light text-brand-white flex flex-col h-full">
       <div className="p-3 border-b">
         <h2 className="font-semibold text-sm text-sidebar-foreground">Tools</h2>
       </div>

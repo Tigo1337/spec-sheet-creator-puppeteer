@@ -261,7 +261,7 @@ export function Header() {
   };
 
   return (
-    <header className="h-14 border-b bg-sidebar flex items-center justify-between px-4 gap-4 flex-shrink-0">
+    <header className="h-14 border-b border-white/10 bg-brand-primary-light text-brand-white flex items-center justify-between px-4 gap-4 flex-shrink-0">
       <UpgradeDialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog} />
 
       {/* Name Dialog for PDF Import */}
@@ -358,7 +358,7 @@ export function Header() {
       </div>
 
       {/* Center Section */}
-      <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+      <div className="flex items-center gap-1 bg-white/5 rounded-sm p-1">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button size="icon" variant="ghost" className="h-8 w-8" onClick={undo}>
@@ -440,9 +440,9 @@ export function Header() {
       {/* Right Section */}
       <div className="flex items-center gap-2">
         {!isPro && (
-          <Button 
-            size="sm" 
-            className="gap-1.5 bg-[#9f2842] text-white shadow-sm"
+          <Button
+            size="sm"
+            className="gap-1.5 bg-brand-highlight text-brand-white shadow-sm"
             onClick={() => setShowUpgradeDialog(true)}
           >
             <Crown className="h-4 w-4 fill-current" />

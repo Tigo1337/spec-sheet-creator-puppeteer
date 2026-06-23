@@ -652,7 +652,7 @@ export function SavedDesignsTab() {
 
               <TabsContent value="blank" className="flex-1 mt-4 min-h-0">
                 <ScrollArea className="h-full">
-                  <div className="grid md:grid-cols-3 gap-6 pb-2 pr-4">
+                  <div className="grid md:grid-cols-3 gap-4 pb-2 pr-4">
                     <Card
                       className="p-6 cursor-pointer border-2 hover:border-primary/50 transition-all flex flex-col gap-4"
                       onClick={() => handleCreateDesign("basic")}

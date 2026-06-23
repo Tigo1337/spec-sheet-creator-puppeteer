@@ -12,7 +12,7 @@ export function RightPanel() {
 
   return (
     // UPDATED: Increased width from w-[400px] to w-[500px] to fit all tabs
-    <div className="w-[500px] border-l bg-sidebar flex flex-col h-full transition-all duration-300 ease-in-out">
+    <div className="w-[500px] border-l border-white/10 bg-brand-primary-light text-brand-white flex flex-col h-full transition-all duration-300 ease-in-out">
       <Tabs
         value={rightPanelTab}
         onValueChange={(v) => setRightPanelTab(v as typeof rightPanelTab)}
