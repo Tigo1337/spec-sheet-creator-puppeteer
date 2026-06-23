@@ -53,6 +53,38 @@ interface HistoryItem {
   downloadUrl: string | null;
 }
 
+// --- BRANDING BADGE ("Powered by Doculoom") ---
+// Free-tier exports carry a "Powered by Doculoom" badge in the bottom-right corner.
+// The generated HTML is uploaded and rendered by a separate Puppeteer worker, where
+// external SVG image URLs frequently fail to load (network egress / image-load timing).
+// To guarantee the badge always appears, we fetch the SVG once in the browser and inline
+// it as a base64 data URI so the HTML is fully self-contained before it reaches Puppeteer.
+const POWERED_BY_SVG_URL =
+  "https://res.cloudinary.com/olilepage/image/upload/v1774710292/doculoom/logos/secondary-branding/powered-by-full-2c.svg";
+
+// Cache the in-flight/resolved promise so the SVG is fetched at most once per session,
+// regardless of how many pages (single, bulk, or catalog) reference the badge.
+let brandingDataUriPromise: Promise<string | null> | null = null;
+
+const getBrandingDataUri = (): Promise<string | null> => {
+  if (!brandingDataUriPromise) {
+    brandingDataUriPromise = (async () => {
+      try {
+        const res = await fetch(POWERED_BY_SVG_URL);
+        if (!res.ok) throw new Error(`Branding fetch failed: ${res.status}`);
+        const svgText = await res.text();
+        // unescape(encodeURIComponent(...)) safely encodes UTF-8 SVG markup for btoa.
+        const base64 = btoa(unescape(encodeURIComponent(svgText)));
+        return `data:image/svg+xml;base64,${base64}`;
+      } catch (e) {
+        console.error("Failed to inline 'Powered by Doculoom' branding SVG", e);
+        return null;
+      }
+    })();
+  }
+  return brandingDataUriPromise;
+};
+
 // --- NEW HELPER: Extract unique fonts used in elements ---
 const getUsedFontsInElements = (elements: CanvasElement[]) => {
   const fonts = new Set<string>();
@@ -721,23 +753,42 @@ export function ExportTab() {
       container.appendChild(elementDiv);
     }
 
-    // WATERMARK INJECTION FOR FREE USERS
+    // "POWERED BY DOCULOOM" BRANDING BADGE FOR FREE USERS
     if (!isPro) {
-        const watermark = document.createElement("div");
-        watermark.style.position = "absolute";
-        watermark.style.bottom = "16px";
-        watermark.style.right = "16px";
-        watermark.style.opacity = "0.5";
-        watermark.style.pointerEvents = "none";
-        watermark.style.zIndex = "9999";
-        watermark.style.fontFamily = "sans-serif";
-        watermark.style.fontSize = "12px";
-        watermark.style.color = "#000000";
-        watermark.style.backgroundColor = "rgba(255,255,255,0.7)";
-        watermark.style.padding = "4px 8px";
-        watermark.style.borderRadius = "4px";
-        watermark.innerHTML = "Created with <b>Doculoom</b>";
-        container.appendChild(watermark);
+        const badge = document.createElement("div");
+        badge.style.position = "absolute";
+        badge.style.bottom = "16px";
+        badge.style.right = "16px"; // Standard brand placement: bottom-right corner
+        badge.style.pointerEvents = "none";
+        badge.style.zIndex = "9999";
+
+        // Inline the SVG as a base64 data URI so it renders reliably inside the
+        // Puppeteer worker (external image URLs can silently fail to load there).
+        const brandingDataUri = await getBrandingDataUri();
+
+        if (brandingDataUri) {
+            const img = document.createElement("img");
+            img.src = brandingDataUri;
+            img.alt = "Powered by Doculoom";
+            // Scale down so it sits tastefully as a "Powered by" badge.
+            img.style.width = "130px";
+            img.style.maxWidth = "130px";
+            img.style.height = "auto";
+            img.style.display = "block";
+            badge.appendChild(img);
+        } else {
+            // Fallback to the legacy text badge if the SVG could not be inlined.
+            badge.style.opacity = "0.5";
+            badge.style.fontFamily = "sans-serif";
+            badge.style.fontSize = "12px";
+            badge.style.color = "#000000";
+            badge.style.backgroundColor = "rgba(255,255,255,0.7)";
+            badge.style.padding = "4px 8px";
+            badge.style.borderRadius = "4px";
+            badge.innerHTML = "Created with <b>Doculoom</b>";
+        }
+
+        container.appendChild(badge);
     }
 
     return container.outerHTML;
