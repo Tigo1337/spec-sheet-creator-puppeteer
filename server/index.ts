@@ -92,15 +92,17 @@ declare module "http" {
   }
 }
 
-async function initStripe() {
+function initStripe(): boolean {
   const hasStripeKey = isDevelopment
     ? (process.env.STRIPE_SECRET_KEY_DEV || process.env.STRIPE_SECRET_KEY)
     : process.env.STRIPE_SECRET_KEY;
 
   if (!hasStripeKey) {
     logger.info('Stripe secret key not set, skipping Stripe initialization');
-    return;
+    return false;
   }
+
+  return true;
 }
 
 // === SMOKE TESTS ===
@@ -123,7 +125,10 @@ async function checkDatabase() {
   }
 }
 
-initStripe();
+const stripeActive = initStripe();
+if (stripeActive) {
+  logger.info(`Stripe configured for ${isDevelopment ? 'development' : 'production'} environment`);
+}
 
 app.post(
   '/api/stripe/webhook',
@@ -172,7 +177,15 @@ app.use((req, res, next) => {
   }
 });
 
-app.use(express.urlencoded({ extended: false, limit: "50mb" }));
+app.use((req, res, next) => {
+  if (largePayloadRoutes.some(route => req.path.startsWith(route))) {
+    // 50MB limit for export/upload routes
+    express.urlencoded({ extended: false, limit: "50mb" })(req, res, next);
+  } else {
+    // 1MB limit for everything else
+    express.urlencoded({ extended: false, limit: "1mb" })(req, res, next);
+  }
+});
 
 app.use((req, res, next) => {
   const start = Date.now();

@@ -37,7 +37,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       console.error("Health check failed: Database", e);
     }
 
-    health.checks.stripe = process.env.STRIPE_SECRET_KEY ? "configured" : "missing_key";
+    const isDevelopment = process.env.NODE_ENV !== "production";
+    const stripeSecretKey = isDevelopment
+      ? (process.env.STRIPE_SECRET_KEY_DEV || process.env.STRIPE_SECRET_KEY)
+      : process.env.STRIPE_SECRET_KEY;
+    health.checks.stripe = stripeSecretKey ? "configured" : "missing_key";
     res.status(health.status === "OK" ? 200 : 503).json(health);
   });
 
@@ -68,7 +72,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/objects/:objectPath(*)", async (req, res) => {
     try {
-      const f = await objectStorageService.getObjectEntityFile(req.path);
+      const f = await objectStorageService.getObjectEntityFile(`/objects/${req.params.objectPath}`);
       objectStorageService.downloadObject(f, res);
     } catch (e) {
       res.sendStatus(e instanceof ObjectNotFoundError ? 404 : 500);
