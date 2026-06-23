@@ -34,10 +34,10 @@
   --muted-foreground: 0 0% 40%;
   --accent: 204 18% 94%;
   --accent-foreground: 0 0% 9%;
-  --destructive: 0 84% 60%;
+  --destructive: 347 60% 39%; /* brand-highlight / crimson */
   --destructive-foreground: 0 0% 98%;
   --input: 0 0% 82%;
-  --ring: 172 56% 39%;
+  --ring: 172 56% 39%; /* brand-secondary / teal */
   --brand-dark: 204 83% 9%;
   --brand-highlight: 347 60% 39%;
   --chart-1: 172 56% 39%; /* Brand Secondary / Teal */
@@ -48,7 +48,7 @@
   --font-sans: 'Barlow', 'Inter', sans-serif;
   --font-serif: 'Playfair Display', Georgia, serif;
   --font-mono: 'JetBrains Mono', 'Courier New', monospace;
-  --radius: .5rem;
+  --radius: .125rem; /* "Perfectly Square" - minimal rounding (2px) */
   --shadow-2xs: 0px 2px 0px 0px hsl(217 91% 60% / 0.00);
   --shadow-xs: 0px 2px 0px 0px hsl(217 91% 60% / 0.00);
   --shadow-sm: 0px 2px 0px 0px hsl(217 91% 60% / 0.00), 0px 1px 2px -1px hsl(217 91% 60% / 0.00);
@@ -95,35 +95,38 @@
   --opaque-button-border-intensity: 9;
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
-  --background: 204 30% 8%;
+  /* Doculoom premium dark workspace — derived from the brand palette.
+     --background is the exact brand-primary navy (#041c2c); surfaces and
+     borders step up from it, accents stay on brand teal/crimson. */
+  --background: 204 83% 9%;        /* brand-primary #041c2c */
   --foreground: 0 0% 98%;
-  --border: 204 20% 18%;
-  --card: 204 25% 10%;
+  --border: 204 45% 22%;
+  --card: 204 60% 12%;
   --card-foreground: 0 0% 98%;
-  --card-border: 204 20% 14%;
-  --sidebar: 204 30% 11%;
+  --card-border: 204 45% 18%;
+  --sidebar: 204 65% 13%;          /* lifted brand-primary for depth */
   --sidebar-foreground: 0 0% 98%;
-  --sidebar-border: 204 20% 16%;
-  --sidebar-primary: 172 56% 45%;
-  --sidebar-primary-foreground: 0 0% 98%;
-  --sidebar-accent: 204 20% 16%;
+  --sidebar-border: 204 45% 20%;
+  --sidebar-primary: 172 56% 45%;  /* brand-secondary / teal */
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 204 45% 18%;
   --sidebar-accent-foreground: 0 0% 98%;
-  --sidebar-ring: 172 56% 45%;
-  --popover: 204 25% 13%;
+  --sidebar-ring: 172 56% 50%;
+  --popover: 204 60% 12%;
   --popover-foreground: 0 0% 98%;
-  --popover-border: 204 20% 18%;
-  --primary: 172 56% 45%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 204 20% 18%;
+  --popover-border: 204 45% 20%;
+  --primary: 172 56% 45%;          /* brand-secondary / teal */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 204 45% 18%;
   --secondary-foreground: 0 0% 98%;
-  --muted: 204 20% 17%;
-  --muted-foreground: 0 0% 65%;
-  --accent: 204 18% 16%;
+  --muted: 204 45% 15%;
+  --muted-foreground: 204 15% 72%;
+  --accent: 204 45% 18%;
   --accent-foreground: 0 0% 98%;
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
-  --input: 204 20% 26%;
-  --ring: 172 56% 45%;
+  --destructive: 347 62% 47%;      /* brand-highlight / crimson */
+  --destructive-foreground: 0 0% 100%;
+  --input: 204 45% 26%;
+  --ring: 172 56% 50%;             /* brand-secondary / teal */
   --brand-dark: 204 83% 9%;
   --brand-highlight: 347 60% 45%;
   --chart-1: 172 56% 45%; /* Brand Secondary / Teal */

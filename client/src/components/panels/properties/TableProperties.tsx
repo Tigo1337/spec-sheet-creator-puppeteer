@@ -164,7 +164,7 @@ export function TableProperties({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Properties Table: Static Data Management */}
       {isPropertiesTable && (
         <>

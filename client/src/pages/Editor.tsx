@@ -119,7 +119,7 @@ export default function Editor() {
   ]);
 
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden">
+    <div className="dark h-screen flex flex-col bg-brand-primary text-brand-white overflow-hidden">
       <Helmet>
         <title>Editor | Doculoom</title>
         <meta name="robots" content="noindex, nofollow" />
@@ -139,10 +139,10 @@ export default function Editor() {
         </div>
         <DragOverlay dropAnimation={null} zIndex={1000}>
           {activeId && dragType === "sidebar" ? (
-            <div className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm shadow-xl cursor-grabbing border-2 ${
+            <div className={`flex items-center gap-1.5 px-3 py-2 rounded-sm text-sm shadow-xl cursor-grabbing border-2 ${
               aiFieldNames.has(activeId.replace("header-", ""))
                 ? "bg-purple-100 text-purple-900 border-purple-500"
-                : "bg-white text-primary border-primary"
+                : "bg-brand-white text-brand-secondary border-brand-secondary"
             }`}>
               <GripVertical className="h-4 w-4 opacity-50" />
               {aiFieldNames.has(activeId.replace("header-", ""))

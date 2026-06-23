@@ -5,10 +5,21 @@ export default {
   content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     extend: {
+      /**
+       * "Perfectly Square: simple & effective" brand concept.
+       * The whole radius scale is flattened to sharp / near-sharp edges.
+       * `full` is intentionally left at the Tailwind default (9999px) so
+       * genuinely circular UI (avatars, spinners, switches) keeps working.
+       */
       borderRadius: {
-        lg: ".5625rem", /* 9px */
-        md: ".375rem", /* 6px */
-        sm: ".1875rem", /* 3px */
+        none: "0",
+        sm: "0.0625rem", /* 1px - very minimal rounding */
+        DEFAULT: "0.0625rem",
+        md: "0.125rem", /* 2px */
+        lg: "0.125rem", /* 2px (was 9px) */
+        xl: "0.125rem", /* 2px (was 12px) */
+        "2xl": "0.1875rem", /* 3px */
+        "3xl": "0.25rem", /* 4px */
       },
       colors: {
         // Flat / base colors (regular buttons)
@@ -52,8 +63,16 @@ export default {
           border: "var(--destructive-border)",
         },
         ring: "hsl(var(--ring) / <alpha-value>)",
-        "brand-dark": "hsl(var(--brand-dark) / <alpha-value>)",
-        "brand-highlight": "hsl(var(--brand-highlight) / <alpha-value>)",
+
+        /* --- Doculoom Brand Palette (exact values) --- */
+        "brand-primary": "#041c2c",
+        "brand-secondary": "#2b9a8b",
+        "brand-highlight": "#9f2842",
+        "brand-neutral-dark": "#000000",
+        "brand-white": "#ffffff",
+        /* Derived depth shade: a slightly lighter brand-primary used to
+           lift sidebars/panels off the main canvas background. */
+        "brand-primary-light": "#0b2c3f",
         chart: {
           "1": "hsl(var(--chart-1) / <alpha-value>)",
           "2": "hsl(var(--chart-2) / <alpha-value>)",
