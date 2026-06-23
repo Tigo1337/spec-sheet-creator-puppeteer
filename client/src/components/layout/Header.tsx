@@ -261,7 +261,7 @@ export function Header() {
   };
 
   return (
-    <header className="h-14 border-b border-white/10 bg-brand-primary-light text-brand-white flex items-center justify-between px-4 gap-4 flex-shrink-0">
+    <header className="h-14 border-b bg-sidebar flex items-center justify-between px-4 gap-4 flex-shrink-0">
       <UpgradeDialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog} />
 
       {/* Name Dialog for PDF Import */}
@@ -322,7 +322,7 @@ export function Header() {
       <div className="flex items-center gap-3 min-w-0">
         <div className="flex items-center gap-2">
           <img
-            src={BRAND.logoUrl}
+            src={theme === "dark" ? BRAND.logoDarkUrl : BRAND.logoUrl}
             alt={BRAND.name}
             className="h-8 hidden sm:block"
           />
@@ -358,7 +358,7 @@ export function Header() {
       </div>
 
       {/* Center Section */}
-      <div className="flex items-center gap-1 bg-white/5 rounded-sm p-1">
+      <div className="flex items-center gap-1 bg-muted/50 dark:bg-white/5 rounded-sm p-1">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button size="icon" variant="ghost" className="h-8 w-8" onClick={undo}>
