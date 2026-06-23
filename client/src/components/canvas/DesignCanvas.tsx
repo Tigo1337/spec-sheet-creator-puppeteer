@@ -274,7 +274,7 @@ export function DesignCanvas({
         onMouseMove={handleMouseMove}
     >
         {/* 1. Canvas Area (Takes all remaining space) */}
-        <div id="canvas-viewport" className="flex-1 relative overflow-hidden bg-brand-primary">
+        <div id="canvas-viewport" className="flex-1 relative overflow-hidden bg-muted/30 dark:bg-brand-primary">
             {/* Rulers */}
             <div className="absolute top-0 left-6 right-0 h-6 bg-muted border-b z-20 overflow-hidden">
                 <Ruler type="horizontal" zoom={zoom} length={canvasWidth} mousePos={mousePos.x} />
@@ -436,7 +436,7 @@ export function DesignCanvas({
         </div>
 
         {/* 2. Footer Area (Static height, distinct block) */}
-        <div className="h-14 border-t border-white/10 bg-brand-primary-light text-brand-white flex items-center justify-center z-10 flex-shrink-0">
+        <div className="h-14 border-t bg-white dark:bg-brand-primary-light dark:text-brand-white dark:border-white/10 flex items-center justify-center z-10 flex-shrink-0">
             <CanvasRowNavigator />
         </div>
 

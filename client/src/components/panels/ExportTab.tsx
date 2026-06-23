@@ -1489,7 +1489,7 @@ export function ExportTab() {
         {/* UPDATED: Free Plan Info Footer - Only show if NOT loading and NOT pro */}
         {!isPro && !isLoading && (
             <div
-              className="text-xs text-center p-2 bg-brand-secondary/10 text-brand-white rounded-sm border border-brand-secondary/30 flex flex-col gap-1 cursor-pointer hover:bg-brand-secondary/20 transition-colors"
+              className="text-xs text-center p-2 bg-blue-50 text-blue-700 dark:bg-brand-secondary/10 dark:text-brand-white rounded-sm border border-blue-100 dark:border-brand-secondary/30 flex flex-col gap-1 cursor-pointer hover:bg-blue-100 dark:hover:bg-brand-secondary/20 transition-colors"
               onClick={() => setShowUpgradeDialog(true)}
               title="Click to upgrade"
             >
@@ -1525,7 +1525,7 @@ export function ExportTab() {
                 )}
 
                 {history.map((job) => (
-                    <div key={job.id} className="flex items-center justify-between p-2.5 border rounded-sm bg-white/5 hover:bg-white/10 transition-colors">
+                    <div key={job.id} className="flex items-center justify-between p-2.5 border rounded-sm bg-white/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 transition-colors">
                         <div className="flex flex-col">
                             {/* UPDATED: Show Project Name if available, else show Type */}
                             <span className="font-medium text-xs truncate max-w-[150px]" title={job.projectName || job.fileName}>

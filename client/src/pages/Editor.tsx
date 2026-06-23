@@ -119,7 +119,7 @@ export default function Editor() {
   ]);
 
   return (
-    <div className="dark h-screen flex flex-col bg-brand-primary text-brand-white overflow-hidden">
+    <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
       <Helmet>
         <title>Editor | Doculoom</title>
         <meta name="robots" content="noindex, nofollow" />
@@ -142,7 +142,7 @@ export default function Editor() {
             <div className={`flex items-center gap-1.5 px-3 py-2 rounded-sm text-sm shadow-xl cursor-grabbing border-2 ${
               aiFieldNames.has(activeId.replace("header-", ""))
                 ? "bg-purple-100 text-purple-900 border-purple-500"
-                : "bg-brand-white text-brand-secondary border-brand-secondary"
+                : "bg-white text-primary border-primary"
             }`}>
               <GripVertical className="h-4 w-4 opacity-50" />
               {aiFieldNames.has(activeId.replace("header-", ""))
