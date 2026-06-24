@@ -7,6 +7,7 @@ import { Router } from "express";
 import { getAuth } from "@clerk/express";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
+import * as Sentry from "@sentry/node";
 import { storage } from "../storage";
 import { logger } from "../utils/logger";
 import { checkAndDeductAiCredits } from "../middleware/auth";
@@ -335,6 +336,8 @@ router.post("/knowledge/check", async (req, res) => {
     });
     res.json({ matches: map });
   } catch (e) {
+    logger.error({ err: e, userId: auth.userId }, "Knowledge check failed");
+    Sentry.captureException(e);
     res.status(500).json({ error: "Error" });
   }
 });
@@ -349,7 +352,9 @@ router.get("/knowledge", async (req, res) => {
 
   try {
     res.json(await storage.getAllProductKnowledge(auth.userId));
-  } catch {
+  } catch (e) {
+    logger.error({ err: e, userId: auth.userId }, "Fetch knowledge failed");
+    Sentry.captureException(e);
     res.status(500).json({ error: "Error" });
   }
 });
@@ -365,7 +370,9 @@ router.delete("/knowledge/:id", async (req, res) => {
   try {
     const success = await storage.deleteProductKnowledge(req.params.id, auth.userId);
     res.sendStatus(success ? 204 : 404);
-  } catch {
+  } catch (e) {
+    logger.error({ err: e, userId: auth.userId, id: req.params.id }, "Delete knowledge failed");
+    Sentry.captureException(e);
     res.status(500).json({ error: "Error" });
   }
 });
@@ -381,7 +388,9 @@ router.put("/knowledge/:id", async (req, res) => {
   try {
     const updated = await storage.updateProductKnowledge(req.params.id, auth.userId, req.body.content);
     res.json(updated || { error: "Not found" });
-  } catch {
+  } catch (e) {
+    logger.error({ err: e, userId: auth.userId, id: req.params.id }, "Update knowledge failed");
+    Sentry.captureException(e);
     res.status(500).json({ error: "Error" });
   }
 });

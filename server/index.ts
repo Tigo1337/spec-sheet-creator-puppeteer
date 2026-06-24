@@ -11,6 +11,7 @@ import * as Sentry from "@sentry/node";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
 import { rateLimit } from "express-rate-limit";
 import helmet from "helmet";
+import cors from "cors";
 import { logger, sanitizeData } from "./utils/logger";
 
 const execAsync = promisify(exec);
@@ -32,6 +33,34 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 // ------------------------
+
+// --- CORS ---
+// The SPA is served from the same origin as the API, so same-origin requests
+// (which carry no Origin, or a matching one) work without CORS headers. This explicit
+// allowlist exists for any browser client served from a different domain
+// (e.g. a marketing site or a future split frontend). Configure extra origins
+// via CORS_ALLOWED_ORIGINS (comma-separated). Requests with no Origin header
+// (server-to-server, curl, Stripe webhooks) are always allowed.
+const allowedOrigins = new Set(
+  [
+    process.env.VITE_APP_BASE_URL,
+    ...(process.env.CORS_ALLOWED_ORIGINS?.split(",") ?? []),
+  ]
+    .map((o) => o?.trim())
+    .filter((o): o is string => Boolean(o)),
+);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.has(origin)) {
+      return callback(null, true);
+    }
+    logger.warn({ origin }, "Blocked CORS request from disallowed origin");
+    return callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+}));
+// ------------
 
 // 1. INITIALIZE SENTRY
 Sentry.init({

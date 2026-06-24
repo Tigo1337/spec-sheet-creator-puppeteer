@@ -11,6 +11,11 @@ import { storage } from "../storage";
 import { logger } from "../utils/logger";
 import { checkAdmin } from "../middleware/auth";
 import { generateSignedDownloadUrl } from "../utils/helpers";
+import {
+  validatePdfExportBody,
+  validateHtmlItems,
+  validateHtmlContent,
+} from "../utils/exportValidation";
 
 const router = Router();
 
@@ -39,6 +44,8 @@ router.get("/download/:id", async (req, res) => {
 
     res.redirect(302, signedUrl);
   } catch (e) {
+    logger.error({ err: e, jobId: req.params.id }, "Export download failed");
+    Sentry.captureException(e);
     res.status(500).send("Server Error");
   }
 });
@@ -64,6 +71,8 @@ router.get("/history", async (req, res) => {
     }));
     res.json(history);
   } catch (error) {
+    logger.error({ err: error, userId: auth.userId }, "Failed to fetch export history");
+    Sentry.captureException(error);
     res.status(500).json({ error: "Failed to fetch history" });
   }
 });
@@ -77,8 +86,9 @@ router.post("/async/pdf", async (req, res) => {
   if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
 
   const { html, items, width, height, scale, colorModel, type, projectName, fileName } = req.body;
-  if (!html && (!items || items.length === 0)) {
-    return res.status(400).json({ error: "Missing content" });
+  const validation = validatePdfExportBody({ html, items });
+  if (!validation.ok) {
+    return res.status(400).json({ error: validation.error });
   }
 
   try {
@@ -129,6 +139,8 @@ router.post("/async/pdf", async (req, res) => {
 
     res.json({ jobId: job.id, status: "pending" });
   } catch (error) {
+    logger.error({ err: error, userId: auth.userId }, "Failed to start PDF export job");
+    Sentry.captureException(error);
     res.status(500).json({ error: "Failed to start export job" });
   }
 });
@@ -142,8 +154,9 @@ router.post("/async/bulk", async (req, res) => {
   if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
 
   const { items, width, height, scale, colorModel, projectName, fileName } = req.body;
-  if (!items || !Array.isArray(items)) {
-    return res.status(400).json({ error: "Invalid bulk items" });
+  const validation = validateHtmlItems(items);
+  if (!validation.ok) {
+    return res.status(400).json({ error: validation.error });
   }
 
   try {
@@ -171,6 +184,8 @@ router.post("/async/bulk", async (req, res) => {
 
     res.json({ jobId: job.id, status: "pending" });
   } catch (error) {
+    logger.error({ err: error, userId: auth.userId }, "Failed to start bulk export job");
+    Sentry.captureException(error);
     res.status(500).json({ error: "Failed to start bulk export" });
   }
 });
@@ -204,6 +219,8 @@ router.get("/proxy/:id", async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     file.createReadStream().pipe(res);
   } catch (error) {
+    logger.error({ err: error, jobId: req.params.id }, "Failed to proxy export file");
+    Sentry.captureException(error);
     res.status(500).json({ error: "Failed to fetch file" });
   }
 });
@@ -217,7 +234,8 @@ router.post("/preview", async (req, res) => {
   if (!auth.userId) return res.status(401).json({ error: "Unauthorized" });
 
   const { html, width, height } = req.body;
-  if (!html) return res.status(400).json({ error: "Missing HTML content" });
+  const validation = validateHtmlContent(html);
+  if (!validation.ok) return res.status(400).json({ error: validation.error });
 
   const workerUrl = process.env.PDF_WORKER_URL;
   if (!workerUrl) return res.status(500).json({ error: "Configuration error" });
@@ -238,6 +256,8 @@ router.post("/preview", async (req, res) => {
     const imageBuffer = await response.arrayBuffer();
     res.json({ image: `data:image/png;base64,${Buffer.from(imageBuffer).toString('base64')}` });
   } catch (error) {
+    logger.error({ err: error, userId: auth.userId }, "Failed to generate export preview");
+    Sentry.captureException(error);
     res.status(500).json({ error: "Failed to generate preview" });
   }
 });
