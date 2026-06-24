@@ -1,5 +1,5 @@
 import { useDraggable } from "@dnd-kit/core";
-import type { CanvasElement as CanvasElementType } from "@shared/schema";
+import type { CanvasElement as CanvasElementType, TocSettings } from "@shared/schema";
 import { useCanvasStore } from "@/stores/canvas-store";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { isHtmlContent, paginateTOC, calculateTableHeight } from "@/lib/canvas-utils"; 
@@ -248,7 +248,7 @@ export function CanvasElement({
         document.body.appendChild(measurer);
 
         let overflowCount = 0;
-        let firstIdx = null;
+        let firstIdx: number | null = null;
         let maxHAtCurrentW = 0;
         let maxWToFitCurrentH = 0;
 
@@ -1008,7 +1008,7 @@ export function CanvasElement({
         );
 
       case "toc-list":
-        const settings = element.tocSettings || { title: "Table of Contents", showTitle: true, columnCount: 1 };
+        const settings: Partial<TocSettings> = element.tocSettings || { title: "Table of Contents", showTitle: true, columnCount: 1 };
         const columnCount = settings.columnCount || 1;
         const currentItems = tocData ? tocData[previewPage] || [] : [];
         const isMultiPage = (tocData?.length || 0) > 1;

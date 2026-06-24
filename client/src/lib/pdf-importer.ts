@@ -219,7 +219,7 @@ async function renderPageToImage(
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, canvas.width, canvas.height);
 
-  await page.render({ canvasContext: context, viewport }).promise;
+  await page.render({ canvas, canvasContext: context, viewport }).promise;
 
   return canvas.toDataURL("image/png", options.imageQuality || 0.92);
 }
@@ -615,6 +615,7 @@ function processAITables(
       pageIndex,
       aspectRatioLocked: false,
       tableSettings: {
+        variant: "standard",
         columns: Array.from({ length: numCols }).map((_, i) => ({
           id: `col-${i}`,
           header: `Column ${i + 1}`,
