@@ -4,7 +4,7 @@
  */
 
 import { Router } from "express";
-import { getAuth, clerkClient } from "@clerk/express";
+import { getAuth, createClerkClient } from "@clerk/express";
 import { storage } from "../storage";
 import { stripeService } from "../stripeService";
 import { getStripePublishableKey } from "../stripeClient";
@@ -12,6 +12,17 @@ import { normalizeEmail } from "../utils/helpers";
 import { logger } from "../utils/logger";
 
 const router = Router();
+
+// Use a Clerk client configured for the current environment. The default
+// `clerkClient` singleton always uses CLERK_SECRET_KEY (production), which in
+// development mismatches the dev frontend instance and makes users.getUser()
+// return "Not Found". Mirror the key selection used in server/index.ts.
+const isDevelopment = process.env.NODE_ENV !== "production";
+const clerkClient = createClerkClient({
+  secretKey: isDevelopment
+    ? (process.env.CLERK_SECRET_KEY_DEV || process.env.CLERK_SECRET_KEY)
+    : process.env.CLERK_SECRET_KEY,
+});
 
 /**
  * GET /api/plans
