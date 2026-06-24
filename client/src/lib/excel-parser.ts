@@ -25,11 +25,11 @@ export async function parseExcelFile(file: File): Promise<ParsedExcelResult> {
     }
     
     // Convert to JSON with header row
-    const jsonData = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
+    const jsonData = XLSX.utils.sheet_to_json<unknown[]>(worksheet, {
       header: 1,
       raw: false,
       defval: "",
-    }) as unknown[][];
+    });
     
     if (jsonData.length === 0) {
       return { success: false, error: "The spreadsheet is empty" };

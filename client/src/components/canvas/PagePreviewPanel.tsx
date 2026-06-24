@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Trash2, Plus, Check } from "lucide-react";
-import type { CanvasElement as CanvasElementType } from "@shared/schema";
+import type { CanvasElement as CanvasElementType, TocSettings } from "@shared/schema";
 import { formatContent } from "@/lib/formatter";
 
 interface PagePreviewPanelProps {
@@ -359,7 +359,7 @@ function ThumbnailElement({
     }
 
     case 'toc-list': {
-      const settings = element.tocSettings || { title: 'Table of Contents', showTitle: true };
+      const settings: Partial<TocSettings> = element.tocSettings || { title: 'Table of Contents', showTitle: true };
       const titleFontSize = Math.max(4, (settings.titleStyle?.fontSize || 24) * scale);
       const itemFontSize = Math.max(3, (element.textStyle?.fontSize || 14) * scale);
 

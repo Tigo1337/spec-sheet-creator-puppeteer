@@ -1,6 +1,29 @@
 import { create } from "zustand";
-import type { CanvasElement, ExcelData, Template, ExportSettings } from "@shared/schema";
+import type {
+  CanvasElement,
+  ExcelData,
+  Template,
+  ExportSettings,
+  TextStyle,
+  ShapeStyle,
+  ElementFormat,
+  TocSettings,
+  TableSettings,
+} from "@shared/schema";
 import { nanoid } from "nanoid";
+
+// Updates merge shallowly onto an element; nested style objects are spread from
+// their existing values at the call sites, so they may legitimately arrive as
+// partials. This type allows that while keeping top-level fields type-checked.
+export type ElementUpdate = Partial<
+  Omit<CanvasElement, "textStyle" | "shapeStyle" | "format" | "tocSettings" | "tableSettings">
+> & {
+  textStyle?: Partial<TextStyle>;
+  shapeStyle?: Partial<ShapeStyle>;
+  format?: Partial<ElementFormat>;
+  tocSettings?: Partial<TocSettings>;
+  tableSettings?: Partial<TableSettings>;
+};
 
 export type CatalogSectionType = "cover" | "toc" | "chapter" | "product" | "back";
 
@@ -77,7 +100,7 @@ interface CanvasState {
   setActivePage: (index: number) => void;
   addElement: (element: CanvasElement) => void;
   // UPDATED: Added skipHistory parameter
-  updateElement: (id: string, updates: Partial<CanvasElement>, skipHistory?: boolean) => void;
+  updateElement: (id: string, updates: ElementUpdate, skipHistory?: boolean) => void;
   updateAllTextFonts: (fontFamily: string) => void;
   deleteElement: (id: string) => void;
   deleteSelectedElements: () => void;
@@ -216,7 +239,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
   // UPDATED: Logic to support skipHistory for previews
   updateElement: (id, updates, skipHistory = false) => {
-    const elements = get().elements.map((el) => el.id === id ? { ...el, ...updates } : el);
+    const elements = get().elements.map((el) => el.id === id ? ({ ...el, ...updates } as CanvasElement) : el);
 
     if (skipHistory) {
         // If we are skipping history (e.g. for dynamic preview resizing), 
@@ -355,7 +378,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setCurrentTemplate: (template) => set({ currentTemplate: template }),
   loadDesignState: (designId, name) => {
      const t = get().currentTemplate;
-     set({ currentDesignId: designId, currentTemplate: t ? { ...t, name } : { id: 'temp', name, canvasWidth: 810, canvasHeight: 1050, pageCount: 1, backgroundColor: "#ffffff", elements: [], createdAt: "", updatedAt: "" }, saveStatus: "saved", lastSavedAt: new Date(), hasUnsavedChanges: false });
+     set({ currentDesignId: designId, currentTemplate: t ? { ...t, name } : { id: 'temp', name, canvasWidth: 810, canvasHeight: 1050, pageCount: 1, previewImages: [], backgroundColor: "#ffffff", elements: [], createdAt: "", updatedAt: "" }, saveStatus: "saved", lastSavedAt: new Date(), hasUnsavedChanges: false });
   },
   setSaveStatus: (status) => {
     const updates: Partial<CanvasState> = { saveStatus: status };

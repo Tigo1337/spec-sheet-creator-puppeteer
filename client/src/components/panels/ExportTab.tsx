@@ -39,7 +39,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { isHtmlContent, getImageDimensions, calculateTableHeight } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
 import QRCode from "qrcode";
-import { type CanvasElement, availableFonts, openSourceFontMap } from "@shared/schema";
+import { type CanvasElement, type TextStyle, type ShapeStyle, type TocSettings, availableFonts, openSourceFontMap } from "@shared/schema";
 import { UpgradeDialog } from "@/components/dialogs/UpgradeDialog";
 
 // History Item Interface
@@ -393,7 +393,7 @@ export function ExportTab() {
          const elementId = `el-${element.id}`; 
          elementDiv.id = elementId;
 
-         const textStyle = element.textStyle || {};
+         const textStyle: Partial<TextStyle> = element.textStyle || {};
          const rawFont = textStyle.fontFamily || "Barlow";
          const mappedFont = openSourceFontMap[rawFont] || rawFont;
          elementDiv.style.fontFamily = `"${mappedFont}", sans-serif`;
@@ -444,7 +444,7 @@ export function ExportTab() {
       } 
       // --- SHAPES ---
       else if (element.type === "shape") {
-         const shapeStyle = element.shapeStyle || {};
+         const shapeStyle: Partial<ShapeStyle> = element.shapeStyle || {};
          elementDiv.style.opacity = String(shapeStyle.opacity || 1);
 
          if (element.shapeType === "line") {
@@ -672,7 +672,7 @@ export function ExportTab() {
       }
       // --- TABLE OF CONTENTS (TOC) ---
       else if (element.type === "toc-list") {
-         const settings = element.tocSettings || { title: "Table of Contents", showTitle: true, columnCount: 1 };
+         const settings: Partial<TocSettings> = element.tocSettings || { title: "Table of Contents", showTitle: true, columnCount: 1 };
          const columnCount = settings.columnCount || 1;
 
          elementDiv.style.padding = "16px"; 
@@ -687,7 +687,7 @@ export function ExportTab() {
 
          if (settings.showTitle && (!isPaged || (element as any)._isFirstPage)) {
              const titleDiv = document.createElement("div");
-             titleDiv.textContent = settings.title;
+             titleDiv.textContent = settings.title ?? "";
              const tRaw = settings.titleStyle?.fontFamily || "Barlow";
              const tMapped = openSourceFontMap[tRaw] || tRaw;
              titleDiv.style.fontFamily = `"${tMapped}", sans-serif`;

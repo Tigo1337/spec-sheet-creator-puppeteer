@@ -50,7 +50,7 @@ import { formatDistanceToNow } from "date-fns";
 import { isHtmlContent } from "@/lib/canvas-utils";
 import { formatContent } from "@/lib/formatter";
 import QRCode from "qrcode";
-import { availableFonts, openSourceFontMap } from "@shared/schema";
+import { availableFonts, openSourceFontMap, type TextStyle, type ShapeStyle } from "@shared/schema";
 
 // --- PDF.JS IMPORTS ---
 import * as pdfjsLib from 'pdfjs-dist';
@@ -370,7 +370,7 @@ export function SavedDesignsTab() {
       elementDiv.style.zIndex = String(element.zIndex ?? 0);
 
       if (element.type === "text" || element.type === "dataField") {
-        const textStyle = element.textStyle || {};
+        const textStyle: Partial<TextStyle> = element.textStyle || {};
         const rawFont = textStyle.fontFamily || "Barlow";
         const mappedFont = openSourceFontMap[rawFont] || rawFont;
         elementDiv.style.fontFamily = `"${mappedFont}", sans-serif`;
@@ -408,7 +408,7 @@ export function SavedDesignsTab() {
           elementDiv.textContent = content;
         }
       } else if (element.type === "shape") {
-        const shapeStyle = element.shapeStyle || {};
+        const shapeStyle: Partial<ShapeStyle> = element.shapeStyle || {};
         elementDiv.style.opacity = String(shapeStyle.opacity || 1);
 
         if (element.shapeType === "line") {
@@ -561,6 +561,7 @@ export function SavedDesignsTab() {
 
       if (context) {
         await page.render({
+          canvas,
           canvasContext: context,
           viewport: viewport
         }).promise;

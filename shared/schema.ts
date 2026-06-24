@@ -22,6 +22,7 @@ export const textStyleSchema = z.object({
   fontFamily: z.string().default("Barlow"),
   fontSize: z.number().default(16),
   fontWeight: z.number().default(400),
+  fontStyle: z.enum(["normal", "italic"]).optional(),
   color: z.string().default("#000000"),
   textAlign: z.enum(["left", "center", "right"]).default("left"),
   verticalAlign: z.enum(["top", "middle", "bottom"]).default("middle"),
@@ -166,12 +167,14 @@ export const canvasElementSchema = z.object({
   zIndex: z.number().default(0),
 
   aspectRatio: z.number().optional(),
-  aspectRatioLocked: z.boolean().default(false),
+  // Optional: set by addElement/loadTemplate and read defensively (`?? 0`, `?.`),
+  // so element factories may omit them at construction time.
+  aspectRatioLocked: z.boolean().optional(),
 
   content: z.string().optional(),
-  dataBinding: z.string().optional(), 
+  dataBinding: z.string().optional(),
 
-  pageIndex: z.number().default(0),
+  pageIndex: z.number().optional(),
 
   textStyle: textStyleSchema.optional(),
   shapeStyle: shapeStyleSchema.optional(),
@@ -183,7 +186,7 @@ export const canvasElementSchema = z.object({
 
   shapeType: z.enum(["rectangle", "circle", "line"]).optional(),
   imageSrc: z.string().optional(),
-  isImageField: z.boolean().default(false),
+  isImageField: z.boolean().optional(),
 
   qrCodeId: z.string().optional(),
 });
@@ -399,7 +402,12 @@ export const usersTable = pgTable("users", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export type DbUser = typeof usersTable.$inferSelect;
+// The storage layer serializes timestamps to ISO strings (see toDbUser /
+// MemStorage), matching dbUserSchema below, so override the inferred Date types.
+export type DbUser = Omit<typeof usersTable.$inferSelect, "createdAt" | "updatedAt"> & {
+  createdAt: string;
+  updatedAt: string;
+};
 export type InsertDbUser = typeof usersTable.$inferInsert;
 
 export const dbUserSchema = z.object({

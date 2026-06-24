@@ -6,13 +6,19 @@
 import { Router } from "express";
 import { getAuth } from "@clerk/express";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { z } from "zod";
+import * as Sentry from "@sentry/node";
 import { storage } from "../storage";
+import { logger } from "../utils/logger";
 import { checkAndDeductAiCredits } from "../middleware/auth";
 import { buildDynamicPrompt, EnrichmentConfig } from "../utils/helpers";
 
 const router = Router();
 
 // Initialize Gemini AI
+if (!process.env.GEMINI_API_KEY) {
+  logger.warn("GEMINI_API_KEY is not set — AI routes will fail until it is configured.");
+}
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 // Use the specific model requested for Vision tasks
@@ -48,11 +54,16 @@ router.post("/analyze-layout", async (req, res) => {
 
   const { image } = req.body; // Expecting Base64 Data URL
 
-  if (!image) return res.status(400).json({ error: "No image provided" });
+  if (typeof image !== "string" || !image.startsWith("data:image/")) {
+    return res.status(400).json({ error: "A base64 image data URL is required" });
+  }
 
   try {
     // 1. Prepare the image part for Gemini
     const base64Data = image.split(",")[1]; // Remove "data:image/png;base64," prefix
+    if (!base64Data) {
+      return res.status(400).json({ error: "Malformed image data URL" });
+    }
 
     const prompt = `
       Analyze this document page layout. I need to extract distinct visual elements to reconstruct it digitally.
@@ -101,8 +112,8 @@ router.post("/analyze-layout", async (req, res) => {
     res.json(layoutData);
 
   } catch (error) {
-    console.error("Layout Analysis Error:", error);
-    res.status(500).json({ error: "AI Layout Analysis failed", details: String(error) });
+    logger.error({ err: error }, "Layout Analysis Error");
+    res.status(500).json({ error: "AI Layout Analysis failed" });
   }
 });
 
@@ -174,7 +185,7 @@ router.post("/enrich-data", async (req, res) => {
       tokenCost: cost,
       promptTokens: usage?.promptTokenCount || 0,
       completionTokens: usage?.candidatesTokenCount || 0
-    }).catch(err => console.error("Failed to log AI request:", err));
+    }).catch(err => logger.error({ err }, "Failed to log AI request"));
 
     // Save to knowledge base for scale/business users
     if (anchorColumn && auth.userId) {
@@ -202,14 +213,14 @@ router.post("/enrich-data", async (req, res) => {
             }>);
           }
         } catch (e) {
-          console.error("Memory save failed", e);
+          logger.error({ err: e }, "Memory save failed");
         }
       }
     }
 
     res.json({ generatedContent });
   } catch (error) {
-    console.error("Enrichment Error:", error);
+    logger.error({ err: error }, "Enrichment Error");
     res.status(500).json({ error: "Failed to generate content" });
   }
 });
@@ -261,7 +272,7 @@ router.post("/standardize", async (req, res) => {
       tokenCost: values.length * 25,
       promptTokens: usage?.promptTokenCount || 0,
       completionTokens: usage?.candidatesTokenCount || 0
-    }).catch(err => console.error("Failed to log AI request:", err));
+    }).catch(err => logger.error({ err }, "Failed to log AI request"));
 
     // Save to knowledge base logic...
     if (keys && keys.length > 0 && keyName && fieldName) {
@@ -288,14 +299,14 @@ router.post("/standardize", async (req, res) => {
             }>);
           }
         } catch (e) {
-          console.error("Memory save failed for standardize", e);
+          logger.error({ err: e }, "Memory save failed for standardize");
         }
       }
     }
 
     res.json({ standardized });
   } catch (error) {
-    console.error("Standardize Error:", error);
+    logger.error({ err: error }, "Standardize Error");
     res.status(500).json({ error: "Processing failed" });
   }
 });
@@ -325,6 +336,8 @@ router.post("/knowledge/check", async (req, res) => {
     });
     res.json({ matches: map });
   } catch (e) {
+    logger.error({ err: e, userId: auth.userId }, "Knowledge check failed");
+    Sentry.captureException(e);
     res.status(500).json({ error: "Error" });
   }
 });
@@ -339,7 +352,9 @@ router.get("/knowledge", async (req, res) => {
 
   try {
     res.json(await storage.getAllProductKnowledge(auth.userId));
-  } catch {
+  } catch (e) {
+    logger.error({ err: e, userId: auth.userId }, "Fetch knowledge failed");
+    Sentry.captureException(e);
     res.status(500).json({ error: "Error" });
   }
 });
@@ -355,7 +370,9 @@ router.delete("/knowledge/:id", async (req, res) => {
   try {
     const success = await storage.deleteProductKnowledge(req.params.id, auth.userId);
     res.sendStatus(success ? 204 : 404);
-  } catch {
+  } catch (e) {
+    logger.error({ err: e, userId: auth.userId, id: req.params.id }, "Delete knowledge failed");
+    Sentry.captureException(e);
     res.status(500).json({ error: "Error" });
   }
 });
@@ -371,7 +388,9 @@ router.put("/knowledge/:id", async (req, res) => {
   try {
     const updated = await storage.updateProductKnowledge(req.params.id, auth.userId, req.body.content);
     res.json(updated || { error: "Not found" });
-  } catch {
+  } catch (e) {
+    logger.error({ err: e, userId: auth.userId, id: req.params.id }, "Update knowledge failed");
+    Sentry.captureException(e);
     res.status(500).json({ error: "Error" });
   }
 });
@@ -380,15 +399,27 @@ router.put("/knowledge/:id", async (req, res) => {
  * POST /api/ai/map-fields
  * Map source headers to target variables using AI
  */
+const mapFieldsSchema = z.object({
+  sourceHeaders: z.array(z.string()).min(1).max(500),
+  targetVariables: z.array(z.string()).min(1).max(500),
+});
+
 router.post("/map-fields", async (req, res) => {
   const auth = getAuth(req);
   if (!auth.userId) return res.status(401).json({ error: "Auth required" });
 
+  const parsed = mapFieldsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request: sourceHeaders and targetVariables must be arrays of strings." });
+  }
+
   try {
-    const prompt = `Match columns ${JSON.stringify(req.body.sourceHeaders)} to ${JSON.stringify(req.body.targetVariables)}. Return JSON array [{source, target, confidence}].`;
+    const { sourceHeaders, targetVariables } = parsed.data;
+    const prompt = `Match columns ${JSON.stringify(sourceHeaders)} to ${JSON.stringify(targetVariables)}. Return JSON array [{source, target, confidence}].`;
     const result = await textModel.generateContent(prompt);
     res.json(JSON.parse(result.response.text().replace(/```json|```/g, "").trim()));
-  } catch {
+  } catch (error) {
+    logger.error({ err: error }, "AI Mapping failed");
     res.status(500).json({ error: "AI Mapping failed" });
   }
 });

@@ -391,7 +391,7 @@ export class MemStorage implements IStorage {
   async getUserByFingerprint(fingerprint: string) { return Array.from(this.users.values()).find(u => u.deviceFingerprint === fingerprint); }
   async getUserByStripeCustomerId(cid: string) { return Array.from(this.users.values()).find(u => u.stripeCustomerId === cid); }
   async createUser(u: InsertDbUser) { const now = new Date().toISOString(); const dbUser = { ...u, normalizedEmail: u.normalizedEmail||null, deviceFingerprint: u.deviceFingerprint||null, stripeCustomerId: u.stripeCustomerId||null, stripeSubscriptionId: u.stripeSubscriptionId||null, plan: u.plan||'free', planStatus: u.planStatus||'active', pdfUsageCount: 0, pdfUsageResetDate: new Date(), aiCredits: u.aiCredits ?? 0, aiCreditsLimit: 5000, aiCreditsResetDate: new Date(), createdAt: now, updatedAt: now }; this.users.set(u.id, dbUser); return dbUser; }
-  async updateUser(id: string, u: Partial<InsertDbUser>) { const e = this.users.get(id); if(!e) return undefined; const n = { ...e, ...u, updatedAt: new Date().toISOString() }; this.users.set(id, n); return n; }
+  async updateUser(id: string, u: Partial<InsertDbUser>) { const e = this.users.get(id); if(!e) return undefined; const n: DbUser = { ...e, ...u, createdAt: e.createdAt, updatedAt: new Date().toISOString() }; this.users.set(id, n); return n; }
   async updateUserStripeInfo(uid: string, info: any) { return this.updateUser(uid, info); }
 
   async createQRCode(userId: string, destinationUrl: string, designId?: string) { const id = nanoid(8); const now = new Date(); const q = { id, userId, destinationUrl, designId: designId ?? null, scanCount: 0, createdAt: now, updatedAt: now }; this.qrCodes.set(id, q); return q; }

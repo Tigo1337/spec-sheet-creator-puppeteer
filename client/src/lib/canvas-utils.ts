@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import type { CanvasElement, TextStyle, ShapeStyle } from "@shared/schema";
+import type { CanvasElement, TextStyle, ShapeStyle, TocSettings } from "@shared/schema";
 import { nanoid } from "nanoid";
 
 export function cn(...inputs: ClassValue[]) {
@@ -55,9 +55,9 @@ export function createTableElement(x: number, y: number): CanvasElement {
     tableSettings: {
       variant: "standard",
       columns: [
-        { id: nanoid(), header: "Item", width: 150, dataField: "Name" },
-        { id: nanoid(), header: "Description", width: 200, dataField: "Description" },
-        { id: nanoid(), header: "Price", width: 80, dataField: "Price" },
+        { id: nanoid(), header: "Item", width: 150, dataField: "Name", headerAlign: "left", rowAlign: "left" },
+        { id: nanoid(), header: "Description", width: 200, dataField: "Description", headerAlign: "left", rowAlign: "left" },
+        { id: nanoid(), header: "Price", width: 80, dataField: "Price", headerAlign: "left", rowAlign: "left" },
       ],
       headerStyle: {
         fontFamily: "Inter",
@@ -84,6 +84,12 @@ export function createTableElement(x: number, y: number): CanvasElement {
       borderColor: "#e5e7eb",
       borderWidth: 1,
       cellPadding: 8,
+      autoFitColumns: false,
+      autoHeightAdaptation: false,
+      minColumnWidth: 50,
+      equalRowHeights: true,
+      minRowHeight: 24,
+      alternateRowColors: false,
     },
   };
 }
@@ -139,6 +145,12 @@ export function createPropertiesTableElement(x: number, y: number): CanvasElemen
       borderColor: "#e5e7eb",
       borderWidth: 1,
       cellPadding: 8,
+      autoFitColumns: false,
+      autoHeightAdaptation: false,
+      minColumnWidth: 50,
+      equalRowHeights: true,
+      minRowHeight: 24,
+      alternateRowColors: false,
     },
   };
 }
@@ -193,7 +205,8 @@ export function createTOCElement(
       },
       showPageNumbers: true,
       leaderStyle: "dotted",
-      columnCount: 1
+      columnCount: 1,
+      chapterCoversEnabled: false,
     }
   };
 }
@@ -348,6 +361,7 @@ export function getDefaultTextStyle(): TextStyle {
     fontWeight: 400,
     color: "#000000",
     textAlign: "left",
+    verticalAlign: "middle",
     lineHeight: 1.5,
     letterSpacing: 0,
   };
@@ -420,7 +434,7 @@ export function isHtmlContent(content: string): boolean {
 }
 
 export const paginateTOC = (tocElement: CanvasElement, pageMap: any[], elementHeight: number) => {
-  const settings = tocElement.tocSettings || { title: "Table of Contents", showTitle: true, columnCount: 1 };
+  const settings: Partial<TocSettings> = tocElement.tocSettings || { title: "Table of Contents", showTitle: true, columnCount: 1 };
   const columnCount = settings.columnCount || 1;
   const padding = 32; 
   const availableHeight = elementHeight - padding;

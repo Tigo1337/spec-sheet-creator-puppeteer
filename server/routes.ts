@@ -6,6 +6,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { logger } from "./utils/logger";
 import {
   ObjectStorageService,
   ObjectNotFoundError,
@@ -34,7 +35,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e) {
       health.checks.database = "disconnected";
       health.status = "DEGRADED";
-      console.error("Health check failed: Database", e);
+      logger.error({ err: e }, "Health check failed: Database");
     }
 
     const isDevelopment = process.env.NODE_ENV !== "production";
@@ -50,7 +51,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const qr = await storage.getQRCode(req.params.id);
       if (qr) {
-        storage.incrementQRCodeScan(req.params.id).catch(console.error);
+        storage.incrementQRCodeScan(req.params.id).catch((err) => logger.error({ err }, "Failed to increment QR scan"));
         return res.redirect(302, qr.destinationUrl);
       }
       res.status(404).send("Not found");

@@ -4,6 +4,7 @@
  */
 
 import { Storage } from "@google-cloud/storage";
+import { logger } from "./logger";
 
 /**
  * Normalize email addresses to detect alias abuse (especially Gmail)
@@ -42,7 +43,7 @@ export async function generateSignedDownloadUrl(
     });
     return url;
   } catch (e) {
-    console.error(`Failed to sign URL for job ${jobId}`, e);
+    logger.error({ err: e, jobId }, "Failed to sign URL for job");
     return null;
   }
 }
