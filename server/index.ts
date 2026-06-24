@@ -10,15 +10,28 @@ import { storage } from "./storage";
 import * as Sentry from "@sentry/node";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
 import { rateLimit } from "express-rate-limit";
-import { logger, sanitizeData } from "./utils/logger"; 
+import helmet from "helmet";
+import { logger, sanitizeData } from "./utils/logger";
 
 const execAsync = promisify(exec);
 
 const app = express();
 
 // --- FIX: Trust the Replit proxy ---
-app.set("trust proxy", 1); 
+app.set("trust proxy", 1);
 // -----------------------------------
+
+// --- SECURITY HEADERS ---
+// Adds X-Content-Type-Options, X-Frame-Options, HSTS, etc.
+// CSP is disabled for now: it needs per-domain tuning for the Vite SPA, Clerk,
+// Stripe and Sentry, and an untuned policy would break the app. Enable as a
+// tightened follow-up. crossOriginEmbedderPolicy is off so cross-origin assets
+// (Clerk/Stripe/GCS) keep loading.
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
+// ------------------------
 
 // 1. INITIALIZE SENTRY
 Sentry.init({

@@ -6,7 +6,9 @@
 import { Router } from "express";
 import { getAuth } from "@clerk/express";
 import { Storage } from "@google-cloud/storage";
+import * as Sentry from "@sentry/node";
 import { storage } from "../storage";
+import { logger } from "../utils/logger";
 import { checkAdmin } from "../middleware/auth";
 import { generateSignedDownloadUrl } from "../utils/helpers";
 
@@ -120,6 +122,8 @@ router.post("/async/pdf", async (req, res) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jobId: job.id, data: workerData })
     }).catch(err => {
+      logger.error({ err, jobId: job.id }, "PDF worker trigger failed");
+      Sentry.captureException(err);
       storage.updateExportJob(job.id, { status: "failed", error: "Worker timed out" });
     });
 
@@ -159,7 +163,11 @@ router.post("/async/bulk", async (req, res) => {
         jobId: job.id,
         data: { htmlItems: items, width, height, scale, colorModel, type: "pdf_bulk" }
       })
-    }).catch(err => console.error("Worker trigger failed:", err));
+    }).catch(err => {
+      logger.error({ err, jobId: job.id }, "Bulk PDF worker trigger failed");
+      Sentry.captureException(err);
+      storage.updateExportJob(job.id, { status: "failed", error: "Worker trigger failed" });
+    });
 
     res.json({ jobId: job.id, status: "pending" });
   } catch (error) {

@@ -5,6 +5,7 @@
 
 import { clerkClient } from "@clerk/express";
 import { storage } from "../storage";
+import { logger } from "../utils/logger";
 
 /**
  * Check if a user has admin privileges
@@ -18,7 +19,7 @@ export async function checkAdmin(userId: string): Promise<boolean> {
     const user = await clerkClient.users.getUser(userId);
     return user.publicMetadata?.role === "admin";
   } catch (error) {
-    console.error("Failed to verify admin role:", error);
+    logger.error({ err: error }, "Failed to verify admin role");
     return false;
   }
 }
