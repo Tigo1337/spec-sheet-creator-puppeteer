@@ -68,8 +68,10 @@ Sentry.init({
   integrations: [
     nodeProfilingIntegration(),
   ],
-  tracesSampleRate: 1.0, 
-  profilesSampleRate: 1.0, 
+  // Sample rates are configurable so production can keep them low (cost/noise)
+  // while staying overridable per environment. Default to 10%.
+  tracesSampleRate: parseFloat(process.env.SENTRY_TRACES_SAMPLE_RATE || "0.1"),
+  profilesSampleRate: parseFloat(process.env.SENTRY_PROFILES_SAMPLE_RATE || "0.1"),
 });
 
 const httpServer = createServer(app);
