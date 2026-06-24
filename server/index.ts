@@ -254,7 +254,10 @@ app.use((req, res, next) => {
         status: res.statusCode,
         duration: `${duration}ms`
       };
-      if (capturedJsonResponse) {
+      // Only attach the response body for errors. Logging every successful
+      // response body floods the console (e.g. /api/plans returns the full
+      // Stripe price list on every page load).
+      if (capturedJsonResponse && res.statusCode >= 400) {
         logData.response = sanitizeData(capturedJsonResponse);
       }
       logger.info(logData, "API Request");
