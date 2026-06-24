@@ -35,12 +35,12 @@ app.use(helmet({
 // ------------------------
 
 // --- CORS ---
-// The SPA is served from the same origin as the API, so same-origin requests
-// (which carry no Origin, or a matching one) work without CORS headers. This explicit
-// allowlist exists for any browser client served from a different domain
-// (e.g. a marketing site or a future split frontend). Configure extra origins
-// via CORS_ALLOWED_ORIGINS (comma-separated). Requests with no Origin header
-// (server-to-server, curl, Stripe webhooks) are always allowed.
+// The SPA is served from the same origin as the API, so the browser does not
+// need CORS headers for it. This config only matters for genuine cross-origin
+// browser clients. Key rule: never throw — otherwise same-origin requests that
+// happen to send an Origin header (e.g. POSTs) would get a 500.
+const isDevelopment = process.env.NODE_ENV !== 'production';
+
 const allowedOrigins = new Set(
   [
     process.env.VITE_APP_BASE_URL,
@@ -52,11 +52,16 @@ const allowedOrigins = new Set(
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.has(origin)) {
+    // Allowed: no Origin (server-to-server, curl, Stripe webhooks, same-origin
+    // GETs), any configured origin, and — in development — every origin, since
+    // Replit preview URLs are dynamic.
+    if (!origin || isDevelopment || allowedOrigins.has(origin)) {
       return callback(null, true);
     }
-    logger.warn({ origin }, "Blocked CORS request from disallowed origin");
-    return callback(new Error("Not allowed by CORS"));
+    // Unknown origin in production: don't grant CORS headers, but DON'T error.
+    // Same-origin requests still succeed; cross-origin ones are blocked by the
+    // browser, which is the intended behavior.
+    return callback(null, false);
   },
   credentials: true,
 }));
@@ -107,9 +112,7 @@ app.use("/api/objects/upload", strictLimiter);
 app.use("/api", apiLimiter);
 
 // Add Clerk authentication middleware
-const isDevelopment = process.env.NODE_ENV !== 'production';
-
-const clerkPublishableKey = isDevelopment 
+const clerkPublishableKey = isDevelopment
   ? (process.env.VITE_CLERK_PUBLISHABLE_KEY_DEV || process.env.VITE_CLERK_PUBLISHABLE_KEY)
   : process.env.VITE_CLERK_PUBLISHABLE_KEY;
 
