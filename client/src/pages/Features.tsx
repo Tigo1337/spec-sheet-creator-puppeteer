@@ -24,6 +24,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
+import { Reveal } from "@/components/marketing/Reveal";
+import { ShowcasePanel } from "@/components/marketing/ShowcasePanel";
+import { CanvasMock } from "@/components/marketing/mockups/CanvasMock";
+import { AIMemoryMock } from "@/components/marketing/mockups/AIMemoryMock";
+import { ExportEngineMock } from "@/components/marketing/mockups/ExportEngineMock";
 
 export default function Features() {
   const [, setLocation] = useLocation();
@@ -96,48 +101,20 @@ export default function Features() {
             {/* Feature 1: The Design Canvas */}
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
               {/* Visual */}
-              <div className="w-full h-[450px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative bg-slate-900">
-                {/* Grid overlay */}
-                <div className="absolute inset-0 opacity-20" style={{
-                  backgroundSize: '20px 20px',
-                  backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px)'
-                }}></div>
-
-                <div className="bg-slate-800 border border-slate-700 rounded w-3/4 aspect-[4/3] p-4 relative">
-                  {/* Toolbar mockup */}
-                  <div className="flex gap-2 mb-3 pb-2 border-b border-slate-700">
-                    <div className="w-6 h-6 bg-slate-700 rounded"></div>
-                    <div className="w-6 h-6 bg-slate-700 rounded"></div>
-                    <div className="w-6 h-6 bg-slate-700 rounded"></div>
-                    <div className="w-px bg-slate-600 mx-1"></div>
-                    <div className="w-6 h-6 bg-[#2b9a8b]/30 rounded border border-[#2b9a8b]"></div>
-                  </div>
-                  {/* Canvas area */}
-                  <div className="flex-1 border-2 border-dashed border-slate-600 rounded flex items-center justify-center relative h-32">
-                    {/* Selection box */}
-                    <div className="w-20 h-20 border-2 border-[#2b9a8b] bg-[#2b9a8b]/10 relative">
-                      {/* Resize handles */}
-                      <div className="absolute -top-1 -left-1 w-2 h-2 bg-[#2b9a8b] rounded-full"></div>
-                      <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#2b9a8b] rounded-full"></div>
-                      <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-[#2b9a8b] rounded-full"></div>
-                      <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-[#2b9a8b] rounded-full"></div>
-                    </div>
-                    {/* Alignment guide */}
-                    <div className="absolute top-1/2 left-0 right-0 h-px bg-[#2b9a8b] opacity-50"></div>
-                  </div>
-                  {/* Corner Mark */}
-                  <div className="absolute bottom-2 right-2 text-slate-600 font-sans text-xs">&#x231F;</div>
-                </div>
-              </div>
+              <Reveal className="w-full">
+                <ShowcasePanel className="h-[450px]">
+                  <CanvasMock />
+                </ShowcasePanel>
+              </Reveal>
 
               {/* Content */}
-              <div>
+              <Reveal>
                 <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-2 block">Design System</span>
                 <div className="inline-flex items-center rounded-full bg-[#2b9a8b]/10 px-3 py-1 text-sm font-medium text-[#2b9a8b] mb-6">
                   <Palette className="h-4 w-4 mr-2" />
                   The Canvas
                 </div>
-                <h2 className="text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 mb-6">Professional Design Controls</h2>
+                <h2 className="font-serif text-4xl lg:text-5xl font-bold tracking-tight text-slate-900 mb-6 leading-[1.1]">Professional Design Controls</h2>
                 <p className="text-lg text-slate-600 leading-relaxed mb-8">
                   Our intuitive drag-and-drop interface gives you full control over your layout. Position text, images, and shapes with sub-pixel precision using alignment guides and snap-to-grid.
                 </p>
@@ -155,19 +132,19 @@ export default function Features() {
                     </li>
                   ))}
                 </ul>
-              </div>
+              </Reveal>
             </div>
 
             {/* Feature 2: AI Automation */}
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
               {/* Content */}
-              <div className="order-2 lg:order-1">
+              <Reveal className="order-2 lg:order-1">
                 <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-2 block">Intelligence</span>
                 <div className="inline-flex items-center rounded-full bg-[#2b9a8b]/10 px-3 py-1 text-sm font-medium text-[#2b9a8b] mb-6">
                   <Sparkles className="h-4 w-4 mr-2" />
                   AI Engine
                 </div>
-                <h2 className="text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 mb-6">AI Product Memory</h2>
+                <h2 className="font-serif text-4xl lg:text-5xl font-bold tracking-tight text-slate-900 mb-6 leading-[1.1]">AI Product Memory</h2>
                 <p className="text-lg text-slate-600 leading-relaxed mb-8">
                   Doculoom's AI doesn't just generate text; it remembers your brand. It builds a knowledge base of your products to ensure descriptions and technical specs are consistent across every sheet you print.
                 </p>
@@ -185,106 +162,33 @@ export default function Features() {
                     </li>
                   ))}
                 </ul>
-              </div>
+              </Reveal>
 
               {/* Visual */}
-              <div className="order-1 lg:order-2 w-full h-[450px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative bg-slate-900">
-                {/* Grid overlay */}
-                <div className="absolute inset-0 opacity-20" style={{
-                  backgroundSize: '20px 20px',
-                  backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px)'
-                }}></div>
-
-                <div className="w-3/4 space-y-4">
-                  <div className="p-4 bg-slate-800 rounded-lg border border-slate-700 flex items-center gap-4">
-                    <div className="h-10 w-10 rounded bg-slate-700 flex items-center justify-center">
-                      <Database size={20} className="text-slate-400" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="h-2 w-full bg-slate-700 rounded mb-2"></div>
-                      <div className="h-2 w-2/3 bg-slate-700 rounded"></div>
-                    </div>
-                  </div>
-                  <div className="flex justify-center">
-                    <div className="w-px h-6 bg-[#2b9a8b]"></div>
-                  </div>
-                  <div className="p-4 bg-[#2b9a8b]/20 rounded-lg border border-[#2b9a8b]/40 flex items-center gap-4">
-                    <div className="h-10 w-10 rounded bg-[#2b9a8b]/30 flex items-center justify-center">
-                      <Sparkles size={20} className="text-[#2b9a8b]" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="h-2 w-full bg-[#2b9a8b]/40 rounded mb-2"></div>
-                      <div className="h-2 w-3/4 bg-[#2b9a8b]/40 rounded"></div>
-                    </div>
-                    <span className="font-sans text-xs text-[#2b9a8b]">PROCESSING</span>
-                  </div>
-                  <div className="flex justify-center">
-                    <div className="w-px h-6 bg-[#2b9a8b]"></div>
-                  </div>
-                  <div className="p-4 bg-slate-800 rounded-lg border border-green-500/40 flex items-center gap-4">
-                    <div className="h-10 w-10 rounded bg-green-500/20 flex items-center justify-center">
-                      <CheckCircle2 size={20} className="text-green-400" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="h-2 w-full bg-green-500/30 rounded mb-2"></div>
-                      <div className="h-2 w-5/6 bg-green-500/30 rounded"></div>
-                    </div>
-                    <span className="font-sans text-xs text-green-400">ENRICHED</span>
-                  </div>
-                </div>
-                {/* Corner Mark */}
-                <div className="absolute bottom-4 right-4 text-slate-600 font-sans text-xs">&#x231F;</div>
-              </div>
+              <Reveal className="order-1 lg:order-2 w-full">
+                <ShowcasePanel className="h-[450px]">
+                  <AIMemoryMock />
+                </ShowcasePanel>
+              </Reveal>
             </div>
 
             {/* Feature 3: Export Engine */}
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
               {/* Visual */}
-              <div className="w-full h-[450px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative bg-slate-900">
-                {/* Grid overlay */}
-                <div className="absolute inset-0 opacity-20" style={{
-                  backgroundSize: '20px 20px',
-                  backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px)'
-                }}></div>
-
-                <div className="text-center">
-                  <div className="flex justify-center gap-4 mb-8">
-                    <div className="w-16 h-20 border-2 border-[#2b9a8b] bg-[#2b9a8b]/10 rounded flex flex-col items-center justify-center">
-                      <span className="text-[#2b9a8b] font-bold text-xs">PDF</span>
-                      <span className="text-[8px] text-slate-400 mt-1">DIGITAL</span>
-                    </div>
-                    <div className="w-16 h-20 border-2 border-slate-500 bg-slate-800 rounded flex flex-col items-center justify-center">
-                      <span className="text-slate-300 font-bold text-xs">PDF</span>
-                      <span className="text-[8px] text-slate-500 mt-1">PRINT</span>
-                    </div>
-                  </div>
-                  <div className="bg-slate-800 rounded-lg p-4 border border-slate-700 max-w-xs mx-auto">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="font-sans text-xs text-slate-400">RENDER QUEUE</span>
-                      <span className="font-sans text-xs text-green-400">ACTIVE</span>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="h-2 bg-[#2b9a8b] rounded-full w-full"></div>
-                      <div className="h-2 bg-slate-700 rounded-full w-3/4"></div>
-                      <div className="h-2 bg-slate-700 rounded-full w-1/2"></div>
-                    </div>
-                    <div className="mt-3 text-center">
-                      <span className="font-sans text-[10px] text-slate-500">Processing 127 of 500 pages</span>
-                    </div>
-                  </div>
-                </div>
-                {/* Corner Mark */}
-                <div className="absolute bottom-4 right-4 text-slate-600 font-sans text-xs">&#x231F;</div>
-              </div>
+              <Reveal className="w-full">
+                <ShowcasePanel className="h-[450px]">
+                  <ExportEngineMock />
+                </ShowcasePanel>
+              </Reveal>
 
               {/* Content */}
-              <div>
+              <Reveal>
                 <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-2 block">Output</span>
                 <div className="inline-flex items-center rounded-full bg-[#2b9a8b]/10 px-3 py-1 text-sm font-medium text-[#2b9a8b] mb-6">
                   <Printer className="h-4 w-4 mr-2" />
                   Export Engine
                 </div>
-                <h2 className="text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 mb-6">Professional Export Engine</h2>
+                <h2 className="font-serif text-4xl lg:text-5xl font-bold tracking-tight text-slate-900 mb-6 leading-[1.1]">Professional Export Engine</h2>
                 <p className="text-lg text-slate-600 leading-relaxed mb-8">
                   Our rendering engine is designed to handle complex vector graphics and high-resolution images. Generate crisp, professional PDFs that look perfect on screen or coming off a printing press.
                 </p>
@@ -302,7 +206,7 @@ export default function Features() {
                     </li>
                   ))}
                 </ul>
-              </div>
+              </Reveal>
             </div>
 
           </div>
