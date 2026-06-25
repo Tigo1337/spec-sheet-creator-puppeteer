@@ -5,8 +5,10 @@
 
 import puppeteer from "puppeteer-core";
 import { execSync } from "child_process";
-import archiver from "archiver";
+import { createRequire } from "module";
 import { PassThrough } from "stream";
+const require = createRequire(import.meta.url);
+const archiver = require("archiver") as typeof import("archiver");
 import { logger } from "./logger";
 
 let chromiumPath: string | null = null;
@@ -68,11 +70,23 @@ export async function renderHtmlToPdf(
   }
 }
 
+export type HtmlItem = string | { html: string; filename?: string };
+
+function resolveItem(item: HtmlItem, index: number): { html: string; filename: string } {
+  if (typeof item === "string") {
+    return { html: item, filename: `page_${String(index + 1).padStart(3, "0")}.pdf` };
+  }
+  const filename = item.filename
+    ? item.filename.endsWith(".pdf") ? item.filename : `${item.filename}.pdf`
+    : `page_${String(index + 1).padStart(3, "0")}.pdf`;
+  return { html: item.html, filename };
+}
+
 /**
- * Render multiple HTML strings to individual PDFs and return them as a ZIP Buffer.
+ * Render multiple HTML strings/objects to individual PDFs and return them as a ZIP Buffer.
  */
 export async function renderHtmlsToBulkZip(
-  htmlItems: string[],
+  htmlItems: HtmlItem[],
   options: RenderOptions = {}
 ): Promise<Buffer> {
   const { width = 816, height = 1056, scale = 1 } = options;
@@ -91,17 +105,18 @@ export async function renderHtmlsToBulkZip(
 
     try {
       for (let i = 0; i < htmlItems.length; i++) {
+        const { html, filename } = resolveItem(htmlItems[i], i);
         const page = await browser.newPage();
         try {
           await page.setViewport({ width, height, deviceScaleFactor: scale });
-          await page.setContent(htmlItems[i], { waitUntil: "networkidle0", timeout: 30000 });
+          await page.setContent(html, { waitUntil: "networkidle0", timeout: 30000 });
           const pdf = await page.pdf({
             width: `${width}px`,
             height: `${height}px`,
             printBackground: true,
             margin: { top: 0, right: 0, bottom: 0, left: 0 },
           });
-          archive.append(Buffer.from(pdf), { name: `page_${String(i + 1).padStart(3, "0")}.pdf` });
+          archive.append(Buffer.from(pdf), { name: filename });
         } finally {
           await page.close();
         }

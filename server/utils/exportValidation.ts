@@ -39,6 +39,7 @@ export function validateHtmlContent(html: unknown): ExportValidationResult {
 
 /**
  * Validate an array of HTML chunks (catalog / bulk export).
+ * Each item may be a plain HTML string OR an object { html: string; filename?: string }.
  */
 export function validateHtmlItems(items: unknown): ExportValidationResult {
   if (!Array.isArray(items) || items.length === 0) {
@@ -48,10 +49,11 @@ export function validateHtmlItems(items: unknown): ExportValidationResult {
     return { ok: false, error: `Too many items (max ${MAX_ITEMS})` };
   }
   for (const item of items) {
-    if (typeof item !== "string" || item.length === 0) {
+    const html = typeof item === "string" ? item : (item as any)?.html;
+    if (typeof html !== "string" || html.length === 0) {
       return { ok: false, error: "Each item must be a non-empty HTML string" };
     }
-    if (byteLength(item) > MAX_HTML_BYTES) {
+    if (byteLength(html) > MAX_HTML_BYTES) {
       return { ok: false, error: "An item exceeds the maximum allowed size" };
     }
   }

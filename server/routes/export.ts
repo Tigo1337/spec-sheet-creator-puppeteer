@@ -19,7 +19,7 @@ import {
   validatePdfExportBody,
   validateHtmlItems,
 } from "../utils/exportValidation";
-import { renderHtmlToPdf, renderHtmlsToBulkZip } from "../utils/pdfRenderer";
+import { renderHtmlToPdf, renderHtmlsToBulkZip, HtmlItem } from "../utils/pdfRenderer";
 
 const router = Router();
 
