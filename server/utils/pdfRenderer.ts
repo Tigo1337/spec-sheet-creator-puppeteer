@@ -8,7 +8,8 @@ import { execSync } from "child_process";
 import { createRequire } from "module";
 import { PassThrough } from "stream";
 const require = createRequire(import.meta.url);
-const archiver = require("archiver") as typeof import("archiver");
+const _archiverMod = require("archiver");
+const archiver = (_archiverMod.default ?? _archiverMod) as typeof import("archiver");
 import { logger } from "./logger";
 
 let chromiumPath: string | null = null;
@@ -114,50 +115,55 @@ export async function renderHtmlsToBulkZip(
   logger.info({ count: htmlItems.length, width, height, scale }, "Starting bulk ZIP render");
   const browser = await launchBrowser();
 
-  return new Promise(async (resolve, reject) => {
-    const passthrough = new PassThrough();
-    const chunks: Buffer[] = [];
-    passthrough.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
-    passthrough.on("end", () => resolve(Buffer.concat(chunks)));
-    passthrough.on("error", reject);
+  try {
+    // Collect all PDF buffers first, then zip — avoids the async-Promise-executor
+    // anti-pattern that silently swallows thrown errors.
+    const pdfEntries: { name: string; buffer: Buffer }[] = [];
 
-    const archive = archiver("zip", { zlib: { level: 6 } });
-    archive.on("error", (err: Error) => {
-      logger.error({ err }, "Archiver error");
-      reject(err);
-    });
-    archive.pipe(passthrough);
-
-    try {
-      for (let i = 0; i < htmlItems.length; i++) {
-        const { html, filename } = resolveItem(htmlItems[i], i);
-        logger.info({ index: i + 1, total: htmlItems.length, filename }, "Rendering page");
-        const page = await browser.newPage();
-        try {
-          await page.setViewport({ width, height, deviceScaleFactor: scale });
-          await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 30000 });
-          await new Promise((r) => setTimeout(r, 300));
-          const pdf = await page.pdf({
-            width: `${width}px`,
-            height: `${height}px`,
-            printBackground: true,
-            margin: { top: 0, right: 0, bottom: 0, left: 0 },
-          });
-          archive.append(Buffer.from(pdf), { name: filename });
-          logger.info({ index: i + 1, filename, bytes: pdf.length }, "Page rendered");
-        } finally {
-          await page.close();
-        }
+    for (let i = 0; i < htmlItems.length; i++) {
+      const { html, filename } = resolveItem(htmlItems[i], i);
+      logger.info({ index: i + 1, total: htmlItems.length, filename }, "Rendering page");
+      const page = await browser.newPage();
+      try {
+        await page.setViewport({ width, height, deviceScaleFactor: scale });
+        await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 30000 });
+        await new Promise((r) => setTimeout(r, 300));
+        const pdf = await page.pdf({
+          width: `${width}px`,
+          height: `${height}px`,
+          printBackground: true,
+          margin: { top: 0, right: 0, bottom: 0, left: 0 },
+        });
+        pdfEntries.push({ name: filename, buffer: Buffer.from(pdf) });
+        logger.info({ index: i + 1, filename, bytes: pdf.length }, "Page rendered");
+      } finally {
+        await page.close();
       }
-      logger.info("All pages rendered, finalizing ZIP");
-      await archive.finalize();
-    } catch (err) {
-      logger.error({ err }, "Bulk render failed");
-      await browser.close().catch(() => {});
-      reject(err);
-      return;
     }
 
+    logger.info({ pages: pdfEntries.length }, "All pages rendered, building ZIP");
+
+    // Build the ZIP synchronously from collected buffers
+    const zipBuffer = await new Promise<Buffer>((resolve, reject) => {
+      const passthrough = new PassThrough();
+      const chunks: Buffer[] = [];
+      passthrough.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+      passthrough.on("end", () => resolve(Buffer.concat(chunks)));
+      passthrough.on("error", reject);
+
+      const archive = archiver("zip", { zlib: { level: 6 } });
+      archive.on("error", reject);
+      archive.pipe(passthrough);
+
+      for (const { name, buffer } of pdfEntries) {
+        archive.append(buffer, { name });
+      }
+      archive.finalize();
+    });
+
+    logger.info({ bytes: zipBuffer.length }, "Bulk ZIP render complete");
+    return zipBuffer;
+  } finally {
     await browser.close().catch(() => {});
-  });
+  }
 }
