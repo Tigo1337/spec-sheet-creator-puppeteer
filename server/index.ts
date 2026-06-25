@@ -209,7 +209,10 @@ const largePayloadRoutes = [
 ];
 
 app.use((req, res, next) => {
-  if (largePayloadRoutes.some(route => req.path.startsWith(route))) {
+  // Worker callback sends a raw binary PDF/ZIP — use raw parser for it
+  if (req.path === "/api/export/worker/complete") {
+    express.raw({ type: "*/*", limit: "200mb" })(req, res, next);
+  } else if (largePayloadRoutes.some(route => req.path.startsWith(route))) {
     // 50MB limit for export/upload routes
     express.json({ 
       limit: "50mb", 

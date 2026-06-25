@@ -1,27 +1,31 @@
 /**
  * Export-related API routes
- * Handles PDF generation, bulk exports, download URLs, and export job management
+ * PDF rendering runs inline using system Chromium + puppeteer-core.
+ * Files are stored in Replit Object Storage — no GCS, no external worker.
  */
 
 import { Router } from "express";
 import { getAuth } from "@clerk/express";
-import { Storage } from "@google-cloud/storage";
 import * as Sentry from "@sentry/node";
 import { storage } from "../storage";
 import { logger } from "../utils/logger";
 import { checkAdmin } from "../middleware/auth";
-import { generateSignedDownloadUrl } from "../utils/helpers";
+import {
+  saveExportFile,
+  streamExportFile,
+  generateExportSignedUrl,
+} from "../utils/exportStorage";
 import {
   validatePdfExportBody,
   validateHtmlItems,
-  validateHtmlContent,
 } from "../utils/exportValidation";
+import { renderHtmlToPdf, renderHtmlsToBulkZip } from "../utils/pdfRenderer";
 
 const router = Router();
 
 /**
  * GET /api/export/download/:id
- * Download a completed export by job ID
+ * Generate a signed Replit Object Storage URL and redirect the browser.
  */
 router.get("/download/:id", async (req, res) => {
   const auth = getAuth(req);
@@ -35,12 +39,9 @@ router.get("/download/:id", async (req, res) => {
     }
     if (job.status !== "completed") return res.status(400).send("Export not ready");
 
-    const signedUrl = await generateSignedDownloadUrl(
-      job.id,
-      job.displayFilename || job.fileName || "Export",
-      job.type
-    );
-    if (!signedUrl) return res.status(500).send("Could not retrieve file");
+    const fileName = job.displayFilename || job.fileName || "Export";
+    const signedUrl = await generateExportSignedUrl(job.id, fileName, job.type);
+    if (!signedUrl) return res.status(500).send("Could not generate download link");
 
     res.redirect(302, signedUrl);
   } catch (e) {
@@ -52,7 +53,7 @@ router.get("/download/:id", async (req, res) => {
 
 /**
  * GET /api/export/history
- * Get export history for the current user
+ * Get export history for the current user.
  */
 router.get("/history", async (req, res) => {
   const auth = getAuth(req);
@@ -67,7 +68,7 @@ router.get("/history", async (req, res) => {
       createdAt: job.createdAt,
       projectName: job.projectName,
       fileName: job.displayFilename || job.fileName || "Export",
-      downloadUrl: job.status === "completed" ? `/api/export/download/${job.id}` : null
+      downloadUrl: job.status === "completed" ? `/api/export/download/${job.id}` : null,
     }));
     res.json(history);
   } catch (error) {
@@ -79,7 +80,8 @@ router.get("/history", async (req, res) => {
 
 /**
  * POST /api/export/async/pdf
- * Start an async PDF export job (single or catalog)
+ * Start an async PDF export job (single page or catalog).
+ * Renders inline using system Chromium — no external worker needed.
  */
 router.post("/async/pdf", async (req, res) => {
   const auth = getAuth(req);
@@ -87,9 +89,7 @@ router.post("/async/pdf", async (req, res) => {
 
   const { html, items, width, height, scale, colorModel, type, projectName, fileName } = req.body;
   const validation = validatePdfExportBody({ html, items });
-  if (!validation.ok) {
-    return res.status(400).json({ error: validation.error });
-  }
+  if (!validation.ok) return res.status(400).json({ error: validation.error });
 
   try {
     const jobType = type === "pdf_catalog" ? "pdf_catalog" : "pdf_single";
@@ -100,64 +100,74 @@ router.post("/async/pdf", async (req, res) => {
       type: jobType,
       projectName: projectName || "Untitled Project",
       fileName: finalFileName,
-      displayFilename: finalFileName
+      displayFilename: finalFileName,
     });
 
-    const externalStorage = new Storage({ credentials: JSON.parse(process.env.GCLOUD_KEY_JSON!) });
-    const bucketName = "doculoom-exports";
-    const workerData: Record<string, unknown> = { width, height, scale, colorModel, type: jobType };
-
-    if (html) {
-      const inputPath = `inputs/${job.id}.html`;
-      await externalStorage.bucket(bucketName).file(inputPath).save(html, {
-        contentType: "text/html",
-        resumable: false
-      });
-      workerData.htmlStoragePath = inputPath;
-    } else if (items) {
-      const uploadedPaths: { htmlStoragePath: string }[] = [];
-      await Promise.all(items.map(async (chunkHtml: string, index: number) => {
-        const chunkPath = `inputs/${job.id}_part${index}.html`;
-        await externalStorage.bucket(bucketName).file(chunkPath).save(chunkHtml, {
-          contentType: "text/html",
-          resumable: false
-        });
-        uploadedPaths[index] = { htmlStoragePath: chunkPath };
-      }));
-      workerData.items = uploadedPaths;
-    }
-
-    fetch(`${process.env.PDF_WORKER_URL}/process-job`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jobId: job.id, data: workerData })
-    }).catch(err => {
-      logger.error({ err, jobId: job.id }, "PDF worker trigger failed");
-      Sentry.captureException(err);
-      storage.updateExportJob(job.id, { status: "failed", error: "Worker timed out" });
-    });
-
+    // Respond immediately so the client can start polling
     res.json({ jobId: job.id, status: "pending" });
+
+    // Render in the background
+    (async () => {
+      try {
+        const renderOptions = {
+          width: Number(width) || 816,
+          height: Number(height) || 1056,
+          scale: Number(scale) || 1,
+        };
+
+        let pdfBuffer: Buffer;
+
+        if (jobType === "pdf_catalog" && Array.isArray(items) && items.length > 0) {
+          // Catalog: merge multiple pages into one PDF by rendering each and concatenating
+          // For simplicity we render each as a separate PDF and zip them (same as bulk)
+          pdfBuffer = await renderHtmlsToBulkZip(items, renderOptions);
+          const ext = "zip";
+          await saveExportFile(job.id, ext, pdfBuffer);
+          await storage.updateExportJob(job.id, {
+            status: "completed",
+            progress: 100,
+            displayFilename: finalFileName.replace(/\.pdf$/i, ".zip"),
+          });
+        } else if (html) {
+          pdfBuffer = await renderHtmlToPdf(html, renderOptions);
+          await saveExportFile(job.id, "pdf", pdfBuffer);
+          await storage.updateExportJob(job.id, {
+            status: "completed",
+            progress: 100,
+            displayFilename: finalFileName,
+          });
+        } else {
+          throw new Error("No renderable content provided");
+        }
+
+        logger.info({ jobId: job.id, bytes: pdfBuffer.length }, "Inline PDF export completed");
+      } catch (err) {
+        logger.error({ err, jobId: job.id }, "Inline PDF rendering failed");
+        Sentry.captureException(err);
+        await storage.updateExportJob(job.id, {
+          status: "failed",
+          error: err instanceof Error ? err.message : "Rendering failed",
+        });
+      }
+    })();
   } catch (error) {
     logger.error({ err: error, userId: auth.userId }, "Failed to start PDF export job");
     Sentry.captureException(error);
-    res.status(500).json({ error: "Failed to start export job" });
+    if (!res.headersSent) res.status(500).json({ error: "Failed to start export job" });
   }
 });
 
 /**
  * POST /api/export/async/bulk
- * Start an async bulk PDF export job (ZIP of multiple PDFs)
+ * Start an async bulk PDF export job (ZIP of multiple PDFs).
  */
 router.post("/async/bulk", async (req, res) => {
   const auth = getAuth(req);
   if (!auth.userId) return res.status(401).json({ error: "Authentication required" });
 
-  const { items, width, height, scale, colorModel, projectName, fileName } = req.body;
+  const { items, width, height, scale, projectName, fileName } = req.body;
   const validation = validateHtmlItems(items);
-  if (!validation.ok) {
-    return res.status(400).json({ error: validation.error });
-  }
+  if (!validation.ok) return res.status(400).json({ error: validation.error });
 
   try {
     const finalFileName = fileName || `Bulk_Export_${new Date().toISOString().slice(0, 10)}.zip`;
@@ -166,33 +176,44 @@ router.post("/async/bulk", async (req, res) => {
       type: "pdf_bulk",
       fileName: finalFileName,
       displayFilename: finalFileName,
-      projectName: projectName || "Bulk Export"
-    });
-
-    fetch(`${process.env.PDF_WORKER_URL}/process-job`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jobId: job.id,
-        data: { htmlItems: items, width, height, scale, colorModel, type: "pdf_bulk" }
-      })
-    }).catch(err => {
-      logger.error({ err, jobId: job.id }, "Bulk PDF worker trigger failed");
-      Sentry.captureException(err);
-      storage.updateExportJob(job.id, { status: "failed", error: "Worker trigger failed" });
+      projectName: projectName || "Bulk Export",
     });
 
     res.json({ jobId: job.id, status: "pending" });
+
+    (async () => {
+      try {
+        const zipBuffer = await renderHtmlsToBulkZip(items, {
+          width: Number(width) || 816,
+          height: Number(height) || 1056,
+          scale: Number(scale) || 1,
+        });
+        await saveExportFile(job.id, "zip", zipBuffer);
+        await storage.updateExportJob(job.id, {
+          status: "completed",
+          progress: 100,
+          displayFilename: finalFileName,
+        });
+        logger.info({ jobId: job.id, pages: items.length, bytes: zipBuffer.length }, "Inline bulk export completed");
+      } catch (err) {
+        logger.error({ err, jobId: job.id }, "Inline bulk PDF rendering failed");
+        Sentry.captureException(err);
+        await storage.updateExportJob(job.id, {
+          status: "failed",
+          error: err instanceof Error ? err.message : "Rendering failed",
+        });
+      }
+    })();
   } catch (error) {
     logger.error({ err: error, userId: auth.userId }, "Failed to start bulk export job");
     Sentry.captureException(error);
-    res.status(500).json({ error: "Failed to start bulk export" });
+    if (!res.headersSent) res.status(500).json({ error: "Failed to start bulk export" });
   }
 });
 
 /**
  * GET /api/export/proxy/:id
- * Stream export file directly (for preview/inline viewing)
+ * Stream an export file directly from Replit Object Storage.
  */
 router.get("/proxy/:id", async (req, res) => {
   const auth = getAuth(req);
@@ -203,62 +224,12 @@ router.get("/proxy/:id", async (req, res) => {
     if (!job) return res.status(404).json({ error: "Job not found" });
     if (job.userId !== auth.userId) return res.status(403).json({ error: "Forbidden" });
 
-    const gcsKey = process.env.GCLOUD_KEY_JSON;
-    if (!gcsKey) return res.status(500).json({ error: "Configuration error" });
-
-    const storageClient = new Storage({ credentials: JSON.parse(gcsKey) });
-    const bucketName = "doculoom-exports";
     const ext = job.type === "pdf_bulk" ? "zip" : "pdf";
-    const gcsPath = `exports/${job.id}.${ext}`;
-    const file = storageClient.bucket(bucketName).file(gcsPath);
-
-    if (!(await file.exists())[0]) {
-      return res.status(404).json({ error: "File not found" });
-    }
-
-    res.setHeader('Content-Type', 'application/pdf');
-    file.createReadStream().pipe(res);
+    await streamExportFile(job.id, ext, res);
   } catch (error) {
     logger.error({ err: error, jobId: req.params.id }, "Failed to proxy export file");
     Sentry.captureException(error);
-    res.status(500).json({ error: "Failed to fetch file" });
-  }
-});
-
-/**
- * POST /api/export/preview
- * Generate a preview image of the export
- */
-router.post("/preview", async (req, res) => {
-  const auth = getAuth(req);
-  if (!auth.userId) return res.status(401).json({ error: "Unauthorized" });
-
-  const { html, width, height } = req.body;
-  const validation = validateHtmlContent(html);
-  if (!validation.ok) return res.status(400).json({ error: validation.error });
-
-  const workerUrl = process.env.PDF_WORKER_URL;
-  if (!workerUrl) return res.status(500).json({ error: "Configuration error" });
-
-  try {
-    const response = await fetch(`${workerUrl}/preview`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        html,
-        width: Number(width) || 1200,
-        height: Number(height) || 800
-      })
-    });
-
-    if (!response.ok) throw new Error(`Worker returned ${response.status}`);
-
-    const imageBuffer = await response.arrayBuffer();
-    res.json({ image: `data:image/png;base64,${Buffer.from(imageBuffer).toString('base64')}` });
-  } catch (error) {
-    logger.error({ err: error, userId: auth.userId }, "Failed to generate export preview");
-    Sentry.captureException(error);
-    res.status(500).json({ error: "Failed to generate preview" });
+    if (!res.headersSent) res.status(500).json({ error: "Failed to fetch file" });
   }
 });
 

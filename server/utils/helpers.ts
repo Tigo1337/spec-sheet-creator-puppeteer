@@ -3,7 +3,6 @@
  * Includes email normalization, URL signing, and AI prompt building
  */
 
-import { Storage } from "@google-cloud/storage";
 import { logger } from "./logger";
 
 /**
@@ -17,35 +16,6 @@ export function normalizeEmail(email: string): string {
     return `${cleanLocal}@${domain}`;
   }
   return email.toLowerCase();
-}
-
-/**
- * Generate a signed download URL for export files in GCS
- */
-export async function generateSignedDownloadUrl(
-  jobId: string,
-  fileName: string,
-  type: string
-): Promise<string | null> {
-  const gcsKey = process.env.GCLOUD_KEY_JSON;
-  if (!gcsKey) return null;
-
-  try {
-    const externalStorage = new Storage({ credentials: JSON.parse(gcsKey) });
-    const bucketName = "doculoom-exports";
-    const ext = type === "pdf_bulk" ? "zip" : "pdf";
-    const gcsPath = `exports/${jobId}.${ext}`;
-    const [url] = await externalStorage.bucket(bucketName).file(gcsPath).getSignedUrl({
-      version: 'v4',
-      action: 'read',
-      expires: Date.now() + 60 * 60 * 1000,
-      responseDisposition: `attachment; filename="${fileName.replace(/"/g, '\\"')}"`
-    });
-    return url;
-  } catch (e) {
-    logger.error({ err: e, jobId }, "Failed to sign URL for job");
-    return null;
-  }
 }
 
 /**

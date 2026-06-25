@@ -21,8 +21,7 @@ import {
   Zap,
   ShieldCheck,
   MousePointer2,
-  X,
-  Diamond
+  X
 } from 'lucide-react';
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { Footer } from "@/components/layout/Footer";
@@ -37,6 +36,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Reveal } from "@/components/marketing/Reveal";
+import { ShowcasePanel } from "@/components/marketing/ShowcasePanel";
+import { BeforeAfterMock } from "@/components/marketing/mockups/BeforeAfterMock";
+import { ImportMock } from "@/components/marketing/mockups/ImportMock";
+import { MapDesignMock } from "@/components/marketing/mockups/MapDesignMock";
+import { ExportMock } from "@/components/marketing/mockups/ExportMock";
 
 export default function Homepage() {
   const [, setLocation] = useLocation();
@@ -210,78 +215,17 @@ export default function Homepage() {
           <div className="max-w-7xl mx-auto px-4">
              <div className="bg-white rounded-3xl p-8 lg:p-16 border border-slate-200 relative overflow-hidden shadow-sm">
                 <div className="grid lg:grid-cols-5 gap-12 items-center">
-                   <div className="lg:col-span-2 space-y-6">
-                      <h2 className="text-3xl font-bold tracking-tight text-slate-900">From messy data to <br/>polished design.</h2>
+                   <Reveal className="lg:col-span-2 space-y-6">
+                      <h2 className="font-serif text-4xl lg:text-5xl font-bold tracking-tight text-slate-900 leading-[1.1]">From messy data to <br/>polished design.</h2>
                       <p className="text-slate-600 leading-relaxed">Stop fighting with manual copy-pasting. Doculoom bridges the gap between your product database and professional PDF output.</p>
                       <ul className="space-y-3">
                          <li className="flex items-center gap-2 text-sm font-medium text-slate-700"><Check className="h-4 w-4 text-[#2b9a8b]" /> No more formatting errors</li>
                          <li className="flex items-center gap-2 text-sm font-medium text-slate-700"><Check className="h-4 w-4 text-[#2b9a8b]" /> Instant multi-page generation</li>
                          <li className="flex items-center gap-2 text-sm font-medium text-slate-700"><Check className="h-4 w-4 text-[#2b9a8b]" /> Professional 300 DPI exports</li>
                       </ul>
-                   </div>
-                   <div className="lg:col-span-3 flex flex-col md:flex-row gap-4 items-center justify-center relative">
-                      {/* Before: Raw Data Card - Blueprint/File Folder Style */}
-                      <div className="w-full md:w-64 bg-white border border-slate-200 rounded-lg shadow-sm p-4 rotate-[-2deg] z-10 relative">
-                         {/* Folder Tab Effect */}
-                         <div className="absolute -top-3 left-4 bg-slate-100 border border-slate-200 border-b-0 rounded-t px-3 py-1">
-                            <span className="font-sans text-[9px] font-bold uppercase text-slate-500 tracking-wider">Source File</span>
-                         </div>
-                         <div className="flex items-center gap-2 mb-3 border-b border-slate-100 pb-2 pt-2">
-                            <FileSpreadsheet className="h-4 w-4 text-green-600" />
-                            <span className="font-sans text-[10px] font-bold uppercase text-slate-400">Inventory.csv</span>
-                         </div>
-                         <div className="space-y-2">
-                            <div className="h-2 w-full bg-slate-100 rounded"></div>
-                            <div className="h-2 w-2/3 bg-slate-100 rounded"></div>
-                            <div className="h-2 w-full bg-slate-100 rounded"></div>
-                            <div className="h-2 w-3/4 bg-slate-100 rounded"></div>
-                         </div>
-                         {/* Technical Footer */}
-                         <div className="tech-footer mt-4">
-                            <span>REF: CSV-001</span>
-                            <span>RAW DATA</span>
-                         </div>
-                      </div>
-
-                      {/* Technical Line Connector with Diamond */}
-                      <div className="hidden md:flex items-center gap-0">
-                         <div className="w-8 h-[1px] bg-slate-300"></div>
-                         <Diamond className="w-3 h-3 text-[#2b9a8b] fill-[#2b9a8b]" />
-                         <div className="w-8 h-[1px] bg-slate-300"></div>
-                      </div>
-
-                      {/* After: Polished Spec Sheet Card - Blueprint Style */}
-                      <div className="w-full md:w-72 bg-white border border-slate-200 rounded-lg shadow-sm p-4 rotate-[2deg] z-10 relative overflow-hidden">
-                         {/* Folder Tab Effect */}
-                         <div className="absolute -top-3 left-4 bg-[#2b9a8b] border border-[#2b9a8b] border-b-0 rounded-t px-3 py-1">
-                            <span className="font-sans text-[9px] font-bold uppercase text-white tracking-wider">Output</span>
-                         </div>
-                         <div className="absolute top-0 right-0 bg-[#2b9a8b] text-white text-[8px] px-2 py-0.5 font-bold uppercase tracking-widest">PDF Export</div>
-                         <div className="aspect-[3/4] flex flex-col pt-2">
-                            <div className="h-32 bg-slate-100 rounded mb-3 overflow-hidden">
-                               <img
-                                src="https://res.cloudinary.com/olilepage/image/upload/f_auto,q_auto:best,dpr_auto/v1769141734/room-scene-update/modular-corner-sectional-dark-gray-modern-ultra-4k-ar-16-9.webp"
-                                className="w-full h-full object-cover"
-                                alt="Sample"
-                               />
-                            </div>
-                            <div className={`h-3 w-1/2 ${accentBg} rounded mb-2`}></div>
-                            <div className="space-y-1">
-                               <div className="h-1.5 w-full bg-slate-100 rounded"></div>
-                               <div className="h-1.5 w-full bg-slate-100 rounded"></div>
-                               <div className="h-1.5 w-3/4 bg-slate-100 rounded"></div>
-                            </div>
-                            <div className="mt-auto flex justify-between items-end">
-                               <div className="h-4 w-4 bg-slate-200 rounded"></div>
-                               <QrCode className="h-6 w-6 text-slate-900" />
-                            </div>
-                         </div>
-                         {/* Technical Footer */}
-                         <div className="tech-footer">
-                            <span>FIG 1.0</span>
-                            <span>SCALE: 100%</span>
-                         </div>
-                      </div>
+                   </Reveal>
+                   <div className="lg:col-span-3">
+                      <BeforeAfterMock />
                    </div>
                 </div>
              </div>
@@ -295,169 +239,57 @@ export default function Homepage() {
             {/* ROW 1: Import (Visual Left) */}
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
 
-              {/* Visual Container - CAD Wireframe Style */}
-              <div className="w-full h-[515px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative bg-[#041c2c]">
-                {/* Grid overlay */}
-                <div className="absolute inset-0 opacity-20" style={{
-                  backgroundSize: '20px 20px',
-                  backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px)'
-                }}></div>
-
-                <div className="bg-slate-800 border border-slate-700 rounded w-3/4 aspect-[3/4] p-4 relative flex flex-col">
-                  <div className="grid grid-cols-4 gap-2 text-[10px] text-slate-500 font-sans px-3 shrink-0 mb-2">
-                    <div className="truncate">NAME</div>
-                    <div className="truncate">SKU</div>
-                    <div className="truncate">DESC</div>
-                    <div className="truncate">IMAGE</div>
-                  </div>
-                  <div className="flex-1 overflow-hidden flex flex-col gap-2 relative [mask-image:linear-gradient(to_bottom,black_90%,transparent)]">
-                    {[...Array(11)].map((_, i) => (
-                      <div key={i} className="h-8 w-full bg-slate-800 border border-slate-700 rounded grid grid-cols-4 items-center px-3 gap-2 shrink-0">
-                        <div className="h-1.5 w-8 bg-[#2b9a8b] opacity-80 rounded"></div>
-                        <div className="h-1.5 w-8 bg-[#2b9a8b] opacity-50 rounded"></div>
-                        <div className="h-1.5 w-8 bg-[#2b9a8b] opacity-20 rounded"></div>
-                        <div className="h-1.5 w-8 bg-slate-700 rounded"></div>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Corner Mark */}
-                  <div className="absolute bottom-2 right-2 text-slate-600 font-sans text-xs">&#x231F;</div>
-                </div>
-              </div>
+              <Reveal className="w-full">
+                <ShowcasePanel className="h-[515px]">
+                  <ImportMock />
+                </ShowcasePanel>
+              </Reveal>
 
               {/* Content */}
-              <div>
-                <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-2 block">Step 1</span>
-                <div className={`inline-flex items-center rounded-full bg-[#2b9a8b]/10 px-3 py-1 text-sm font-medium ${accentColor} mb-6`}>
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  Import
-                </div>
-                <h2 className="text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 mb-6">Import Your Data</h2>
+              <Reveal>
+                <StepHeading number="01" label="Import" icon={<FileSpreadsheet className="h-4 w-4 mr-2" />} title="Import Your Data" />
                 <p className="text-lg text-slate-600 leading-relaxed mb-8">
                   Upload your existing Excel or CSV files. Doculoom automatically detects headers and organizes your product data, SKUs, and descriptions for instant use. No need to reformat your entire database.
                 </p>
-                <ul className="space-y-4">
-                  {['Automatic Header Detection', 'Bulk Image Matching', 'Validation Checks'].map((item, i) => (
-                    <li key={i} className="flex items-center gap-3">
-                      <CheckCircle2 className={`h-5 w-5 ${accentColor}`} />
-                      <span className="text-slate-700">{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                <StepChecklist items={['Automatic Header Detection', 'Bulk Image Matching', 'Validation Checks']} />
+              </Reveal>
             </div>
 
             {/* ROW 2: Map & Design (Visual Right) */}
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
               {/* Content */}
-              <div className="order-2 lg:order-1">
-                <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-2 block">Step 2</span>
-                <div className={`inline-flex items-center rounded-full bg-[#2b9a8b]/10 px-3 py-1 text-sm font-medium ${accentColor} mb-6`}>
-                  <Palette className="h-4 w-4 mr-2" />
-                  Design
-                </div>
-                <h2 className="text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 mb-6">Map & Design</h2>
+              <Reveal className="order-2 lg:order-1">
+                <StepHeading number="02" label="Design" icon={<Palette className="h-4 w-4 mr-2" />} title="Map & Design" />
                 <p className="text-lg text-slate-600 leading-relaxed mb-8">
                   Drag and drop your data fields onto the canvas. Customize fonts, colors, and layout. Build one master template that works for thousands of records. What you see is exactly what gets printed.
                 </p>
-                <ul className="space-y-4">
-                  {['Drag & Drop Builder', 'Dynamic Field Mapping', 'Conditional Formatting'].map((item, i) => (
-                    <li key={i} className="flex items-center gap-3">
-                      <CheckCircle2 className={`h-5 w-5 ${accentColor}`} />
-                      <span className="text-slate-700">{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                <StepChecklist items={['Drag & Drop Builder', 'Dynamic Field Mapping', 'Conditional Formatting']} />
+              </Reveal>
 
-              {/* Visual Container - CAD Wireframe Style */}
-              <div className="w-full h-[515px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative order-1 lg:order-2 bg-[#041c2c]">
-                {/* Grid overlay */}
-                <div className="absolute inset-0 opacity-20" style={{
-                  backgroundSize: '20px 20px',
-                  backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px)'
-                }}></div>
-
-                 <div className="bg-slate-800 border border-slate-700 rounded w-3/4 aspect-[3/4] p-4 relative flex flex-col">
-                    <div className="flex justify-between mb-3">
-                      <div className="h-2 w-8 bg-[#2b9a8b] opacity-80 rounded"></div>
-                      <div className="h-2 w-8 bg-[#2b9a8b] opacity-80 rounded"></div>
-                    </div>
-                    <div className="h-32 bg-slate-700 rounded mb-3 flex items-center justify-center border-2 border-dashed border-slate-600 shrink-0">
-                      <div className="text-slate-500 text-[10px] font-sans">Product Image</div>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <div className="h-2 w-full bg-[#2b9a8b] opacity-20 rounded"></div>
-                      <div className="h-2 w-full bg-[#2b9a8b] opacity-20 rounded"></div>
-                      <div className="h-2 w-full bg-[#2b9a8b] opacity-20 rounded"></div>
-                      <div className="h-2 w-full bg-[#2b9a8b] opacity-20 rounded"></div>
-                      <div className="h-2 w-2/3 bg-[#2b9a8b] opacity-20 rounded"></div>
-                    </div>
-                    <div className="absolute bottom-4 right-4">
-                      <QrCode className="w-8 h-8 text-slate-600 opacity-90" />
-                    </div>
-                    {/* Corner Mark */}
-                    <div className="absolute bottom-2 right-12 text-slate-600 font-sans text-xs">&#x231F;</div>
-                  </div>
-              </div>
+              <Reveal className="w-full order-1 lg:order-2">
+                <ShowcasePanel className="h-[515px]">
+                  <MapDesignMock />
+                </ShowcasePanel>
+              </Reveal>
             </div>
 
             {/* ROW 3: Generate (Visual Left) */}
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
 
-              {/* Visual Container - CAD Wireframe Style */}
-              <div className="w-full h-[515px] rounded-2xl overflow-hidden flex flex-col p-8 items-center justify-center relative bg-[#041c2c]">
-                {/* Grid overlay */}
-                <div className="absolute inset-0 opacity-20" style={{
-                  backgroundSize: '20px 20px',
-                  backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px)'
-                }}></div>
-
-                 <div className="bg-slate-800 border border-slate-700 rounded w-3/4 aspect-[3/4] p-4 relative flex flex-col">
-                    <div className="flex justify-between mb-3 items-end shrink-0">
-                      <span className="text-[10px] font-bold text-[#2b9a8b] opacity-80 font-sans">FLOATING VANITY</span>
-                      <span className="text-[10px] font-bold text-[#2b9a8b] opacity-80 font-sans">FLT-VAN-WNT</span>
-                    </div>
-                    <div className="aspect-video w-full bg-slate-700 rounded-sm mb-3 border border-slate-600 overflow-hidden shrink-0">
-                        <img
-                          src="https://res.cloudinary.com/olilepage/image/upload/f_auto,q_auto:best,dpr_auto/v1768705685/room-scene-update/floating-vanity-walnut-brown-zen-spa-ultra-4k-ar-16-9.jpg"
-                          alt="Floating Vanity"
-                          className="w-full h-full object-cover"
-                        />
-                    </div>
-                    <div className="flex flex-col gap-1 flex-1">
-                      <p className="text-[10px] text-slate-400 leading-[1.4] text-left font-sans">
-                        Transform your bathroom into a private sanctuary with this stunning floating vanity. Featuring a sophisticated fluted exterior, the textured design adds architectural depth and modern elegance to any space.
-                      </p>
-                    </div>
-                    <div className="absolute bottom-4 right-4">
-                      <QrCode className="w-8 h-8 text-slate-600 opacity-90" />
-                    </div>
-                    {/* Corner Mark */}
-                    <div className="absolute bottom-2 right-12 text-slate-600 font-sans text-xs">&#x231F;</div>
-                  </div>
-              </div>
+              <Reveal className="w-full">
+                <ShowcasePanel className="h-[515px]">
+                  <ExportMock />
+                </ShowcasePanel>
+              </Reveal>
 
               {/* Content */}
-              <div>
-                <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-2 block">Step 3</span>
-                <div className={`inline-flex items-center rounded-full bg-[#2b9a8b]/10 px-3 py-1 text-sm font-medium ${accentColor} mb-6`}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  Export
-                </div>
-                <h2 className="text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 mb-6">Generate & Export</h2>
+              <Reveal>
+                <StepHeading number="03" label="Export" icon={<FileText className="h-4 w-4 mr-2" />} title="Generate & Export" />
                 <p className="text-lg text-slate-600 leading-relaxed mb-8">
                   Generate hundreds of catalog pages or spec sheets in seconds. Export professional high-resolution files or digital PDFs for the web. Includes automatic QR code generation for every record.
                 </p>
-                <ul className="space-y-4">
-                  {['Print & Digital Formats', 'Bulk PDF Generation', 'High-Res 300 DPI'].map((item, i) => (
-                    <li key={i} className="flex items-center gap-3">
-                      <CheckCircle2 className={`h-5 w-5 ${accentColor}`} />
-                      <span className="text-slate-700">{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                <StepChecklist items={['Print & Digital Formats', 'Bulk PDF Generation', 'High-Res 300 DPI']} />
+              </Reveal>
             </div>
 
           </div>
@@ -780,6 +612,41 @@ export default function Homepage() {
 }
 
 // Sub-components
+
+// Numbered step heading for the "How it Works" rows (oversized serif index + pill + title)
+function StepHeading({ number, label, icon, title }: {
+  number: string,
+  label: string,
+  icon: React.ReactNode,
+  title: string
+}) {
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-4 mb-4">
+        <span className="font-serif text-5xl font-bold leading-none text-[#2b9a8b]/20">{number}</span>
+        <div className="inline-flex items-center rounded-full bg-[#2b9a8b]/10 px-3 py-1 text-sm font-medium text-[#2b9a8b]">
+          {icon}
+          {label}
+        </div>
+      </div>
+      <h2 className="font-serif text-4xl lg:text-5xl font-bold tracking-tight text-slate-900 leading-[1.1]">{title}</h2>
+    </div>
+  );
+}
+
+// Checklist used under each step heading
+function StepChecklist({ items }: { items: string[] }) {
+  return (
+    <ul className="space-y-4">
+      {items.map((item, i) => (
+        <li key={i} className="flex items-center gap-3">
+          <CheckCircle2 className="h-5 w-5 text-[#2b9a8b]" />
+          <span className="text-slate-700">{item}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 // Bento Card Component with corner mark
 function BentoCard({ icon, title, description, className = "", large = false }: {
