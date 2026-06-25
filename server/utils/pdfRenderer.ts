@@ -27,16 +27,23 @@ function getChromiumPath(): string {
 }
 
 async function launchBrowser() {
-  return puppeteer.launch({
-    executablePath: getChromiumPath(),
+  const executablePath = getChromiumPath();
+  logger.info({ executablePath }, "Launching Chromium browser");
+  const browser = await puppeteer.launch({
+    executablePath,
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
       "--disable-gpu",
+      "--disable-extensions",
+      "--single-process",
     ],
     headless: true,
+    timeout: 15000,
   });
+  logger.info("Chromium launched successfully");
+  return browser;
 }
 
 export interface RenderOptions {
@@ -53,17 +60,22 @@ export async function renderHtmlToPdf(
   options: RenderOptions = {}
 ): Promise<Buffer> {
   const { width = 816, height = 1056, scale = 1 } = options;
+  logger.info({ width, height, scale }, "Starting single PDF render");
   const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
     await page.setViewport({ width, height, deviceScaleFactor: scale });
-    await page.setContent(html, { waitUntil: "networkidle0", timeout: 30000 });
+    // Use domcontentloaded — networkidle0 hangs if HTML references external resources
+    await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 30000 });
+    // Give fonts/images a moment to render
+    await new Promise((r) => setTimeout(r, 500));
     const pdf = await page.pdf({
       width: `${width}px`,
       height: `${height}px`,
       printBackground: true,
       margin: { top: 0, right: 0, bottom: 0, left: 0 },
     });
+    logger.info({ bytes: pdf.length }, "Single PDF render complete");
     return Buffer.from(pdf);
   } finally {
     await browser.close();
@@ -90,6 +102,7 @@ export async function renderHtmlsToBulkZip(
   options: RenderOptions = {}
 ): Promise<Buffer> {
   const { width = 816, height = 1056, scale = 1 } = options;
+  logger.info({ count: htmlItems.length, width, height, scale }, "Starting bulk ZIP render");
   const browser = await launchBrowser();
 
   return new Promise(async (resolve, reject) => {
@@ -100,16 +113,21 @@ export async function renderHtmlsToBulkZip(
     passthrough.on("error", reject);
 
     const archive = archiver("zip", { zlib: { level: 6 } });
-    archive.on("error", reject);
+    archive.on("error", (err: Error) => {
+      logger.error({ err }, "Archiver error");
+      reject(err);
+    });
     archive.pipe(passthrough);
 
     try {
       for (let i = 0; i < htmlItems.length; i++) {
         const { html, filename } = resolveItem(htmlItems[i], i);
+        logger.info({ index: i + 1, total: htmlItems.length, filename }, "Rendering page");
         const page = await browser.newPage();
         try {
           await page.setViewport({ width, height, deviceScaleFactor: scale });
-          await page.setContent(html, { waitUntil: "networkidle0", timeout: 30000 });
+          await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 30000 });
+          await new Promise((r) => setTimeout(r, 300));
           const pdf = await page.pdf({
             width: `${width}px`,
             height: `${height}px`,
@@ -117,17 +135,20 @@ export async function renderHtmlsToBulkZip(
             margin: { top: 0, right: 0, bottom: 0, left: 0 },
           });
           archive.append(Buffer.from(pdf), { name: filename });
+          logger.info({ index: i + 1, filename, bytes: pdf.length }, "Page rendered");
         } finally {
           await page.close();
         }
       }
+      logger.info("All pages rendered, finalizing ZIP");
       await archive.finalize();
     } catch (err) {
-      await browser.close();
+      logger.error({ err }, "Bulk render failed");
+      await browser.close().catch(() => {});
       reject(err);
       return;
     }
 
-    await browser.close();
+    await browser.close().catch(() => {});
   });
 }

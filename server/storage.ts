@@ -54,6 +54,7 @@ export interface IStorage {
   getExportJob(id: string): Promise<ExportJob | undefined>;
   updateExportJob(id: string, updates: Partial<ExportJob>): Promise<ExportJob | undefined>;
   getExportHistory(userId: string): Promise<ExportJob[]>;
+  failStaleExportJobs(): Promise<number>;
 
   // AI Logging
   logAiRequest(log: InsertAiLog): Promise<void>;
@@ -350,6 +351,14 @@ export class DatabaseStorage implements IStorage {
       .limit(20);
   }
 
+  async failStaleExportJobs(): Promise<number> {
+    const result = await this.db.update(exportJobsTable)
+      .set({ status: "failed", error: "Server restarted while job was processing", updatedAt: new Date() })
+      .where(eq(exportJobsTable.status, "pending"))
+      .returning();
+    return result.length;
+  }
+
   async logAiRequest(log: InsertAiLog): Promise<void> {
     await this.db.insert(aiLogsTable).values({
         id: randomUUID(),
@@ -470,6 +479,17 @@ export class MemStorage implements IStorage {
       .filter(j => j.userId === userId)
       .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0))
       .slice(0, 20);
+  }
+
+  async failStaleExportJobs(): Promise<number> {
+    let count = 0;
+    for (const [id, job] of this.jobs.entries()) {
+      if (job.status === "pending") {
+        this.jobs.set(id, { ...job, status: "failed", error: "Server restarted while job was processing" });
+        count++;
+      }
+    }
+    return count;
   }
 
   async logAiRequest(log: InsertAiLog) {

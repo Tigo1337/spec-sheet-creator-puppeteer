@@ -278,6 +278,15 @@ app.use((req, res, next) => {
   ]);
   logger.info("--- System Checks Complete ---");
 
+  // Mark any jobs that were "pending" when the server last died as failed.
+  // Their background processes no longer exist so they would poll forever.
+  try {
+    const stale = await storage.failStaleExportJobs();
+    if (stale > 0) logger.warn({ count: stale }, "Marked stale pending export jobs as failed");
+  } catch (e) {
+    logger.error({ err: e }, "Failed to clean up stale export jobs");
+  }
+
   await registerRoutes(httpServer, app);
 
   Sentry.setupExpressErrorHandler(app);
