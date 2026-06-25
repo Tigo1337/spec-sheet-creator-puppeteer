@@ -5,11 +5,7 @@
 
 import puppeteer from "puppeteer-core";
 import { execSync } from "child_process";
-import { createRequire } from "module";
-import { PassThrough } from "stream";
-const require = createRequire(import.meta.url);
-const _archiverMod = require("archiver");
-const archiver = (_archiverMod.default ?? _archiverMod) as typeof import("archiver");
+import JSZip from "jszip";
 import { logger } from "./logger";
 
 let chromiumPath: string | null = null;
@@ -143,22 +139,14 @@ export async function renderHtmlsToBulkZip(
 
     logger.info({ pages: pdfEntries.length }, "All pages rendered, building ZIP");
 
-    // Build the ZIP synchronously from collected buffers
-    const zipBuffer = await new Promise<Buffer>((resolve, reject) => {
-      const passthrough = new PassThrough();
-      const chunks: Buffer[] = [];
-      passthrough.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
-      passthrough.on("end", () => resolve(Buffer.concat(chunks)));
-      passthrough.on("error", reject);
-
-      const archive = archiver("zip", { zlib: { level: 6 } });
-      archive.on("error", reject);
-      archive.pipe(passthrough);
-
-      for (const { name, buffer } of pdfEntries) {
-        archive.append(buffer, { name });
-      }
-      archive.finalize();
+    const zip = new JSZip();
+    for (const { name, buffer } of pdfEntries) {
+      zip.file(name, buffer);
+    }
+    const zipBuffer = await zip.generateAsync({
+      type: "nodebuffer",
+      compression: "DEFLATE",
+      compressionOptions: { level: 6 },
     });
 
     logger.info({ bytes: zipBuffer.length }, "Bulk ZIP render complete");
