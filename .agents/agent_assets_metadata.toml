@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "my0gC35UcbHWVIPs3LKW9"
+uri = "file://DOCUMENTATION.md"
+type = "text"
+title = "Doculoom — Complete Technical Documentation"
