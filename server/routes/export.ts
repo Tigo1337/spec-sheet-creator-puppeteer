@@ -112,21 +112,48 @@ router.post("/async/pdf", async (req, res) => {
       `${req.headers["x-forwarded-proto"] || req.protocol}://` +
       `${req.headers["x-forwarded-host"] || req.get("host")}`;
 
-    const workerPayload: Record<string, unknown> = {
-      jobId: job.id,
-      callbackUrl: `${baseUrl}/api/export/worker/complete`,
-      workerSecret: getWorkerSecret(),
-      data: {
-        width,
-        height,
-        scale,
-        colorModel,
-        type: jobType,
-        fileName: finalFileName,
-        ...(html ? { html } : {}),
-        ...(items ? { items } : {}),
-      },
-    };
+    // Determine if the deployed worker supports inline HTML (new v2 worker)
+    // or expects GCS paths (legacy v1 worker). Controlled by WORKER_VERSION env var.
+    // Default: legacy (safe fallback so existing exports keep working).
+    const isV2Worker = process.env.WORKER_VERSION === "2";
+
+    let workerPayload: Record<string, unknown>;
+
+    if (isV2Worker) {
+      // New worker: receive HTML inline, POST result to callback
+      workerPayload = {
+        jobId: job.id,
+        callbackUrl: `${baseUrl}/api/export/worker/complete`,
+        workerSecret: getWorkerSecret(),
+        data: {
+          width, height, scale, colorModel, type: jobType, fileName: finalFileName,
+          ...(html ? { html } : {}),
+          ...(items ? { items } : {}),
+        },
+      };
+    } else {
+      // Legacy worker (v1): upload HTML to GCS first, pass storage path
+      const { Storage } = await import("@google-cloud/storage");
+      const externalStorage = new Storage({ credentials: JSON.parse(process.env.GCLOUD_KEY_JSON!) });
+      const bucketName = "doculoom-exports";
+      const workerData: Record<string, unknown> = { width, height, scale, colorModel, type: jobType };
+
+      if (html) {
+        const inputPath = `inputs/${job.id}.html`;
+        await externalStorage.bucket(bucketName).file(inputPath).save(html, { contentType: "text/html", resumable: false });
+        workerData.htmlStoragePath = inputPath;
+      } else if (items) {
+        const uploadedPaths: { htmlStoragePath: string }[] = [];
+        await Promise.all(items.map(async (chunkHtml: string, index: number) => {
+          const chunkPath = `inputs/${job.id}_part${index}.html`;
+          await externalStorage.bucket(bucketName).file(chunkPath).save(chunkHtml, { contentType: "text/html", resumable: false });
+          uploadedPaths[index] = { htmlStoragePath: chunkPath };
+        }));
+        workerData.items = uploadedPaths;
+      }
+
+      workerPayload = { jobId: job.id, data: workerData };
+    }
 
     fetch(`${process.env.PDF_WORKER_URL}/process-job`, {
       method: "POST",
