@@ -1,0 +1,3 @@
+[build]
+dockerfilePath = "pdf-worker/Dockerfile"
+buildContext = "pdf-worker"
