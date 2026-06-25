@@ -28,6 +28,13 @@ function getChromiumPath(): string {
 
 async function launchBrowser() {
   const executablePath = getChromiumPath();
+
+  // Kill any stale Chromium processes left over from crashed renders so they
+  // don't block a new launch (ignore errors — nothing to clean up is fine).
+  try { execSync("pkill -f chromium || true", { stdio: "ignore" }); } catch {}
+  // Brief pause to let the OS reclaim resources before re-launching.
+  await new Promise((r) => setTimeout(r, 500));
+
   logger.info({ executablePath }, "Launching Chromium browser");
   const browser = await puppeteer.launch({
     executablePath,
@@ -37,10 +44,12 @@ async function launchBrowser() {
       "--disable-dev-shm-usage",
       "--disable-gpu",
       "--disable-extensions",
-      "--single-process",
+      "--no-zygote",           // safer than --single-process; avoids zygote crashes
+      "--disable-web-security",
+      "--font-render-hinting=none",
     ],
     headless: true,
-    timeout: 15000,
+    timeout: 30000,
   });
   logger.info("Chromium launched successfully");
   return browser;
