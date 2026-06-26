@@ -201,8 +201,8 @@ export default function Homepage() {
                 <span className="font-serif italic text-[#2b9a8b]">Professional</span> Spec Sheets
               </h1>
 
-              <p className="text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
-                Batch generate multi-page PDF catalogs, price lists, and technical sheets directly from Excel. Engineered for speed and design precision.
+              <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
+                Doculoom is a web-based document automation tool that merges data from Excel and CSV spreadsheets with a drag-and-drop design canvas to batch-generate professional spec sheets, product catalogs, and price lists. It exports print-ready, high-resolution PDFs, supports dynamic QR codes, and uses AI to enrich product descriptions and standardize inconsistent data.
               </p>
 
               <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
