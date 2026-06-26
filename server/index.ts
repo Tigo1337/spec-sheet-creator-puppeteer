@@ -13,6 +13,7 @@ import { rateLimit } from "express-rate-limit";
 import helmet from "helmet";
 import cors from "cors";
 import { logger, sanitizeData } from "./utils/logger";
+import { startPdfWorker, stopPdfWorker } from "./queue/pdfWorker";
 
 const execAsync = promisify(exec);
 
@@ -287,6 +288,9 @@ app.use((req, res, next) => {
     logger.error({ err: e }, "Failed to clean up stale export jobs");
   }
 
+  // Start the BullMQ PDF worker (concurrency: 1 — one Chromium at a time)
+  startPdfWorker();
+
   await registerRoutes(httpServer, app);
 
   Sentry.setupExpressErrorHandler(app);
@@ -315,4 +319,18 @@ app.use((req, res, next) => {
       logger.info(`Server listening on port ${port}`);
     },
   );
+
+  // Graceful shutdown: drain the BullMQ worker before the process exits.
+  const shutdown = async (signal: string) => {
+    logger.info({ signal }, "Shutting down gracefully…");
+    await stopPdfWorker();
+    httpServer.close(() => {
+      logger.info("HTTP server closed");
+      process.exit(0);
+    });
+    // Force-exit after 10 s if something hangs
+    setTimeout(() => process.exit(1), 10_000).unref();
+  };
+  process.once("SIGTERM", () => shutdown("SIGTERM"));
+  process.once("SIGINT",  () => shutdown("SIGINT"));
 })();
