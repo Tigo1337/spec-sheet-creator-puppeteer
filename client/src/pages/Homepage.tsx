@@ -696,7 +696,7 @@ function UseCaseItem({ title, desc, accentColor }: { title: string, desc: string
         </div>
       </div>
       <div>
-        <h4 className="font-bold tracking-tight text-slate-900">{title}</h4>
+        <h3 className="font-bold tracking-tight text-slate-900">{title}</h3>
         <p className="text-slate-600 text-sm leading-relaxed">{desc}</p>
       </div>
     </div>

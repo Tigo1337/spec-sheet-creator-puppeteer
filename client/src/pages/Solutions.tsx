@@ -88,6 +88,10 @@ export default function Solutions() {
         {/* Main Solutions Grid */}
         <section className="py-0">
           <div className="max-w-7xl mx-auto px-4">
+            <div className="text-center max-w-3xl mx-auto mb-16">
+              <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">By Team</span>
+              <h2 className="text-3xl font-bold tracking-tight text-slate-900">Solutions for Every Team</h2>
+            </div>
             <div className="grid lg:grid-cols-3 gap-8">
 
               {/* Manufacturers Card */}

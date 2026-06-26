@@ -159,7 +159,9 @@ export function BeforeAfterMock() {
               {/* Title & SKU */}
               <div className="flex justify-between items-end mb-2">
                 <div>
-                  <h2 className="font-serif text-3xl leading-none text-slate-900 tracking-tight">Aura Sectional.</h2>
+                  {/* Decorative sample label inside the product-sheet mockup —
+                      intentionally not a heading so it stays out of the page outline. */}
+                  <div className="font-serif text-3xl leading-none text-slate-900 tracking-tight" aria-hidden="true">Aura Sectional.</div>
                   <p className="mt-1.5 font-sans text-[6px] font-semibold uppercase tracking-[0.2em] text-slate-400">Modular / Dark Gray / F-092-MDG</p>
                 </div>
               </div>

@@ -218,6 +218,10 @@ export default function Pricing() {
         {/* Pricing Cards */}
         <section className="py-0">
           <div className="max-w-6xl mx-auto px-4">
+            <div className="text-center max-w-3xl mx-auto mb-12">
+              <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">Plans</span>
+              <h2 className="text-3xl font-bold tracking-tight text-slate-900">Choose Your Plan</h2>
+            </div>
             <div className="grid md:grid-cols-3 gap-8 items-start">
 
               {/* Starter Plan */}
@@ -573,11 +577,11 @@ function TableRow({
 // FAQ Card Component
 function FAQCard({ question, answer }: { question: string; answer: string }) {
   return (
-    <div className="p-6 rounded-xl border border-slate-200 bg-white relative">
+    <article className="p-6 rounded-xl border border-slate-200 bg-white relative">
       <h3 className="font-bold tracking-tight text-slate-900 mb-2">{question}</h3>
       <p className="text-slate-600 text-sm leading-relaxed">{answer}</p>
       {/* Corner Mark */}
       <div className="absolute bottom-3 right-3 text-slate-300 font-sans text-sm">&#x231F;</div>
-    </div>
+    </article>
   );
 }

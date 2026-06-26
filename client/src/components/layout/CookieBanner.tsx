@@ -24,9 +24,9 @@ export default function CookieBanner() {
     <div className="fixed bottom-0 left-0 right-0 z-[100] p-4 bg-white border-t border-slate-200 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex-1 text-center md:text-left">
-          <h4 className="text-sm font-bold text-slate-900 mb-1">
+          <h2 className="text-sm font-bold text-slate-900 mb-1">
             Privacy Preferences / Vos préférences de confidentialité
-          </h4>
+          </h2>
           <p className="text-xs text-slate-600 leading-relaxed">
             We use cookies to improve your experience. Non-essential trackers (like Sentry or Analytics) are disabled by default. 
             <br />
