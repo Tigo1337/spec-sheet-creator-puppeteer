@@ -14,6 +14,7 @@ import { checkAdmin } from "../middleware/auth";
 import { getExportFile, deleteExportFile } from "../utils/exportStorage";
 import { validatePdfExportBody, validateHtmlItems } from "../utils/exportValidation";
 import { pdfQueue } from "../queue/pdfQueue";
+import { savePdfInput } from "../queue/pdfInputStore";
 
 const router = Router();
 
@@ -104,11 +105,14 @@ router.post("/async/pdf", async (req, res) => {
       displayFilename: finalFileName,
     });
 
+    // Store the heavy HTML payload locally — Redis has a 1MB per-value limit
+    // which bulk catalogs easily exceed. The worker reads from here by jobId.
+    savePdfInput(job.id, { html, items });
+
+    // Only lightweight metadata goes into the Redis job
     await pdfQueue.add("render", {
       jobId: job.id,
       type: jobType,
-      html,
-      items,
       width: Number(width) || 816,
       height: Number(height) || 1056,
       scale: Number(scale) || 1,
@@ -147,10 +151,14 @@ router.post("/async/bulk", async (req, res) => {
       projectName: projectName || "Bulk Export",
     });
 
+    // Store the heavy HTML payload locally — Redis has a 1MB per-value limit
+    // which bulk exports easily exceed. The worker reads from here by jobId.
+    savePdfInput(job.id, { items });
+
+    // Only lightweight metadata goes into the Redis job
     await pdfQueue.add("render", {
       jobId: job.id,
       type: "pdf_bulk",
-      items,
       width: Number(width) || 816,
       height: Number(height) || 1056,
       scale: Number(scale) || 1,

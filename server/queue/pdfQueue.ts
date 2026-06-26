@@ -19,10 +19,10 @@ export const redisConnection = {
 };
 
 export interface PdfJobData {
-  jobId: string;       // DB export job ID (also used as cache key)
+  jobId: string;       // DB export job ID — also used to look up HTML in pdfInputStore
   type: "pdf_single" | "pdf_bulk" | "pdf_catalog";
-  html?: string;       // Single-page render
-  items?: Array<string | { html: string; filename?: string }>; // Multi-page render
+  // NOTE: html/items are NOT stored here — they live in pdfInputStore (same process)
+  // to avoid exceeding Upstash Redis's 1MB per-value limit on large exports.
   width: number;
   height: number;
   scale: number;

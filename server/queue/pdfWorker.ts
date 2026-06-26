@@ -12,10 +12,19 @@ import { storage } from "../storage";
 import { logger } from "../utils/logger";
 import * as Sentry from "@sentry/node";
 import { PDF_QUEUE_NAME, redisConnection, type PdfJobData } from "./pdfQueue";
+import { getPdfInput, deletePdfInput } from "./pdfInputStore";
 
 async function processPdfJob(job: Job<PdfJobData>): Promise<void> {
-  const { jobId, type, html, items, width, height, scale, finalFileName } = job.data;
+  const { jobId, type, width, height, scale, finalFileName } = job.data;
   logger.info({ jobId, type, queueJobId: job.id }, "PDF worker picked up job");
+
+  // Retrieve the heavy HTML payload from the local in-process store.
+  // It is NOT in the Redis job to avoid Upstash's 1MB per-value limit.
+  const input = getPdfInput(jobId);
+  deletePdfInput(jobId); // Free memory immediately — we have what we need
+
+  const html = input?.html;
+  const items = input?.items;
 
   const renderOptions = { width, height, scale };
 
@@ -40,7 +49,7 @@ async function processPdfJob(job: Job<PdfJobData>): Promise<void> {
       });
       logger.info({ jobId, bytes: pdfBuffer.length }, "Single PDF export completed");
     } else {
-      throw new Error("Job has no renderable content (no html and no items)");
+      throw new Error("Job has no renderable content — HTML payload may have expired or was never stored");
     }
   } catch (err) {
     logger.error({ err, jobId }, "PDF render failed in worker");
