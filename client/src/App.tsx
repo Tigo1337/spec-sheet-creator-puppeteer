@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Switch, Route, Redirect } from "wouter";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SignedIn, SignedOut, useAuth } from "@clerk/clerk-react"; 
@@ -26,40 +26,29 @@ import { SupportWidget } from "@/components/support/SupportWidget";
 
 function AppContent() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
-  const [isInitializing, setIsInitializing] = useState(true);
 
-  // 1. Sync User to DB on Load
+  // Sync the authenticated user to our DB once Clerk has loaded. This is a
+  // side-effect only — it intentionally does NOT gate rendering. The public
+  // marketing pages must render immediately (no auth-loading spinner) so they
+  // are crawlable and can be statically pre-rendered for SEO/GEO. The protected
+  // /editor route is still guarded below by Clerk's <SignedIn>/<SignedOut>.
   useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+
     const syncUser = async () => {
-      if (isLoaded && isSignedIn) {
-        try {
-          const token = await getToken();
-          await fetch("/api/users/sync", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}` }
-          });
-        } catch (error) {
-          console.error("User sync failed:", error);
-        }
-      }
-      if (isLoaded) {
-        setIsInitializing(false);
+      try {
+        const token = await getToken();
+        await fetch("/api/users/sync", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } catch (error) {
+        console.error("User sync failed:", error);
       }
     };
 
     syncUser();
   }, [isLoaded, isSignedIn, getToken]);
-
-  if (isInitializing) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <p className="text-muted-foreground mt-4">Loading...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <>

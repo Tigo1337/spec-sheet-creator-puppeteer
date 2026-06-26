@@ -31,17 +31,29 @@ if (typeof window !== 'undefined') {
   }
 }
 
-const PUBLISHABLE_KEY = isDevelopment 
+const PUBLISHABLE_KEY = isDevelopment
   ? (import.meta.env.VITE_CLERK_PUBLISHABLE_KEY_DEV || import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
   : import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
+// Syntactically-valid Clerk key (decodes to "clerk.example.com$") used ONLY when
+// no real key is configured. Previously a missing key threw at module load,
+// producing a white screen that also broke the SEO pre-render. With this
+// fallback the public marketing pages still render (and pre-render) while auth
+// degrades gracefully to a signed-out state. Set VITE_CLERK_PUBLISHABLE_KEY in
+// any environment where authentication must actually work.
+const FALLBACK_PUBLISHABLE_KEY = "pk_test_Y2xlcmsuZXhhbXBsZS5jb20k";
+
+const resolvedPublishableKey = PUBLISHABLE_KEY || FALLBACK_PUBLISHABLE_KEY;
+
 if (!PUBLISHABLE_KEY) {
-  const envType = isDevelopment ? 'development' : 'production';
-  throw new Error(`Missing Clerk Publishable Key for ${envType} environment. Please set ${isDevelopment ? 'VITE_CLERK_PUBLISHABLE_KEY_DEV' : 'VITE_CLERK_PUBLISHABLE_KEY'} in your environment.`);
+  const envVar = isDevelopment ? 'VITE_CLERK_PUBLISHABLE_KEY_DEV' : 'VITE_CLERK_PUBLISHABLE_KEY';
+  console.warn(
+    `[auth] Missing Clerk Publishable Key (${envVar}). Falling back to a non-functional placeholder so the app can render; authentication is disabled until a real key is set.`,
+  );
 }
 
 createRoot(document.getElementById("root")!).render(
-  <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
+  <ClerkProvider publishableKey={resolvedPublishableKey}>
     <QueryClientProvider client={queryClient}>
       <HelmetProvider>
         {/* Even if Sentry isn't initialized, the ErrorBoundary component 
