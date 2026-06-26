@@ -135,13 +135,33 @@ export default function Homepage() {
     "@type": "SoftwareApplication",
     "name": "Doculoom",
     "applicationCategory": "DesignApplication",
+    "applicationSubCategory": "Document Automation",
     "operatingSystem": "Web",
+    "url": "https://doculoom.io/",
+    "image": "https://doculoom.io/favicon.png",
+    "description":
+      "Doculoom is a web-based document automation tool that merges spreadsheet data with a drag-and-drop design canvas to generate data-driven PDF spec sheets, catalogs, and price lists at scale.",
+    "browserRequirements": "Requires a modern web browser with JavaScript enabled.",
     "offers": {
       "@type": "Offer",
       "price": "0",
-      "priceCurrency": "USD"
+      "priceCurrency": "USD",
+      "description": "Free Starter plan; paid plans available for higher-volume automation."
     },
-    "description": "Create stunning spec sheets by combining your design with Excel data."
+    "featureList": [
+      "Import product data from Excel and CSV spreadsheets",
+      "Drag-and-drop design canvas for spec sheets and catalogs",
+      "Bulk, data-driven PDF generation",
+      "High-resolution, print-ready PDF export",
+      "AI-powered text enrichment and data standardization",
+      "QR code generation",
+      "Reusable templates"
+    ],
+    "creator": {
+      "@type": "Organization",
+      "name": "Doculoom",
+      "url": "https://doculoom.io/"
+    }
   };
 
   return (
@@ -181,8 +201,8 @@ export default function Homepage() {
                 <span className="font-serif italic text-[#2b9a8b]">Professional</span> Spec Sheets
               </h1>
 
-              <p className="text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
-                Batch generate multi-page PDF catalogs, price lists, and technical sheets directly from Excel. Engineered for speed and design precision.
+              <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
+                Doculoom is a web-based document automation tool that merges data from Excel and CSV spreadsheets with a drag-and-drop design canvas to batch-generate professional spec sheets, product catalogs, and price lists. It exports print-ready, high-resolution PDFs, supports dynamic QR codes, and uses AI to enrich product descriptions and standardize inconsistent data.
               </p>
 
               <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
@@ -676,7 +696,7 @@ function UseCaseItem({ title, desc, accentColor }: { title: string, desc: string
         </div>
       </div>
       <div>
-        <h4 className="font-bold tracking-tight text-slate-900">{title}</h4>
+        <h3 className="font-bold tracking-tight text-slate-900">{title}</h3>
         <p className="text-slate-600 text-sm leading-relaxed">{desc}</p>
       </div>
     </div>

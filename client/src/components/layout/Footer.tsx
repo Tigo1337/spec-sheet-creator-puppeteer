@@ -27,7 +27,7 @@ export function Footer() {
         </div>
 
         <div>
-          <h4 className="font-bold mb-4 text-slate-900">Product</h4>
+          <h2 className="font-bold mb-4 text-slate-900">Product</h2>
           <ul className="space-y-2 text-sm text-slate-500">
             <li><Link href="/features" className={linkClass}>Features</Link></li>
             <li><Link href="/pricing" className={linkClass}>Pricing</Link></li>
@@ -36,7 +36,7 @@ export function Footer() {
         </div>
 
         <div>
-          <h4 className="font-bold mb-4 text-slate-900">Support</h4>
+          <h2 className="font-bold mb-4 text-slate-900">Support</h2>
           <ul className="space-y-2 text-sm text-slate-500">
             <li><a href="mailto:support@doculoom.io" className={linkClass}>Help Center</a></li>
             <li><a href="mailto:sales@doculoom.io" className={linkClass}>Contact Sales</a></li>
@@ -44,7 +44,7 @@ export function Footer() {
         </div>
 
         <div>
-          <h4 className="font-bold mb-4 text-slate-900">Legal</h4>
+          <h2 className="font-bold mb-4 text-slate-900">Legal</h2>
           <ul className="space-y-2 text-sm text-slate-500">
             <li><Link href="/privacy" className={linkClass}>Privacy Policy</Link></li>
             <li><Link href="/terms" className={linkClass}>Terms of Service</Link></li>

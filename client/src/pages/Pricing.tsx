@@ -23,6 +23,46 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+// Single source of truth for the FAQ. The rendered cards and the FAQPage
+// JSON-LD structured data are both derived from this list so they can never
+// drift out of sync.
+const FAQ_ITEMS: { question: string; answer: string }[] = [
+  {
+    question: "What counts as a page?",
+    answer:
+      "Each unique PDF page generated from your data counts as one page. A 10-page catalog with 50 products would count as 500 pages.",
+  },
+  {
+    question: "Can I upgrade or downgrade anytime?",
+    answer:
+      "Yes! You can change your plan at any time. Upgrades take effect immediately, and downgrades apply at the end of your billing cycle.",
+  },
+  {
+    question: "What are AI Credits used for?",
+    answer:
+      "AI Credits power our text enrichment and data standardization features. Each AI-generated description or data transformation uses credits.",
+  },
+  {
+    question: "Is there a free trial?",
+    answer:
+      "All plans include a 14-day free trial. The Starter plan is free forever with limited features. No credit card required to start.",
+  },
+];
+
+// @type: FAQPage schema generated dynamically from FAQ_ITEMS above.
+const faqStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": FAQ_ITEMS.map((item) => ({
+    "@type": "Question",
+    "name": item.question,
+    "acceptedAnswer": {
+      "@type": "Answer",
+      "text": item.answer,
+    },
+  })),
+};
+
 export default function Pricing() {
   const [, setLocation] = useLocation();
   const [isAnnual, setIsAnnual] = useState(false);
@@ -118,6 +158,9 @@ export default function Pricing() {
         <title>Pricing - Start for Free | Doculoom</title>
         <meta name="description" content="Simple pricing for automation. Start for free. Upgrade to Pro for unlimited professional exports." />
         <link rel="canonical" href="https://doculoom.io/pricing" />
+        <script type="application/ld+json">
+          {JSON.stringify(faqStructuredData)}
+        </script>
       </Helmet>
 
       <PublicHeader />
@@ -175,6 +218,10 @@ export default function Pricing() {
         {/* Pricing Cards */}
         <section className="py-0">
           <div className="max-w-6xl mx-auto px-4">
+            <div className="text-center max-w-3xl mx-auto mb-12">
+              <span className="font-sans text-xs uppercase tracking-wider text-slate-400 mb-4 block">Plans</span>
+              <h2 className="text-3xl font-bold tracking-tight text-slate-900">Choose Your Plan</h2>
+            </div>
             <div className="grid md:grid-cols-3 gap-8 items-start">
 
               {/* Starter Plan */}
@@ -340,22 +387,13 @@ export default function Pricing() {
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
-              <FAQCard
-                question="What counts as a page?"
-                answer="Each unique PDF page generated from your data counts as one page. A 10-page catalog with 50 products would count as 500 pages."
-              />
-              <FAQCard
-                question="Can I upgrade or downgrade anytime?"
-                answer="Yes! You can change your plan at any time. Upgrades take effect immediately, and downgrades apply at the end of your billing cycle."
-              />
-              <FAQCard
-                question="What are AI Credits used for?"
-                answer="AI Credits power our text enrichment and data standardization features. Each AI-generated description or data transformation uses credits."
-              />
-              <FAQCard
-                question="Is there a free trial?"
-                answer="All plans include a 14-day free trial. The Starter plan is free forever with limited features. No credit card required to start."
-              />
+              {FAQ_ITEMS.map((item) => (
+                <FAQCard
+                  key={item.question}
+                  question={item.question}
+                  answer={item.answer}
+                />
+              ))}
             </div>
           </div>
         </section>
@@ -539,11 +577,11 @@ function TableRow({
 // FAQ Card Component
 function FAQCard({ question, answer }: { question: string; answer: string }) {
   return (
-    <div className="p-6 rounded-xl border border-slate-200 bg-white relative">
+    <article className="p-6 rounded-xl border border-slate-200 bg-white relative">
       <h3 className="font-bold tracking-tight text-slate-900 mb-2">{question}</h3>
       <p className="text-slate-600 text-sm leading-relaxed">{answer}</p>
       {/* Corner Mark */}
       <div className="absolute bottom-3 right-3 text-slate-300 font-sans text-sm">&#x231F;</div>
-    </div>
+    </article>
   );
 }
