@@ -23,6 +23,46 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+// Single source of truth for the FAQ. The rendered cards and the FAQPage
+// JSON-LD structured data are both derived from this list so they can never
+// drift out of sync.
+const FAQ_ITEMS: { question: string; answer: string }[] = [
+  {
+    question: "What counts as a page?",
+    answer:
+      "Each unique PDF page generated from your data counts as one page. A 10-page catalog with 50 products would count as 500 pages.",
+  },
+  {
+    question: "Can I upgrade or downgrade anytime?",
+    answer:
+      "Yes! You can change your plan at any time. Upgrades take effect immediately, and downgrades apply at the end of your billing cycle.",
+  },
+  {
+    question: "What are AI Credits used for?",
+    answer:
+      "AI Credits power our text enrichment and data standardization features. Each AI-generated description or data transformation uses credits.",
+  },
+  {
+    question: "Is there a free trial?",
+    answer:
+      "All plans include a 14-day free trial. The Starter plan is free forever with limited features. No credit card required to start.",
+  },
+];
+
+// @type: FAQPage schema generated dynamically from FAQ_ITEMS above.
+const faqStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": FAQ_ITEMS.map((item) => ({
+    "@type": "Question",
+    "name": item.question,
+    "acceptedAnswer": {
+      "@type": "Answer",
+      "text": item.answer,
+    },
+  })),
+};
+
 export default function Pricing() {
   const [, setLocation] = useLocation();
   const [isAnnual, setIsAnnual] = useState(false);
@@ -118,6 +158,9 @@ export default function Pricing() {
         <title>Pricing - Start for Free | Doculoom</title>
         <meta name="description" content="Simple pricing for automation. Start for free. Upgrade to Pro for unlimited professional exports." />
         <link rel="canonical" href="https://doculoom.io/pricing" />
+        <script type="application/ld+json">
+          {JSON.stringify(faqStructuredData)}
+        </script>
       </Helmet>
 
       <PublicHeader />
@@ -340,22 +383,13 @@ export default function Pricing() {
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
-              <FAQCard
-                question="What counts as a page?"
-                answer="Each unique PDF page generated from your data counts as one page. A 10-page catalog with 50 products would count as 500 pages."
-              />
-              <FAQCard
-                question="Can I upgrade or downgrade anytime?"
-                answer="Yes! You can change your plan at any time. Upgrades take effect immediately, and downgrades apply at the end of your billing cycle."
-              />
-              <FAQCard
-                question="What are AI Credits used for?"
-                answer="AI Credits power our text enrichment and data standardization features. Each AI-generated description or data transformation uses credits."
-              />
-              <FAQCard
-                question="Is there a free trial?"
-                answer="All plans include a 14-day free trial. The Starter plan is free forever with limited features. No credit card required to start."
-              />
+              {FAQ_ITEMS.map((item) => (
+                <FAQCard
+                  key={item.question}
+                  question={item.question}
+                  answer={item.answer}
+                />
+              ))}
             </div>
           </div>
         </section>

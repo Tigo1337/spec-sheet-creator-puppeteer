@@ -135,13 +135,33 @@ export default function Homepage() {
     "@type": "SoftwareApplication",
     "name": "Doculoom",
     "applicationCategory": "DesignApplication",
+    "applicationSubCategory": "Document Automation",
     "operatingSystem": "Web",
+    "url": "https://doculoom.io/",
+    "image": "https://doculoom.io/favicon.png",
+    "description":
+      "Doculoom is a web-based document automation tool that merges spreadsheet data with a drag-and-drop design canvas to generate data-driven PDF spec sheets, catalogs, and price lists at scale.",
+    "browserRequirements": "Requires a modern web browser with JavaScript enabled.",
     "offers": {
       "@type": "Offer",
       "price": "0",
-      "priceCurrency": "USD"
+      "priceCurrency": "USD",
+      "description": "Free Starter plan; paid plans available for higher-volume automation."
     },
-    "description": "Create stunning spec sheets by combining your design with Excel data."
+    "featureList": [
+      "Import product data from Excel and CSV spreadsheets",
+      "Drag-and-drop design canvas for spec sheets and catalogs",
+      "Bulk, data-driven PDF generation",
+      "High-resolution, print-ready PDF export",
+      "AI-powered text enrichment and data standardization",
+      "QR code generation",
+      "Reusable templates"
+    ],
+    "creator": {
+      "@type": "Organization",
+      "name": "Doculoom",
+      "url": "https://doculoom.io/"
+    }
   };
 
   return (
