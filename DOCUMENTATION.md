@@ -58,6 +58,7 @@ A user uploads a spreadsheet, designs a page on the canvas, maps spreadsheet col
 | AI | Google Gemini 2.5 Flash Lite |
 | PDF Rendering | Puppeteer-core + system Chromium |
 | ZIP Creation | JSZip |
+| Job Queue | BullMQ + Upstash Redis |
 | File Uploads | Replit Object Storage (signed PUT URLs) |
 | Logging | Pino (structured JSON) |
 | Error Tracking | Sentry |
@@ -421,22 +422,69 @@ CRUD operations on the `product_knowledge` table. Only the owner can access thei
 
 ## 9. PDF Export Pipeline
 
+### Why a Queue?
+
+Rendering a PDF requires launching a headless Chromium process. Doing this inline (inside the HTTP request handler) causes two problems at scale:
+
+1. **OOM crashes** — if several users export at the same time, multiple Chromium instances start simultaneously and exhaust available RAM.
+2. **Request timeouts** — large catalogs can take 30–90 seconds to render, far beyond a typical HTTP timeout.
+
+The solution is a **BullMQ job queue backed by Upstash Redis**. Export routes now enqueue a job and return a `jobId` immediately. A dedicated worker picks up jobs one at a time (`concurrency: 1`), so only a single Chromium process ever runs regardless of how many users export simultaneously.
+
 ### Architecture
 
-Export runs **entirely on the server** — no external workers, no GCS, no Object Storage for exports:
+```
+Client → POST /api/export/async/pdf
+              │
+              ├─ Create export_jobs row (status: "pending")
+              └─ pdfQueue.add("render", jobData)  ──→  Upstash Redis
+                                                              │
+                                                   BullMQ worker picks up job
+                                                   (concurrency: 1 — one at a time)
+                                                              │
+                                                   Puppeteer renders HTML → Buffer
+                                                              │
+                                                   exportCache.set(jobId, buffer)
+                                                   (in-memory Map, 1-hour TTL)
+                                                              │
+                                                   export_jobs row updated
+                                                   (status: "completed")
+
+Client → polls GET /api/jobs/:id  →  { status: "completed", downloadUrl }
+Client → GET /api/export/download/:id  →  buffer streamed  →  file saved
+                                          buffer deleted from cache
+```
+
+### Key Files
+
+| File | Purpose |
+|---|---|
+| `server/queue/pdfQueue.ts` | Defines the BullMQ `Queue` and the `redisConnection` config (TLS via `rediss://` URL). Also exports the `PdfJobData` type used by both the route and the worker. |
+| `server/queue/pdfWorker.ts` | Defines the BullMQ `Worker` (`concurrency: 1`). On job pickup, calls the appropriate renderer (`renderHtmlToPdf` or `renderHtmlsToBulkZip`), saves the buffer to the in-memory cache, and updates the DB job record. On failure, marks the job as `"failed"` and re-throws so BullMQ handles the retry. |
+| `server/routes/export.ts` | Thin Express routes. Creates the DB record, adds the job to `pdfQueue`, and returns `{ jobId }`. No rendering happens here. |
+| `server/utils/pdfRenderer.ts` | The actual Puppeteer/Chromium rendering logic. Called only from the worker. |
+| `server/utils/exportStorage.ts` | In-memory `Map<jobId, Buffer>` cache with 1-hour TTL and a 15-minute cleanup interval. |
+
+### Queue Configuration
 
 ```
-Client → POST /api/export/async/pdf  →  Job created (status: "pending")  →  202 + jobId
-                                                        ↓
-                              Background async: Puppeteer renders HTML → Buffer
-                                                        ↓
-                                      exportCache.set(jobId, buffer)  (in-memory, 1h TTL)
-                                                        ↓
-                                      Job updated (status: "completed")
-
-Client → polls GET /api/jobs/:id  →  status: "completed" + downloadUrl
-Client → GET /api/export/download/:id  →  streams buffer directly  →  file downloads
+Queue name:   pdf-export
+Concurrency:  1  (never more than one Chromium at a time)
+Retries:      2 attempts, 3-second fixed backoff
+Retention:    last 50 completed + last 50 failed job records kept in Redis
 ```
+
+### Redis Connection (Upstash)
+
+BullMQ uses **ioredis** under the hood. The connection is configured via `REDIS_URL`, which must use the `rediss://` scheme (double-s) to enable TLS — required by Upstash:
+
+```
+rediss://default:<password>@<host>.upstash.io:6379
+```
+
+Two ioredis options are set specifically for Upstash compatibility:
+- `maxRetriesPerRequest: null` — required by BullMQ (prevents ioredis from timing out waiting for a response)
+- `enableReadyCheck: false` — prevents connection errors on Upstash's serverless Redis
 
 ### Export Types
 
@@ -450,13 +498,13 @@ Client → GET /api/export/download/:id  →  streams buffer directly  →  file
 
 **Single PDF**: `renderHtmlToPdf(html, options)`
 1. Kills any stale Chromium processes (`pkill -f chromium`).
-2. Launches Chromium with `puppeteer-core` using system Chromium binary found via `which chromium`.
+2. Launches Chromium with `puppeteer-core` using the system Chromium binary found via `which chromium`.
 3. Opens a new page, sets viewport to canvas dimensions, loads HTML via `page.setContent()` with `waitUntil: "domcontentloaded"`.
 4. Waits 500ms for fonts/images to render.
 5. Calls `page.pdf()` with exact pixel dimensions and `printBackground: true`.
 6. Closes browser, returns `Buffer`.
 
-**Bulk ZIP**: `renderHtmlsToBulkZip(htmlItems, options)`
+**Bulk/Catalog ZIP**: `renderHtmlsToBulkZip(htmlItems, options)`
 1. Launches one Chromium instance.
 2. Loops through all items, opening and closing a new page per item.
 3. Collects all PDF buffers.
@@ -470,19 +518,23 @@ After rendering, the buffer is stored in a `Map<jobId, CachedExport>` with a 1-h
 On download (`GET /api/export/download/:id`):
 1. Verifies auth and job ownership.
 2. Retrieves buffer from cache.
-3. If cache miss (server restarted or >1h), returns `410 Gone` — user must re-export.
+3. If cache miss (server restarted or >1h elapsed), returns `410 Gone` — user must re-export.
 4. Streams buffer with `Content-Disposition: attachment`.
-5. Deletes buffer from cache immediately after serving.
+5. Deletes buffer from cache immediately after serving (frees RAM).
 
 ### Startup Cleanup
 
-On every server start, `storage.failStaleExportJobs()` marks all `status = "pending"` jobs as `"failed"`. This handles the case where the server restarted mid-render.
+On every server start, `storage.failStaleExportJobs()` marks all `status = "pending"` DB job records as `"failed"`. This handles the case where the server restarted while a render was in progress — those jobs will never complete and clients would poll forever without this cleanup.
+
+### Worker Lifecycle
+
+The worker is started by `startPdfWorker()` in `server/index.ts` during the boot sequence. On `SIGTERM` or `SIGINT`, `stopPdfWorker()` is called before the HTTP server closes, allowing any in-progress render to finish before the process exits.
 
 ### Client-Side Polling (`ExportTab.tsx`)
 
-1. After starting an export, client polls `GET /api/jobs/:id` every 3 seconds.
-2. 5-minute client-side timeout — if job hasn't completed in 5 minutes, polling stops with an error message.
-3. On `status = "completed"`, `downloadUrl` is returned and `triggerDownload()` creates a temporary `<a>` element and clicks it.
+1. After starting an export, the client polls `GET /api/jobs/:id` every 3 seconds.
+2. 5-minute client-side timeout — if the job hasn't completed in 5 minutes, polling stops with an error message.
+3. On `status = "completed"`, `triggerDownload()` creates a temporary `<a>` element and clicks it to download the file.
 
 ### Chromium Launch Flags
 
@@ -685,6 +737,12 @@ These are set automatically when you provision Object Storage from the Replit Ob
 | `PUBLIC_OBJECT_SEARCH_PATHS` | Comma-separated paths for publicly accessible files (e.g., `/bucket-id/public`). Used by `GET /public-objects/*`. |
 | `PRIVATE_OBJECT_DIR` | The private directory path (e.g., `/bucket-id/.private`). Used to construct upload URLs for user file uploads. |
 
+### Job Queue (Redis)
+
+| Variable | Where Used | Purpose |
+|---|---|---|
+| `REDIS_URL` | `server/queue/pdfQueue.ts` | Upstash Redis connection string. Must use the `rediss://` scheme (double-s) for TLS. Obtain from the Upstash dashboard under **Connect → ioredis**. If missing, the PDF worker does not start and all export jobs will remain pending indefinitely. |
+
 ### Admin & App Config
 
 | Variable | Where Used | Purpose |
@@ -714,6 +772,7 @@ These are set automatically when you provision Object Storage from the Replit Ob
 | `STRIPE_WEBHOOK_SECRET` | ✅ | Fallback if no `_DEV` |
 | `STRIPE_WEBHOOK_SECRET_DEV` | — | ✅ (Stripe CLI) |
 | `GEMINI_API_KEY` | ✅ (AI features) | ✅ |
+| `REDIS_URL` | ✅ (PDF export) | ✅ |
 | `ADMIN_EMAIL` | ✅ | ✅ |
 | `DEFAULT_OBJECT_STORAGE_BUCKET_ID` | Auto (Replit) | Auto (Replit) |
 | `PUBLIC_OBJECT_SEARCH_PATHS` | Auto (Replit) | Auto (Replit) |
@@ -736,9 +795,11 @@ These are set automatically when you provision Object Storage from the Replit Ob
    - **Database**: attempts a probe query; throws if `DATABASE_URL` is missing in production.
    - **Ghostscript**: checks if `gs` binary is available (used for CMYK-safe PDF processing).
 7. **Stale job cleanup**: marks all `status = "pending"` export jobs as `"failed"` (handles mid-render server restarts).
-8. Register all API routes.
-9. Mount Sentry error handler.
-10. Start HTTP server on port 5000.
+8. **Start PDF worker** (`startPdfWorker()`): connects to Upstash Redis via `REDIS_URL` and begins listening for jobs on the `pdf-export` queue.
+9. Register all API routes.
+10. Mount Sentry error handler.
+11. Start HTTP server on port 5000.
+12. Register `SIGTERM`/`SIGINT` handlers: on shutdown signal, `stopPdfWorker()` is called to drain the worker (lets any in-progress render finish), then the HTTP server is closed. A 10-second hard timeout forces exit if something hangs.
 
 ### Logging
 
