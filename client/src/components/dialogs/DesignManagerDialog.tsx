@@ -64,8 +64,12 @@ export function DesignManagerDialog({ children }: { children: React.ReactNode })
 
   // --- AUTO-OPEN LOGIC ---
   useEffect(() => {
-    // If no design is active (null ID) and canvas is empty, prompt the user.
-    if (!currentDesignId && elements.length === 0) {
+    // Only prompt if the canvas is genuinely fresh — no active design in store
+    // AND no design was active before the last page reload (localStorage).
+    // This prevents the dialog from reopening every time Vite hot-reloads or
+    // the dev server restarts, which resets the in-memory Zustand store.
+    const hadActiveDesign = !!localStorage.getItem('doculoom_active_design');
+    if (!currentDesignId && elements.length === 0 && !hadActiveDesign) {
       setOpen(true);
     }
   }, []); // Run once on mount
